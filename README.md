@@ -22,15 +22,25 @@ IA normaliza a fala num resumo padronizado.
 
 ```bash
 npm install
-cp .env.example apps/api/.env    # preencha DATABASE_URL, DIRECT_URL, SUPABASE_*
+cp .env.example apps/api/.env        # DATABASE_URL, DIRECT_URL, SUPABASE_*, VAPID_*
+cp apps/web/.env.example apps/web/.env.local
+
+npx web-push generate-vapid-keys     # cole o par no .env da API e a pública no do web
+
 npm run prisma:generate
-npm run prisma:push              # cria o schema no banco
-npm run prisma:rls               # habilita Row Level Security
-npm run dev:api                  # API em http://localhost:3333/api
+npm run prisma:push                  # cria o schema no banco
+npm run prisma:rls                   # habilita Row Level Security
+
+npm run dev:api                      # API em http://localhost:3333/api
+npm run dev:web                      # Web em http://localhost:3000
 ```
 
 Health check: `GET http://localhost:3333/api/health` — ele toca o banco de
 propósito, então fica vermelho se o Postgres estiver fora.
+
+**Sem as chaves VAPID a API sobe e tudo funciona, menos o envio de push** — é
+degradação deliberada, para uma configuração faltando não virar indisponibilidade.
+O log avisa no boot.
 
 ## Estrutura
 
@@ -86,19 +96,37 @@ errada sem erro nenhum no log. Ver `src/common/tz.ts`.
 ## Testes
 
 ```bash
-npm run test:api
+npm test                             # api + web
+
+# Os testes de integração pulam sozinhos sem banco. Para rodá-los:
+TEST_DATABASE_URL=postgresql://... npm run test:api
 ```
 
-A cobertura mira a lógica que falha em silêncio: conversão de fuso (incluindo
-borda de horário de verão) e geração de recorrência (quinzenal ancorada, mensal,
-janelas parciais).
+A cobertura mira a lógica que falha **em silêncio**, que é a que morde neste
+produto: conversão de fuso (incluindo borda de horário de verão), geração de
+recorrência (quinzenal ancorada, mensal, janelas parciais), janelas e claim
+atômico dos alarmes, herança campo a campo da config, e a degradação de
+intensidade por plataforma.
+
+## Ícones
+
+São gerados por script, não commitados como blobs opacos:
+
+```bash
+npm run icones --workspace apps/web
+```
+
+O motivo de serem PNG e não SVG: o Chrome no Android não decodifica SVG em
+`icon`/`badge` de notificação de forma confiável, e o sintoma é silencioso — cai
+no ícone padrão do sistema sem erro nenhum.
 
 ## Status
 
 - [x] **Fase 1 — Fundação e grade.** Monorepo, auth Supabase, escolas, cadeiras,
       séries, horários, materialização de ocorrências, agenda, RLS.
-- [ ] **Fase 2 — Os dois alarmes.** Cron de abertura/fechamento com minutos
-      configuráveis, web push, service worker, config de intensidade por cadeira.
+- [x] **Fase 2 — Os dois alarmes.** Crons de abertura/fechamento com minutos
+      configuráveis, web push com VAPID, service worker, config de intensidade
+      por cadeira, casca web (login, grade da semana, cadeiras, ajustes).
 - [ ] **Fase 3 — Registro por texto.** Unidades, tópicos, atividade de casa,
       anexos, encadeamento do plano da próxima aula, escrita local-first.
 - [ ] **Fase 4 — Voz e resumo padronizado.** Gravação, transcrição, normalização

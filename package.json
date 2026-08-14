@@ -12,6 +12,8 @@
     "build:api": "npm run build --workspace apps/api",
     "build:web": "npm run build --workspace apps/web",
     "test:api": "npm run test --workspace apps/api",
+    "test:web": "npm run test --workspace apps/web",
+    "test": "npm run test:api && npm run test:web",
     "prisma:generate": "npm run prisma:generate --workspace apps/api",
     "prisma:push": "npm run prisma:push --workspace apps/api",
     "prisma:migrate": "npm run prisma:migrate --workspace apps/api",

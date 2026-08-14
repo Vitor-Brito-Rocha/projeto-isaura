@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-papel text-tinta antialiased;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+/* Área segura do iPhone: sem isto a barra inferior cobre os botões quando o
+   app roda instalado na tela inicial. */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
