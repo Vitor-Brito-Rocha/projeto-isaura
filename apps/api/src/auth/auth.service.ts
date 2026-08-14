@@ -1,0 +1,88 @@
+import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { SupabaseSession } from './session-cookies';
+
+export class EmailJaCadastradoError extends Error {}
+
+/**
+ * Cliente fino do Supabase Auth (GoTrue) via REST.
+ *
+ * Sem SDK de propósito: usamos três endpoints e o SDK traria um cliente com
+ * estado, cache de sessão e persistência em storage — coisas que não fazem
+ * sentido no servidor e que atrapalham quando cada requisição é de um usuário
+ * diferente.
+ */
+@Injectable()
+export class AuthService {
+  constructor(private readonly config: ConfigService) {}
+
+  private get base() {
+    const url = this.config.get<string>('SUPABASE_URL');
+    if (!url) throw new InternalServerErrorException('SUPABASE_URL não configurado.');
+    return `${url}/auth/v1`;
+  }
+
+  private get anonKey() {
+    const key = this.config.get<string>('SUPABASE_ANON_KEY');
+    if (!key) throw new InternalServerErrorException('SUPABASE_ANON_KEY não configurado.');
+    return key;
+  }
+
+  private async chamar(caminho: string, body: unknown): Promise<any> {
+    const resposta = await fetch(`${this.base}${caminho}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: this.anonKey },
+      body: JSON.stringify(body),
+    });
+    const json = await resposta.json().catch(() => ({}));
+    if (!resposta.ok) {
+      const erro = new Error(json?.msg ?? json?.error_description ?? 'Falha na autenticação.');
+      (erro as any).status = resposta.status;
+      (erro as any).corpo = json;
+      throw erro;
+    }
+    return json;
+  }
+
+  async signup(email: string, senha: string, nome: string): Promise<SupabaseSession> {
+    try {
+      const json = await this.chamar('/signup', {
+        email,
+        password: senha,
+        data: { nome },
+      });
+      // Sem sessão na resposta = projeto exige confirmação de email.
+      if (!json.access_token) throw new EmailJaCadastradoError('Confirmação pendente.');
+      return json as SupabaseSession;
+    } catch (e: any) {
+      if (e instanceof EmailJaCadastradoError) throw e;
+      if (e?.corpo?.msg?.includes('already registered')) {
+        throw new EmailJaCadastradoError('Email já cadastrado.');
+      }
+      throw e;
+    }
+  }
+
+  async login(email: string, senha: string): Promise<SupabaseSession> {
+    try {
+      return (await this.chamar('/token?grant_type=password', {
+        email,
+        password: senha,
+      })) as SupabaseSession;
+    } catch {
+      // Mensagem genérica de propósito: distinguir "email não existe" de "senha
+      // errada" transforma o login num verificador de cadastro.
+      throw new UnauthorizedException('Email ou senha incorretos.');
+    }
+  }
+
+  async refresh(refreshToken: string): Promise<SupabaseSession> {
+    try {
+      return (await this.chamar('/token?grant_type=refresh_token', {
+        refresh_token: refreshToken,
+      })) as SupabaseSession;
+    } catch {
+      throw new UnauthorizedException('Sessão expirada.');
+    }
+  }
+}

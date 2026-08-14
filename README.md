@@ -1,0 +1,109 @@
+# Projeto Isaura
+
+Registro de aulas com alarmes, para professores com muitas turmas.
+
+O sistema cadastra séries de aulas com horários padrão, materializa cada aula
+concreta e dispara **dois alarmes por aula**: um pouco antes do início (o que ela
+planeja dar) e pouco depois do fim (o que de fato deu, unidade, atividade de
+casa, plano da próxima). O registro pode ser por texto ou por voz — nesse caso a
+IA normaliza a fala num resumo padronizado.
+
+- **Front:** Next.js (App Router) — `apps/web`
+- **Back:** NestJS + Prisma — `apps/api`
+- **Banco/Auth/Storage:** Supabase
+- **Multitenant** por `professorId` desde o primeiro commit
+
+## Pré-requisitos
+
+- Node 22+
+- Um projeto no [Supabase](https://supabase.com)
+
+## Começando
+
+```bash
+npm install
+cp .env.example apps/api/.env    # preencha DATABASE_URL, DIRECT_URL, SUPABASE_*
+npm run prisma:generate
+npm run prisma:push              # cria o schema no banco
+npm run prisma:rls               # habilita Row Level Security
+npm run dev:api                  # API em http://localhost:3333/api
+```
+
+Health check: `GET http://localhost:3333/api/health` — ele toca o banco de
+propósito, então fica vermelho se o Postgres estiver fora.
+
+## Estrutura
+
+```
+apps/
+  api/   # NestJS + Prisma (schema em apps/api/prisma/schema.prisma)
+  web/   # Next.js PWA
+```
+
+## Duas decisões que explicam o resto do código
+
+### 1. Alarme e notificação são coisas diferentes
+
+Um PWA **não** consegue dar alarme — consegue dar notificação forte. Alarme fura
+o silencioso e toma a tela; notificação respeita o modo silencioso. Só o sistema
+operacional dá alarme, e só para app instalado.
+
+Por isso `IntensidadeAlarme` é uma **intenção**, não uma garantia. Ela degrada
+por plataforma:
+
+| Intensidade   | Android + wrapper        | Android navegador     | iPhone                |
+| ------------- | ------------------------ | --------------------- | --------------------- |
+| `SILENCIOSO`  | só histórico             | só histórico          | só histórico          |
+| `NOTIFICACAO` | completo                 | vibração própria      | som/vibração do SO    |
+| `ALARME`      | fura silencioso, tela cheia | rebaixa p/ notificação | rebaixa p/ notificação |
+
+**A interface tem de avisar na hora** quando `ALARME` vai chegar rebaixado. O
+pior desfecho deste produto é a professora confiar num alarme que nunca toca e
+perder o registro de uma aula.
+
+### 2. Hora de parede e instante absoluto são coisas diferentes
+
+A grade guarda hora de parede (`horaInicio = "07:00"`) porque é o que ela lê e
+edita. Mas o cron compara **instantes** (`inicioEm`, `fimEm`, `timestamptz`),
+derivados na materialização a partir da timezone do professor.
+
+A razão é o multitenant: o Brasil não tem um fuso só (Acre é UTC−5, Fernando de
+Noronha UTC−2). Comparar `"07:00"` como string funciona até o primeiro professor
+de Rio Branco se cadastrar — e aí falha em silêncio, disparando o alarme na hora
+errada sem erro nenhum no log. Ver `src/common/tz.ts`.
+
+## Multitenant
+
+- `Professor.id` **é** o `auth.uid()` do Supabase.
+- Toda tabela de domínio carrega `professorId` com `onDelete: Cascade`.
+- O guard `SupabaseJwtGuard` é **global**: rota nova nasce fechada, e abrir exige
+  `@Public()` explícito.
+- `professorId` vem sempre do decorator `@CurrentProfessor()`, **nunca** do body
+  ou da query.
+- RLS (`prisma/sql/enable-rls.sql`) é a segunda barreira, para os acessos que
+  passam pelo PostgREST do Supabase em vez do nosso código.
+
+## Testes
+
+```bash
+npm run test:api
+```
+
+A cobertura mira a lógica que falha em silêncio: conversão de fuso (incluindo
+borda de horário de verão) e geração de recorrência (quinzenal ancorada, mensal,
+janelas parciais).
+
+## Status
+
+- [x] **Fase 1 — Fundação e grade.** Monorepo, auth Supabase, escolas, cadeiras,
+      séries, horários, materialização de ocorrências, agenda, RLS.
+- [ ] **Fase 2 — Os dois alarmes.** Cron de abertura/fechamento com minutos
+      configuráveis, web push, service worker, config de intensidade por cadeira.
+- [ ] **Fase 3 — Registro por texto.** Unidades, tópicos, atividade de casa,
+      anexos, encadeamento do plano da próxima aula, escrita local-first.
+- [ ] **Fase 4 — Voz e resumo padronizado.** Gravação, transcrição, normalização
+      com Claude, revisão lado a lado.
+- [ ] **Fase 5 — Progresso e histórico.** Painel por cadeira/unidade, busca,
+      exportação.
+- [ ] **Fase 6 — Capacitor, se precisar.** Alarme real no Android — condicional:
+      só se a fase 2 mostrar que notificação pura não basta.

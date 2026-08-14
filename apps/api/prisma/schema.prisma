@@ -1,0 +1,397 @@
+// Schema Prisma — fonte da verdade do banco (Supabase Postgres).
+//
+// Padrão multitenant: TODA tabela de domínio carrega `professorId` com
+// `onDelete: Cascade` e índice composto começando por ele. O cascade é o que faz
+// "excluir minha conta" ser uma linha de código em vez de um roteiro de limpeza.
+// A segunda barreira é RLS (prisma/sql/enable-rls.sql): a API já filtra por
+// professor autenticado, mas RLS garante que um bug de query não vaze dado
+// entre contas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Frequencia {
+  SEMANAL
+  QUINZENAL
+  MENSAL
+  PONTUAL
+}
+
+enum StatusOcorrencia {
+  AGENDADA
+  DADA
+  CANCELADA
+  FERIADO
+  REMARCADA
+}
+
+/// Intensidade é uma INTENÇÃO, não uma garantia — degrada por plataforma.
+/// ALARME só entrega alarme de verdade no Android com wrapper nativo; no
+/// navegador e no iOS rebaixa para notificação. A UI precisa dizer isso na hora
+/// em que ela escolhe (ver docs/alarmes.md) — prometer alarme que não toca é o
+/// pior desfecho possível deste produto.
+enum IntensidadeAlarme {
+  SILENCIOSO
+  NOTIFICACAO
+  ALARME
+}
+
+enum TipoNotificacao {
+  ABERTURA_AULA // "sua aula começa em X min — o que você planeja dar?"
+  FECHAMENTO_AULA // "sua aula terminou — o que você deu?"
+  SEM_REGISTRO // "há aulas passadas sem registro"
+  GERAL
+}
+
+enum TipoAnexo {
+  FOTO
+  DOCUMENTO
+  AUDIO
+}
+
+/// Perfil 1:1 com o usuário do Supabase Auth (id = auth uid). Raiz do multitenant:
+/// todo dado do sistema pendura aqui via `professorId`.
+model Professor {
+  id       String  @id // = auth.uid() do Supabase
+  nome     String
+  email    String  @unique
+  timezone String  @default("America/Sao_Paulo")
+  ativo    Boolean @default(true)
+
+  // Padrões de alarme da conta. Ficam aqui (e não numa linha "global" de
+  // ConfigAlarme) porque uma chave única com cadeiraId nulo não é enforçável no
+  // Postgres — NULLs são distintos entre si num UNIQUE, então nada impediria
+  // duas linhas globais.
+  antecedenciaPadraoMin        Int               @default(5) @map("antecedencia_padrao_min")
+  atrasoPadraoMin              Int               @default(5) @map("atraso_padrao_min")
+  intensidadeAberturaPadrao    IntensidadeAlarme @default(NOTIFICACAO) @map("intensidade_abertura_padrao")
+  intensidadeFechamentoPadrao  IntensidadeAlarme @default(NOTIFICACAO) @map("intensidade_fechamento_padrao")
+  somPadrao                    Boolean           @default(true) @map("som_padrao")
+  vibraPadrao                  Boolean           @default(true) @map("vibra_padrao")
+
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+
+  escolas       Escola[]
+  cadeiras      Cadeira[]
+  series        SerieAula[]
+  ocorrencias   Ocorrencia[]
+  registros     RegistroAula[]
+  unidades      Unidade[]
+  configs       ConfigAlarme[]
+  anexos        Anexo[]
+  notificacoes  Notificacao[]
+  subscriptions PushSubscription[]
+
+  @@map("professores")
+}
+
+/// Opcional, mas barato agora: professor que dá aula em duas escolas com grades e
+/// calendários diferentes é caso comum, e enfiar isso depois exige migrar
+/// `Cadeira` com histórico já pendurado.
+model Escola {
+  id          String  @id @default(uuid())
+  professorId String  @map("professor_id")
+  nome        String
+  turno       String? // "manhã", "tarde", "noite" — texto livre de propósito
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  cadeiras  Cadeira[]
+
+  @@index([professorId])
+  @@map("escolas")
+}
+
+/// Uma "cadeira": a disciplina que ela dá para uma turma específica.
+/// É o que a professora conta quando diz "tenho onze cadeiras".
+model Cadeira {
+  id          String  @id @default(uuid())
+  professorId String  @map("professor_id")
+  escolaId    String? @map("escola_id")
+  disciplina  String // "Matemática"
+  turma       String // "8º A"
+  anoLetivo   Int     @map("ano_letivo")
+  corHex      String  @default("#2F4A9C") @map("cor_hex") // identificação visual rápida na grade
+  ativo       Boolean @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor   Professor     @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  escola      Escola?       @relation(fields: [escolaId], references: [id], onDelete: SetNull)
+  unidades    Unidade[]
+  series      SerieAula[]
+  ocorrencias Ocorrencia[]
+  config      ConfigAlarme?
+
+  @@index([professorId, ativo])
+  @@index([escolaId])
+  @@map("cadeiras")
+}
+
+/// Unidade do currículo (bimestre, capítulo, módulo). Com onze turmas em ritmos
+/// diferentes, é isso que responde "onde eu parei no 8º A?".
+model Unidade {
+  id              String    @id @default(uuid())
+  professorId     String    @map("professor_id")
+  cadeiraId       String    @map("cadeira_id")
+  ordem           Int
+  titulo          String
+  dataInicio      DateTime? @map("data_inicio") @db.Date
+  dataFimPrevista DateTime? @map("data_fim_prevista") @db.Date
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor Professor      @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  cadeira   Cadeira        @relation(fields: [cadeiraId], references: [id], onDelete: Cascade)
+  topicos   Topico[]
+  registros RegistroAula[]
+
+  @@unique([cadeiraId, ordem])
+  @@index([professorId])
+  @@map("unidades")
+}
+
+/// Tópico dentro de uma unidade — é o que ela "dá check". Modelo próprio (e não
+/// um String[] na Unidade) porque o registro precisa apontar para um id estável:
+/// com texto solto, renomear um tópico quebraria todo o histórico que o cobriu.
+model Topico {
+  id        String @id @default(uuid())
+  unidadeId String @map("unidade_id")
+  ordem     Int
+  titulo    String
+
+  unidade   Unidade          @relation(fields: [unidadeId], references: [id], onDelete: Cascade)
+  registros RegistroTopico[]
+
+  @@unique([unidadeId, ordem])
+  @@index([unidadeId])
+  @@map("topicos")
+}
+
+/// Série recorrente: "Matemática do 8º A, toda terça e quinta, 07:00–07:50".
+model SerieAula {
+  id          String     @id @default(uuid())
+  professorId String     @map("professor_id")
+  cadeiraId   String     @map("cadeira_id")
+  frequencia  Frequencia
+  dataInicio  DateTime   @map("data_inicio") @db.Date
+  dataFim     DateTime?  @map("data_fim") @db.Date
+  ativo       Boolean    @default(true)
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor   Professor      @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  cadeira     Cadeira        @relation(fields: [cadeiraId], references: [id], onDelete: Cascade)
+  horarios    SerieHorario[]
+  ocorrencias Ocorrencia[]
+
+  @@index([professorId, ativo])
+  @@index([cadeiraId])
+  @@map("series_aulas")
+}
+
+/// Horário por dia da semana (pode variar por dia). Hora no formato "HH:mm".
+model SerieHorario {
+  id         String @id @default(uuid())
+  serieId    String @map("serie_id")
+  diaSemana  Int    @map("dia_semana") // 0=domingo .. 6=sábado
+  horaInicio String @map("hora_inicio")
+  horaFim    String @map("hora_fim")
+
+  serie SerieAula @relation(fields: [serieId], references: [id], onDelete: Cascade)
+
+  @@index([serieId])
+  @@map("series_horarios")
+}
+
+/// Cada aula concreta e datada. É o que dispara os dois alarmes.
+model Ocorrencia {
+  id          String           @id @default(uuid())
+  professorId String           @map("professor_id")
+  cadeiraId   String           @map("cadeira_id")
+  serieId     String?          @map("serie_id")
+  data        DateTime         @db.Date
+  horaInicio  String           @map("hora_inicio") // "HH:mm" de parede — o que ela lê na grade
+  horaFim     String           @map("hora_fim")
+  status      StatusOcorrencia @default(AGENDADA)
+  observacao  String?
+
+  // Instantes absolutos, derivados de (data + hora de parede + timezone do
+  // professor) na materialização. Existem porque o sistema é multitenant e
+  // professores podem estar em fusos diferentes (Acre é UTC−5, Noronha UTC−2):
+  // comparar "07:00" como string só funciona com um fuso só. Com timestamptz o
+  // cron faz `inicioEm <= agora` e acerta para todo mundo, e o índice serve a
+  // varredura por minuto sem seq scan.
+  inicioEm DateTime @map("inicio_em") @db.Timestamptz(3)
+  fimEm    DateTime @map("fim_em") @db.Timestamptz(3)
+
+  // Marcas de reivindicação do cron. O padrão é `updateMany` condicional em
+  // "IS NULL": se voltar count 0, outro tick já pegou esta linha. É o que impede
+  // push duplicado quando dois ticks se sobrepõem (ex.: durante um deploy).
+  aberturaNotificadaEm   DateTime? @map("abertura_notificada_em")
+  fechamentoNotificadoEm DateTime? @map("fechamento_notificado_em")
+
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+
+  professor Professor     @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  cadeira   Cadeira       @relation(fields: [cadeiraId], references: [id], onDelete: Cascade)
+  serie     SerieAula?    @relation(fields: [serieId], references: [id], onDelete: SetNull)
+  registro  RegistroAula?
+
+  @@index([professorId, data])
+  // Índices dos crons: varrem por instante SEM filtro de professor (são
+  // multitenant por construção), então precisam de índice que não comece por
+  // professor_id — senão viram seq scan a cada minuto.
+  @@index([status, inicioEm])
+  @@index([status, fimEm])
+  @@index([serieId])
+  @@index([cadeiraId, data])
+  @@map("ocorrencias")
+}
+
+/// O registro pedagógico da aula — o motivo de o sistema existir.
+model RegistroAula {
+  id           String @id @default(uuid())
+  professorId  String @map("professor_id")
+  ocorrenciaId String @unique @map("ocorrencia_id")
+  unidadeId    String? @map("unidade_id")
+
+  /// Preenchido no alarme de ABERTURA. Vem pré-preenchido do `planoProximaAula`
+  /// do registro anterior desta cadeira — é o que transforma digitação em
+  /// confirmação, e o que torna onze cadeiras sustentáveis.
+  planoPrevisto String? @map("plano_previsto")
+
+  /// Preenchido no alarme de FECHAMENTO.
+  conteudoDado String? @map("conteudo_dado")
+
+  atividadeCasa String?   @map("atividade_casa")
+  dataEntrega   DateTime? @map("data_entrega") @db.Date
+
+  /// Alimenta a abertura da aula seguinte.
+  planoProximaAula String? @map("plano_proxima_aula")
+
+  /// Fala original, intacta. Guardada separada do resumo de propósito: se a IA
+  /// errar, a fonte continua lá para ela corrigir.
+  transcricaoBruta  String? @map("transcricao_bruta")
+  resumoPadronizado String? @map("resumo_padronizado")
+
+  /// null = ainda é rascunho da IA e NÃO conta como registro. Nada gerado por
+  /// modelo vira histórico sem ela aprovar.
+  revisadoEm DateTime? @map("revisado_em")
+
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+
+  professor  Professor        @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  ocorrencia Ocorrencia       @relation(fields: [ocorrenciaId], references: [id], onDelete: Cascade)
+  unidade    Unidade?         @relation(fields: [unidadeId], references: [id], onDelete: SetNull)
+  topicos    RegistroTopico[]
+  anexos     Anexo[]
+
+  @@index([professorId, criadoEm])
+  @@index([unidadeId])
+  @@map("registros_aula")
+}
+
+/// Quais tópicos foram cobertos nesta aula. Join explícito (e não m2m implícito)
+/// para a policy de RLS poder ser escrita direto na tabela.
+model RegistroTopico {
+  registroId String @map("registro_id")
+  topicoId   String @map("topico_id")
+
+  registro RegistroAula @relation(fields: [registroId], references: [id], onDelete: Cascade)
+  topico   Topico       @relation(fields: [topicoId], references: [id], onDelete: Cascade)
+
+  @@id([registroId, topicoId])
+  @@index([topicoId])
+  @@map("registros_topicos")
+}
+
+/// Override de alarme por cadeira. Campos nulos herdam o padrão do Professor.
+model ConfigAlarme {
+  id          String @id @default(uuid())
+  professorId String @map("professor_id")
+  cadeiraId   String @unique @map("cadeira_id")
+
+  antecedenciaMin       Int?               @map("antecedencia_min")
+  atrasoMin             Int?               @map("atraso_min")
+  intensidadeAbertura   IntensidadeAlarme? @map("intensidade_abertura")
+  intensidadeFechamento IntensidadeAlarme? @map("intensidade_fechamento")
+  som                   Boolean?
+  vibra                 Boolean?
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  cadeira   Cadeira   @relation(fields: [cadeiraId], references: [id], onDelete: Cascade)
+
+  @@index([professorId])
+  @@map("configs_alarme")
+}
+
+model Anexo {
+  id          String    @id @default(uuid())
+  professorId String    @map("professor_id")
+  registroId  String    @map("registro_id")
+  tipo        TipoAnexo
+  nomeArquivo String    @map("nome_arquivo")
+  /// Particionado por professor: {professorId}/{registroId}/{arquivo}
+  storagePath String    @map("storage_path")
+  tamanhoBytes Int?     @map("tamanho_bytes")
+  /// null = ainda na fila offline, não subiu para o Storage.
+  enviadoEm   DateTime? @map("enviado_em")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  professor Professor    @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  registro  RegistroAula @relation(fields: [registroId], references: [id], onDelete: Cascade)
+
+  @@index([professorId])
+  @@index([registroId])
+  @@map("anexos")
+}
+
+/// Central in-app. Grava mesmo quando não há dispositivo inscrito — é a rede de
+/// segurança do sistema: se o push falhar, o registro do alarme não se perde.
+model Notificacao {
+  id           String          @id @default(uuid())
+  professorId  String          @map("professor_id")
+  tipo         TipoNotificacao @default(GERAL)
+  titulo       String
+  corpo        String
+  url          String?
+  ocorrenciaId String?         @map("ocorrencia_id")
+  lida         Boolean         @default(false)
+  criadoEm     DateTime        @default(now()) @map("criado_em")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@index([professorId, lida])
+  @@index([professorId, criadoEm])
+  @@map("notificacoes")
+}
+
+model PushSubscription {
+  id          String   @id @default(uuid())
+  professorId String   @map("professor_id")
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  userAgent   String?  @map("user_agent")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@index([professorId])
+  @@map("push_subscriptions")
+}

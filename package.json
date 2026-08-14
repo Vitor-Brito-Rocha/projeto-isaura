@@ -1,0 +1,24 @@
+{
+  "name": "projeto-isaura",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Registro de aulas com alarmes para professores — multitenant",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build:api": "npm run build --workspace apps/api",
+    "build:web": "npm run build --workspace apps/web",
+    "test:api": "npm run test --workspace apps/api",
+    "prisma:generate": "npm run prisma:generate --workspace apps/api",
+    "prisma:push": "npm run prisma:push --workspace apps/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace apps/api",
+    "prisma:deploy": "npm run prisma:deploy --workspace apps/api",
+    "prisma:rls": "npm run prisma:rls --workspace apps/api"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
