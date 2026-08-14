@@ -1,19 +1,22 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, BellOff, Check, Info, Loader2, LogOut, Send } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AppShell } from '@/components/app-shell';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
-import {
-  avisoDeDegradacao,
-  detectarCapacidade,
-  rotuloCapacidade,
-  type Capacidade,
-} from '@/lib/capacidade';
+import { avisoDeDegradacao, detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
 import { ativarNotificacoes, desativarNotificacoes, enviarPushTeste, notificacoesAtivas } from '@/lib/push';
 import type { IntensidadeAlarme, Perfil } from '@/lib/types';
-import { AvisoAlarme, Botao, Cabecalho, Cartao, Navegacao, Selecao } from '@/components/ui';
 
 const INTENSIDADES: ReadonlyArray<{ valor: IntensidadeAlarme; rotulo: string }> = [
   { valor: 'SILENCIOSO', rotulo: 'Só no histórico' },
@@ -21,35 +24,45 @@ const INTENSIDADES: ReadonlyArray<{ valor: IntensidadeAlarme; rotulo: string }> 
   { valor: 'ALARME', rotulo: 'Alarme' },
 ];
 
+const MINUTOS = [0, 5, 10, 15, 30];
+
 export default function Config() {
   const router = useRouter();
   const qc = useQueryClient();
-  const [capacidade, setCapacidade] = useState<Capacidade>('SEM_SUPORTE');
+  const [capacidade, setCapacidade] = useState<Capacidade | null>(null);
   const [ativas, setAtivas] = useState<boolean | null>(null);
-  const [ocupado, setOcupado] = useState(false);
+  const [alternando, setAlternando] = useState(false);
+  const [testando, setTestando] = useState(false);
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState<string | null>(null);
 
   useEffect(() => {
     setCapacidade(detectarCapacidade());
     notificacoesAtivas().then(setAtivas);
   }, []);
 
-  const { data: perfil } = useQuery({
+  const { data: perfil, isLoading } = useQuery({
     queryKey: ['perfil'],
     queryFn: () => apiFetch<Perfil>('/perfil'),
   });
 
   const salvar = useMutation({
-    mutationFn: (dados: Record<string, unknown>) =>
-      apiFetch('/perfil', { method: 'PATCH', body: JSON.stringify(dados) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['perfil'] });
-      toast.success('Ajustes salvos.');
+    mutationFn: ({ campo, valor }: { campo: string; valor: unknown }) => {
+      setSalvando(campo);
+      return apiFetch('/perfil', { method: 'PATCH', body: JSON.stringify({ [campo]: valor }) });
+    },
+    onSuccess: async (_r, { campo }) => {
+      await qc.invalidateQueries({ queryKey: ['perfil'] });
+      await qc.invalidateQueries({ queryKey: ['alarme'] });
+      setSalvo(campo);
+      setTimeout(() => setSalvo((s) => (s === campo ? null : s)), 1600);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.'),
+    onSettled: () => setSalvando(null),
   });
 
-  async function alternarNotificacoes() {
-    setOcupado(true);
+  async function alternar() {
+    setAlternando(true);
     try {
       if (ativas) {
         await desativarNotificacoes();
@@ -58,130 +71,210 @@ export default function Config() {
       } else {
         await ativarNotificacoes();
         setAtivas(true);
-        toast.success('Notificações ativadas neste aparelho.');
+        toast.success('Pronto — este aparelho vai receber os alarmes.');
       }
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível alterar.');
     } finally {
-      setOcupado(false);
+      setAlternando(false);
     }
   }
 
   async function testar() {
-    setOcupado(true);
+    setTestando(true);
     try {
       const enviados = await enviarPushTeste();
       if (enviados === 0) {
-        // Zero aqui quase sempre significa "nenhum aparelho inscrito", e não
-        // "o servidor falhou" — dizer isso poupa a busca pelo erro errado.
-        toast.warning('Nada foi enviado: nenhum aparelho está inscrito nesta conta.');
+        // Zero aqui quase sempre é "nenhum aparelho inscrito", não "o servidor
+        // falhou" — dizer isso poupa a busca pelo erro errado.
+        toast.warning('Nada enviado: nenhum aparelho está inscrito nesta conta.');
       } else {
         toast.success(`Enviado para ${enviados} aparelho(s). Deve chegar em instantes.`);
       }
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível enviar.');
     } finally {
-      setOcupado(false);
+      setTestando(false);
     }
   }
 
-  const aviso = perfil ? avisoDeDegradacao(perfil.intensidadeAberturaPadrao, capacidade) : null;
+  const Estado = ({ campo }: { campo: string }) => {
+    if (salvando === campo) return <Loader2 className="size-3.5 animate-spin text-muted-foreground" />;
+    if (salvo === campo) return <Check className="size-3.5 text-sucesso" />;
+    return null;
+  };
+
+  const bloqueado = capacidade === 'IOS_NAVEGADOR' || capacidade === 'SEM_SUPORTE';
+  const avisoPlataforma = capacidade && bloqueado ? avisoDeDegradacao('NOTIFICACAO', capacidade) : null;
+  const avisoPadrao =
+    perfil && capacidade ? avisoDeDegradacao(perfil.intensidadeAberturaPadrao, capacidade) : null;
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <Cabecalho titulo="Ajustes" />
-
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
-        <Cartao className="space-y-3">
-          <div>
-            <h2 className="font-semibold">Notificações neste aparelho</h2>
-            <p className="mt-0.5 text-xs text-slate-500">{rotuloCapacidade(capacidade)}</p>
-          </div>
-
-          {/* O aviso de plataforma vem antes do botão de propósito: no iPhone
-              sem instalar, apertar "Ativar" só produz um erro. */}
-          {(capacidade === 'IOS_NAVEGADOR' || capacidade === 'SEM_SUPORTE') && (
-            <AvisoAlarme texto={avisoDeDegradacao('NOTIFICACAO', capacidade) ?? ''} />
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <Botao
-              onClick={alternarNotificacoes}
-              disabled={ocupado || ativas === null || capacidade === 'SEM_SUPORTE'}
-              variante={ativas ? 'secundario' : 'primario'}
-            >
-              {ativas === null ? 'Verificando…' : ativas ? 'Desativar' : 'Ativar notificações'}
-            </Botao>
-            <Botao variante="secundario" onClick={testar} disabled={ocupado || !ativas}>
-              Enviar teste
-            </Botao>
-          </div>
-        </Cartao>
-
-        {perfil && (
-          <Cartao className="space-y-3">
-            <div>
-              <h2 className="font-semibold">Padrões dos alarmes</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Valem para todas as cadeiras que não tiverem ajuste próprio.
-              </p>
+    <AppShell titulo="Ajustes">
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base">Notificações neste aparelho</CardTitle>
+              {ativas !== null && (
+                <Badge variant={ativas ? 'sucesso' : 'neutro'}>{ativas ? 'Ativas' : 'Desativadas'}</Badge>
+              )}
             </div>
+            <CardDescription>{capacidade ? rotuloCapacidade(capacidade) : 'Verificando…'}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* O aviso vem ANTES do botão de propósito: no iPhone sem instalar,
+                apertar "Ativar" só produz um erro. */}
+            {avisoPlataforma && (
+              <Alert variant="alarme">
+                <Info aria-hidden />
+                <AlertDescription>{avisoPlataforma}</AlertDescription>
+              </Alert>
+            )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Selecao
-                label="Antes da aula"
-                value={String(perfil.antecedenciaPadraoMin)}
-                onChange={(e) => salvar.mutate({ antecedenciaPadraoMin: Number(e.target.value) })}
-                opcoes={[0, 5, 10, 15, 30].map((m) => ({
-                  valor: String(m),
-                  rotulo: m === 0 ? 'Na hora exata' : `${m} minutos antes`,
-                }))}
-              />
-              <Selecao
-                label="Depois da aula"
-                value={String(perfil.atrasoPadraoMin)}
-                onChange={(e) => salvar.mutate({ atrasoPadraoMin: Number(e.target.value) })}
-                opcoes={[0, 5, 10, 15, 30].map((m) => ({
-                  valor: String(m),
-                  rotulo: m === 0 ? 'Assim que terminar' : `${m} minutos depois`,
-                }))}
-              />
-              <Selecao
-                label="Aviso de abertura"
-                value={perfil.intensidadeAberturaPadrao}
-                onChange={(e) => salvar.mutate({ intensidadeAberturaPadrao: e.target.value })}
-                opcoes={INTENSIDADES}
-              />
-              <Selecao
-                label="Aviso de fechamento"
-                value={perfil.intensidadeFechamentoPadrao}
-                onChange={(e) => salvar.mutate({ intensidadeFechamentoPadrao: e.target.value })}
-                opcoes={INTENSIDADES}
-              />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={alternar}
+                loading={alternando}
+                disabled={ativas === null || capacidade === 'SEM_SUPORTE'}
+                variant={ativas ? 'outline' : 'default'}
+              >
+                {!alternando && (ativas ? <BellOff /> : <Bell />)}
+                {ativas === null ? 'Verificando…' : ativas ? 'Desativar' : 'Ativar notificações'}
+              </Button>
+              <Button variant="outline" onClick={testar} loading={testando} disabled={!ativas}>
+                {!testando && <Send />}
+                Enviar teste
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            {aviso && <AvisoAlarme texto={aviso} />}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Padrões dos alarmes</CardTitle>
+            <CardDescription>
+              Valem para todas as cadeiras que não tiverem ajuste próprio.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isLoading || !perfil ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-1.5">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-11 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <CampoSelect
+                    id="ant"
+                    rotulo="Avisar antes da aula"
+                    valor={String(perfil.antecedenciaPadraoMin)}
+                    onChange={(v) => salvar.mutate({ campo: 'antecedenciaPadraoMin', valor: Number(v) })}
+                    estado={<Estado campo="antecedenciaPadraoMin" />}
+                    opcoes={MINUTOS.map((m) => ({
+                      valor: String(m),
+                      rotulo: m === 0 ? 'Na hora exata' : `${m} minutos antes`,
+                    }))}
+                  />
+                  <CampoSelect
+                    id="atr"
+                    rotulo="Avisar depois da aula"
+                    valor={String(perfil.atrasoPadraoMin)}
+                    onChange={(v) => salvar.mutate({ campo: 'atrasoPadraoMin', valor: Number(v) })}
+                    estado={<Estado campo="atrasoPadraoMin" />}
+                    opcoes={MINUTOS.map((m) => ({
+                      valor: String(m),
+                      rotulo: m === 0 ? 'Assim que terminar' : `${m} minutos depois`,
+                    }))}
+                  />
+                  <CampoSelect
+                    id="iab"
+                    rotulo="Como avisar na abertura"
+                    valor={perfil.intensidadeAberturaPadrao}
+                    onChange={(v) => salvar.mutate({ campo: 'intensidadeAberturaPadrao', valor: v })}
+                    estado={<Estado campo="intensidadeAberturaPadrao" />}
+                    opcoes={INTENSIDADES.map((i) => ({ valor: i.valor, rotulo: i.rotulo }))}
+                  />
+                  <CampoSelect
+                    id="ife"
+                    rotulo="Como avisar no fechamento"
+                    valor={perfil.intensidadeFechamentoPadrao}
+                    onChange={(v) => salvar.mutate({ campo: 'intensidadeFechamentoPadrao', valor: v })}
+                    estado={<Estado campo="intensidadeFechamentoPadrao" />}
+                    opcoes={INTENSIDADES.map((i) => ({ valor: i.valor, rotulo: i.rotulo }))}
+                  />
+                </div>
 
-            <p className="text-xs text-slate-500">
-              Fuso horário: <strong>{perfil.timezone}</strong>. Os horários das aulas são
-              interpretados nele.
-            </p>
-          </Cartao>
-        )}
+                {avisoPadrao && (
+                  <Alert variant="alarme">
+                    <Info aria-hidden />
+                    <AlertDescription>{avisoPadrao}</AlertDescription>
+                  </Alert>
+                )}
 
-        <Botao
-          variante="perigo"
-          className="w-full"
+                <p className="text-xs text-muted-foreground">
+                  Fuso horário: <strong className="text-foreground">{perfil.timezone}</strong>. Os
+                  horários das aulas são interpretados nele.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Button
+          variant="outline"
+          className="w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
           onClick={async () => {
             await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
             router.push('/login');
           }}
         >
+          <LogOut />
           Sair
-        </Botao>
-      </main>
+        </Button>
+      </div>
+    </AppShell>
+  );
+}
 
-      <Navegacao />
+function CampoSelect({
+  id,
+  rotulo,
+  valor,
+  onChange,
+  opcoes,
+  estado,
+}: {
+  id: string;
+  rotulo: string;
+  valor: string;
+  onChange: (v: string) => void;
+  opcoes: ReadonlyArray<{ valor: string; rotulo: string }>;
+  estado?: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-4 items-center gap-2">
+        <Label htmlFor={id}>{rotulo}</Label>
+        {estado}
+      </div>
+      <Select value={valor} onValueChange={onChange}>
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {opcoes.map((o) => (
+            <SelectItem key={o.valor} value={o.valor}>
+              {o.rotulo}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

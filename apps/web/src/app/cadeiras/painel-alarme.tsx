@@ -1,18 +1,28 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, ChevronDown, Info, Loader2, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { apiFetch } from '@/lib/api';
 import { avisoDeDegradacao, type Capacidade } from '@/lib/capacidade';
 import type { ConfigAlarmeResposta, IntensidadeAlarme } from '@/lib/types';
-import { AvisoAlarme, Botao, Selecao } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 const INTENSIDADES: ReadonlyArray<{ valor: IntensidadeAlarme; rotulo: string }> = [
   { valor: 'SILENCIOSO', rotulo: 'Só no histórico' },
   { valor: 'NOTIFICACAO', rotulo: 'Notificação' },
   { valor: 'ALARME', rotulo: 'Alarme' },
 ];
+
+const MINUTOS = [0, 5, 10, 15, 30];
 
 /**
  * Configura os alarmes de uma cadeira.
@@ -23,8 +33,7 @@ const INTENSIDADES: ReadonlyArray<{ valor: IntensidadeAlarme; rotulo: string }> 
  *    num iPhone não entrega alarme, e ela precisa saber disso no momento da
  *    escolha — não numa terça de manhã, quando o alarme não tocar.
  * 2. **A origem do valor fica visível.** "5 minutos" sozinho é ambíguo: ela não
- *    sabe se está mexendo numa cadeira ou em onze. Por isso o rótulo diz se o
- *    valor veio do padrão da conta ou de um ajuste desta cadeira.
+ *    sabe se está mexendo numa cadeira ou em onze.
  */
 export function PainelAlarme({
   cadeiraId,
@@ -35,21 +44,34 @@ export function PainelAlarme({
 }) {
   const qc = useQueryClient();
   const [aberto, setAberto] = useState(false);
+  // Qual campo está salvando — o spinner aparece no controle que ela mexeu, e
+  // não numa barra global. Sem isso, mudar um select parece não ter efeito.
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState<string | null>(null);
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['alarme', cadeiraId],
     queryFn: () => apiFetch<ConfigAlarmeResposta>(`/cadeiras/${cadeiraId}/alarme`),
     enabled: aberto,
   });
 
   const salvar = useMutation({
-    mutationFn: (dados: Record<string, unknown>) =>
-      apiFetch(`/cadeiras/${cadeiraId}/alarme`, { method: 'PUT', body: JSON.stringify(dados) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['alarme', cadeiraId] });
-      toast.success('Alarme atualizado.');
+    mutationFn: ({ campo, valor }: { campo: string; valor: unknown }) => {
+      setSalvando(campo);
+      return apiFetch(`/cadeiras/${cadeiraId}/alarme`, {
+        method: 'PUT',
+        body: JSON.stringify({ [campo]: valor }),
+      });
+    },
+    onSuccess: async (_r, { campo }) => {
+      await qc.invalidateQueries({ queryKey: ['alarme', cadeiraId] });
+      // Check verde por um instante: confirma que gravou sem exigir um toast a
+      // cada mexida, que viraria ruído com seis controles na tela.
+      setSalvo(campo);
+      setTimeout(() => setSalvo((s) => (s === campo ? null : s)), 1600);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.'),
+    onSettled: () => setSalvando(null),
   });
 
   const limpar = useMutation({
@@ -62,104 +84,192 @@ export function PainelAlarme({
 
   if (!aberto) {
     return (
-      <button
-        onClick={() => setAberto(true)}
-        className="text-sm font-medium text-registro underline-offset-2 hover:underline"
-      >
+      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setAberto(true)}>
+        <ChevronDown />
         Ajustar alarmes
-      </button>
+      </Button>
     );
   }
 
-  if (!data) return <p className="text-xs text-slate-500">Carregando alarmes…</p>;
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-3 border-t pt-3">
+        <Skeleton className="h-3 w-44" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const { efetiva, override } = data;
   const temOverride = override !== null;
-  const origem = temOverride ? 'ajustado nesta cadeira' : 'padrão da conta';
 
-  const avisoAbertura = avisoDeDegradacao(efetiva.intensidadeAbertura, capacidade);
-  const avisoFechamento = avisoDeDegradacao(efetiva.intensidadeFechamento, capacidade);
   // Um aviso só quando os dois coincidem — repetir o mesmo texto duas vezes
   // treina a pessoa a parar de ler avisos.
-  const avisos = [...new Set([avisoAbertura, avisoFechamento].filter(Boolean))] as string[];
+  const avisos = [
+    ...new Set(
+      [
+        avisoDeDegradacao(efetiva.intensidadeAbertura, capacidade),
+        avisoDeDegradacao(efetiva.intensidadeFechamento, capacidade),
+      ].filter(Boolean),
+    ),
+  ] as string[];
+
+  const Estado = ({ campo }: { campo: string }) => {
+    if (salvando === campo) return <Loader2 className="size-3.5 animate-spin text-muted-foreground" />;
+    if (salvo === campo) return <Check className="size-3.5 text-sucesso" />;
+    return null;
+  };
 
   return (
-    <div className="space-y-3 border-t border-slate-200 pt-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          Valores em uso: <strong>{origem}</strong>
-        </p>
-        <button
-          onClick={() => setAberto(false)}
-          className="text-xs text-slate-500 underline-offset-2 hover:underline"
-        >
+    <div className="space-y-4 border-t pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant={temOverride ? 'default' : 'neutro'}>
+          {temOverride ? 'Ajustado nesta cadeira' : 'Usando o padrão da conta'}
+        </Badge>
+        <Button variant="ghost" size="sm" onClick={() => setAberto(false)}>
           Fechar
-        </button>
+        </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Selecao
-          label="Antes da aula"
-          value={String(efetiva.antecedenciaMin)}
-          onChange={(e) => salvar.mutate({ antecedenciaMin: Number(e.target.value) })}
-          opcoes={[0, 5, 10, 15, 30].map((m) => ({
+      <div className="grid gap-4 sm:grid-cols-2">
+        <CampoSelect
+          id={`ant-${cadeiraId}`}
+          rotulo="Avisar antes da aula"
+          valor={String(efetiva.antecedenciaMin)}
+          onChange={(v) => salvar.mutate({ campo: 'antecedenciaMin', valor: Number(v) })}
+          estado={<Estado campo="antecedenciaMin" />}
+          opcoes={MINUTOS.map((m) => ({
             valor: String(m),
             rotulo: m === 0 ? 'Na hora exata' : `${m} minutos antes`,
           }))}
         />
-        <Selecao
-          label="Depois da aula"
-          value={String(efetiva.atrasoMin)}
-          onChange={(e) => salvar.mutate({ atrasoMin: Number(e.target.value) })}
-          opcoes={[0, 5, 10, 15, 30].map((m) => ({
+        <CampoSelect
+          id={`atr-${cadeiraId}`}
+          rotulo="Avisar depois da aula"
+          valor={String(efetiva.atrasoMin)}
+          onChange={(v) => salvar.mutate({ campo: 'atrasoMin', valor: Number(v) })}
+          estado={<Estado campo="atrasoMin" />}
+          opcoes={MINUTOS.map((m) => ({
             valor: String(m),
             rotulo: m === 0 ? 'Assim que terminar' : `${m} minutos depois`,
           }))}
         />
-        <Selecao
-          label="Aviso de abertura"
-          value={efetiva.intensidadeAbertura}
-          onChange={(e) => salvar.mutate({ intensidadeAbertura: e.target.value })}
-          opcoes={INTENSIDADES}
+        <CampoSelect
+          id={`iab-${cadeiraId}`}
+          rotulo="Como avisar na abertura"
+          valor={efetiva.intensidadeAbertura}
+          onChange={(v) => salvar.mutate({ campo: 'intensidadeAbertura', valor: v })}
+          estado={<Estado campo="intensidadeAbertura" />}
+          opcoes={INTENSIDADES.map((i) => ({ valor: i.valor, rotulo: i.rotulo }))}
         />
-        <Selecao
-          label="Aviso de fechamento"
-          value={efetiva.intensidadeFechamento}
-          onChange={(e) => salvar.mutate({ intensidadeFechamento: e.target.value })}
-          opcoes={INTENSIDADES}
+        <CampoSelect
+          id={`ife-${cadeiraId}`}
+          rotulo="Como avisar no fechamento"
+          valor={efetiva.intensidadeFechamento}
+          onChange={(v) => salvar.mutate({ campo: 'intensidadeFechamento', valor: v })}
+          estado={<Estado campo="intensidadeFechamento" />}
+          opcoes={INTENSIDADES.map((i) => ({ valor: i.valor, rotulo: i.rotulo }))}
         />
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={efetiva.som}
-            onChange={(e) => salvar.mutate({ som: e.target.checked })}
-            className="h-4 w-4 accent-registro"
-          />
-          Com som
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={efetiva.vibra}
-            onChange={(e) => salvar.mutate({ vibra: e.target.checked })}
-            className="h-4 w-4 accent-registro"
-          />
-          Com vibração
-        </label>
+      <div className="flex flex-wrap gap-x-8 gap-y-3">
+        <CampoSwitch
+          id={`som-${cadeiraId}`}
+          rotulo="Com som"
+          valor={efetiva.som}
+          onChange={(v) => salvar.mutate({ campo: 'som', valor: v })}
+          estado={<Estado campo="som" />}
+        />
+        <CampoSwitch
+          id={`vib-${cadeiraId}`}
+          rotulo="Com vibração"
+          valor={efetiva.vibra}
+          onChange={(v) => salvar.mutate({ campo: 'vibra', valor: v })}
+          estado={<Estado campo="vibra" />}
+        />
       </div>
 
       {avisos.map((a) => (
-        <AvisoAlarme key={a} texto={a} />
+        <Alert key={a} variant="alarme">
+          <Info aria-hidden />
+          <AlertDescription>{a}</AlertDescription>
+        </Alert>
       ))}
 
       {temOverride && (
-        <Botao variante="secundario" onClick={() => limpar.mutate()} disabled={limpar.isPending}>
+        <Button variant="outline" size="sm" onClick={() => limpar.mutate()} loading={limpar.isPending}>
+          <RotateCcw />
           Voltar ao padrão da conta
-        </Botao>
+        </Button>
       )}
+    </div>
+  );
+}
+
+function CampoSelect({
+  id,
+  rotulo,
+  valor,
+  onChange,
+  opcoes,
+  estado,
+}: {
+  id: string;
+  rotulo: string;
+  valor: string;
+  onChange: (v: string) => void;
+  opcoes: ReadonlyArray<{ valor: string; rotulo: string }>;
+  estado?: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-4 items-center gap-2">
+        <Label htmlFor={id}>{rotulo}</Label>
+        {estado}
+      </div>
+      <Select value={valor} onValueChange={onChange}>
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {opcoes.map((o) => (
+            <SelectItem key={o.valor} value={o.valor}>
+              {o.rotulo}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function CampoSwitch({
+  id,
+  rotulo,
+  valor,
+  onChange,
+  estado,
+}: {
+  id: string;
+  rotulo: string;
+  valor: boolean;
+  onChange: (v: boolean) => void;
+  estado?: React.ReactNode;
+}) {
+  return (
+    <div className={cn('flex items-center gap-2.5')}>
+      <Switch id={id} checked={valor} onCheckedChange={onChange} />
+      <Label htmlFor={id} className="cursor-pointer">
+        {rotulo}
+      </Label>
+      {estado}
     </div>
   );
 }

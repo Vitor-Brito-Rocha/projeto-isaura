@@ -1,11 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api';
-import { Botao, Campo } from '@/components/ui';
 
 export default function Login() {
   const router = useRouter();
@@ -17,53 +19,55 @@ export default function Login() {
     e.preventDefault();
     setEnviando(true);
     try {
-      await apiFetch('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, senha }),
-      });
+      await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha }) });
       router.push('/');
       router.refresh();
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível entrar.');
-    } finally {
       setEnviando(false);
     }
+    // Sem `finally`: no sucesso a navegação já começou, e voltar o botão ao
+    // normal faria a tela piscar "Entrar" antes de sair.
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Projeto Isaura</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Suas aulas, com um lembrete na hora certa.
-        </p>
-      </div>
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-10">
+      <header className="space-y-1.5">
+        <h1 className="text-2xl font-semibold tracking-tight">Projeto Isaura</h1>
+        <p className="text-sm text-muted-foreground">Suas aulas, com um lembrete na hora certa.</p>
+      </header>
 
-      <form onSubmit={entrar} className="flex flex-col gap-4">
-        <Campo
-          label="Email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Campo
-          label="Senha"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-        />
-        <Botao type="submit" disabled={enviando}>
-          {enviando ? 'Entrando…' : 'Entrar'}
-        </Botao>
+      <form onSubmit={entrar} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="senha">Senha</Label>
+          <Input
+            id="senha"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+          />
+        </div>
+        <Button type="submit" className="w-full" loading={enviando}>
+          Entrar
+        </Button>
       </form>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="text-center text-sm text-muted-foreground">
         Ainda não tem conta?{' '}
-        <Link href="/cadastro" className="font-semibold text-registro">
+        <Link href="/cadastro" className="font-medium text-primary underline-offset-4 hover:underline">
           Criar conta
         </Link>
       </p>

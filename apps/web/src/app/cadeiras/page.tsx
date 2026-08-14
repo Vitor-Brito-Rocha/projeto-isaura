@@ -1,18 +1,25 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Smartphone, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AppShell, Vazio } from '@/components/app-shell';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
 import type { Cadeira } from '@/lib/types';
-import { Botao, Cabecalho, Campo, Cartao, Navegacao } from '@/components/ui';
 import { PainelAlarme } from './painel-alarme';
 
 export default function Cadeiras() {
   const qc = useQueryClient();
   const [criando, setCriando] = useState(false);
-  const [capacidade, setCapacidade] = useState<Capacidade>('SEM_SUPORTE');
+  const [capacidade, setCapacidade] = useState<Capacidade | null>(null);
 
   // Só no cliente: a detecção lê navigator/matchMedia, que não existem no SSR.
   useEffect(() => setCapacidade(detectarCapacidade()), []);
@@ -34,60 +41,93 @@ export default function Cadeiras() {
   });
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <Cabecalho
-        titulo="Cadeiras"
-        acao={
-          <Botao onClick={() => setCriando((v) => !v)} variante={criando ? 'secundario' : 'primario'}>
-            {criando ? 'Cancelar' : 'Nova'}
-          </Botao>
-        }
-      />
+    <AppShell
+      titulo="Cadeiras"
+      descricao={cadeiras ? `${cadeiras.length} cadastrada(s)` : undefined}
+      acao={
+        <Button
+          size="sm"
+          variant={criando ? 'outline' : 'default'}
+          onClick={() => setCriando((v) => !v)}
+        >
+          {criando ? <X /> : <Plus />}
+          {criando ? 'Cancelar' : 'Nova'}
+        </Button>
+      }
+    >
+      <div className="space-y-3">
+        {capacidade && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Smartphone className="size-3.5" aria-hidden />
+            Neste aparelho: <strong className="font-medium text-foreground">{rotuloCapacidade(capacidade)}</strong>
+          </p>
+        )}
 
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-3 p-4">
-        <p className="text-xs text-slate-500">
-          Neste aparelho: <strong>{rotuloCapacidade(capacidade)}</strong>
-        </p>
+        {criando && (
+          <FormularioCadeira onEnviar={(d) => criar.mutate(d)} enviando={criar.isPending} />
+        )}
 
-        {criando && <FormularioCadeira onEnviar={(d) => criar.mutate(d)} enviando={criar.isPending} />}
-
-        {isLoading && <p className="text-sm text-slate-500">Carregando…</p>}
+        {isLoading && (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader className="flex-row items-center gap-3">
+                  <Skeleton className="h-9 w-1.5 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/5" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {!isLoading && (cadeiras?.length ?? 0) === 0 && !criando && (
-          <Cartao className="text-center">
-            <p className="text-sm text-slate-600">Nenhuma cadeira ainda.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Cada cadeira é uma disciplina numa turma — por exemplo, Matemática no 8º A.
-            </p>
-          </Cartao>
+          <Vazio
+            titulo="Nenhuma cadeira ainda"
+            descricao="Cada cadeira é uma disciplina numa turma — por exemplo, Matemática no 8º A."
+            acao={
+              <Button onClick={() => setCriando(true)}>
+                <Plus />
+                Criar a primeira
+              </Button>
+            }
+          />
         )}
 
         {cadeiras?.map((c) => (
-          <Cartao key={c.id} className="space-y-3">
-            <div className="flex items-center gap-3">
+          <Card key={c.id}>
+            <CardHeader className="flex-row items-center gap-3 space-y-0">
               <span
-                className="h-8 w-1 shrink-0 rounded-full"
+                className="h-9 w-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: c.corHex }}
                 aria-hidden
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">
+                <CardTitle className="truncate text-base">
                   {c.disciplina} · {c.turma}
-                </p>
-                <p className="text-xs text-slate-500">
+                </CardTitle>
+                <p className="truncate text-xs text-muted-foreground">
                   {c.anoLetivo}
                   {c.escola ? ` · ${c.escola.nome}` : ''}
-                  {c._count ? ` · ${c._count.series} série(s)` : ''}
                 </p>
               </div>
-            </div>
-            <PainelAlarme cadeiraId={c.id} capacidade={capacidade} />
-          </Cartao>
+              {c._count && (
+                <Badge variant={c._count.series > 0 ? 'neutro' : 'alarme'}>
+                  {c._count.series > 0
+                    ? `${c._count.series} horário(s)`
+                    : 'sem horário'}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
+            </CardContent>
+          </Card>
         ))}
-      </main>
-
-      <Navegacao />
-    </div>
+      </div>
+    </AppShell>
   );
 }
 
@@ -103,39 +143,53 @@ function FormularioCadeira({
   const [anoLetivo, setAnoLetivo] = useState(new Date().getFullYear());
 
   return (
-    <Cartao>
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onEnviar({ disciplina, turma, anoLetivo });
-        }}
-      >
-        <Campo
-          label="Disciplina"
-          required
-          value={disciplina}
-          onChange={(e) => setDisciplina(e.target.value)}
-          placeholder="Matemática"
-        />
-        <Campo
-          label="Turma"
-          required
-          value={turma}
-          onChange={(e) => setTurma(e.target.value)}
-          placeholder="8º A"
-        />
-        <Campo
-          label="Ano letivo"
-          type="number"
-          required
-          value={anoLetivo}
-          onChange={(e) => setAnoLetivo(Number(e.target.value))}
-        />
-        <Botao type="submit" disabled={enviando}>
-          {enviando ? 'Salvando…' : 'Criar cadeira'}
-        </Botao>
-      </form>
-    </Cartao>
+    <Card>
+      <CardContent className="pt-4 sm:pt-5">
+        <form
+          className="grid gap-4 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onEnviar({ disciplina, turma, anoLetivo });
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="disciplina">Disciplina</Label>
+            <Input
+              id="disciplina"
+              required
+              autoFocus
+              value={disciplina}
+              onChange={(e) => setDisciplina(e.target.value)}
+              placeholder="Matemática"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="turma">Turma</Label>
+            <Input
+              id="turma"
+              required
+              value={turma}
+              onChange={(e) => setTurma(e.target.value)}
+              placeholder="8º A"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ano">Ano letivo</Label>
+            <Input
+              id="ano"
+              type="number"
+              required
+              value={anoLetivo}
+              onChange={(e) => setAnoLetivo(Number(e.target.value))}
+            />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" loading={enviando} className="w-full">
+              Criar cadeira
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

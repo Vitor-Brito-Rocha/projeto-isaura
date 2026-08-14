@@ -1,31 +1,39 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { addDays, format, startOfWeek } from 'date-fns';
+import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AppShell, Vazio } from '@/components/app-shell';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch, ApiError } from '@/lib/api';
 import type { Ocorrencia } from '@/lib/types';
-import { Botao, Cabecalho, Cartao, Navegacao } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
 
 export default function Semana() {
   const router = useRouter();
-  const [offsetSemanas, setOffsetSemanas] = useState(0);
+  const [offset, setOffset] = useState(0);
 
-  const base = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), offsetSemanas * 7);
+  const base = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), offset * 7);
   const de = iso(base);
   const ate = iso(addDays(base, 6));
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['agenda', de, ate],
     queryFn: () => apiFetch<Ocorrencia[]>(`/agenda?de=${de}&ate=${ate}`),
+    // Mantém a semana anterior na tela durante a troca em vez de piscar o
+    // esqueleto a cada seta — a navegação fica contínua.
+    placeholderData: (anterior) => anterior,
   });
 
-  // Sessão expirada volta para o login em vez de deixar a tela vazia — sem
-  // isto, a professora vê "nenhuma aula" e conclui que perdeu os dados.
   useEffect(() => {
     if (error instanceof ApiError && error.status === 401) router.push('/login');
   }, [error, router]);
@@ -36,91 +44,140 @@ export default function Semana() {
     porDia.set(dia, [...(porDia.get(dia) ?? []), oc]);
   }
 
+  const dias = Array.from({ length: 7 }, (_, i) => addDays(base, i));
+  const temAula = dias.some((d) => (porDia.get(iso(d)) ?? []).length > 0);
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      <Cabecalho
-        titulo={offsetSemanas === 0 ? 'Esta semana' : format(base, "'Semana de' d 'de' MMMM", { locale: ptBR })}
-        acao={
-          <div className="flex gap-1">
-            <Botao variante="secundario" onClick={() => setOffsetSemanas((o) => o - 1)} aria-label="Semana anterior">
-              ←
-            </Botao>
-            <Botao variante="secundario" onClick={() => setOffsetSemanas(0)} disabled={offsetSemanas === 0}>
-              Hoje
-            </Botao>
-            <Botao variante="secundario" onClick={() => setOffsetSemanas((o) => o + 1)} aria-label="Próxima semana">
-              →
-            </Botao>
-          </div>
-        }
-      />
+    <AppShell
+      titulo={offset === 0 ? 'Esta semana' : format(base, "d 'de' MMMM", { locale: ptBR })}
+      descricao={`${format(base, "d 'de' MMM", { locale: ptBR })} – ${format(addDays(base, 6), "d 'de' MMM", { locale: ptBR })}`}
+      acao={
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" onClick={() => setOffset((o) => o - 1)} aria-label="Semana anterior">
+            <ChevronLeft />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setOffset(0)} disabled={offset === 0}>
+            Hoje
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => setOffset((o) => o + 1)} aria-label="Próxima semana">
+            <ChevronRight />
+          </Button>
+        </div>
+      }
+    >
+      {/* Barra fina de atividade — mostra que a troca de semana está em curso
+          sem trocar o conteúdo por esqueleto. */}
+      <div className="h-0.5" aria-hidden>
+        {isFetching && !isLoading && <div className="h-0.5 animate-pulse rounded-full bg-primary/40" />}
+      </div>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4">
-        {isLoading && <p className="text-sm text-slate-500">Carregando a grade…</p>}
+      {isLoading ? (
+        <EsqueletoSemana />
+      ) : !temAula ? (
+        <Vazio
+          titulo="Nenhuma aula nesta semana"
+          descricao="Cadastre uma cadeira e os horários dela para a grade aparecer aqui."
+          acao={
+            // `Link` e não `<a>`: com âncora crua a navegação recarrega o app
+            // inteiro e perde o cache do React Query.
+            <Button asChild variant="outline">
+              <Link href="/cadeiras">Ir para cadeiras</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-5">
+          {dias.map((dia) => {
+            const aulas = porDia.get(iso(dia)) ?? [];
+            if (aulas.length === 0) return null;
+            const hoje = isSameDay(dia, new Date());
 
-        {!isLoading && (data?.length ?? 0) === 0 && (
-          <Cartao className="text-center">
-            <p className="text-sm text-slate-600">Nenhuma aula nesta semana.</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Cadastre uma cadeira e os horários dela para a grade aparecer aqui.
-            </p>
-          </Cartao>
-        )}
+            return (
+              <section key={iso(dia)} className="space-y-2">
+                <h2
+                  className={cn(
+                    'flex items-center gap-2 text-xs font-semibold uppercase tracking-wider',
+                    hoje ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                >
+                  {format(dia, "EEEE, d 'de' MMMM", { locale: ptBR })}
+                  {hoje && <Badge>hoje</Badge>}
+                </h2>
 
-        {Array.from({ length: 7 }, (_, i) => addDays(base, i)).map((dia) => {
-          const aulas = porDia.get(iso(dia)) ?? [];
-          if (aulas.length === 0) return null;
-
-          return (
-            <section key={iso(dia)} className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                {format(dia, "EEEE, d 'de' MMMM", { locale: ptBR })}
-              </h2>
-              {aulas.map((oc) => (
-                <Cartao key={oc.id} className="flex items-center gap-3">
-                  <span
-                    className="h-10 w-1 shrink-0 rounded-full"
-                    style={{ backgroundColor: oc.cadeira.corHex }}
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">
-                      {oc.cadeira.disciplina} · {oc.cadeira.turma}
-                    </p>
-                    <p className="text-sm tabular-nums text-slate-600">
-                      {oc.horaInicio} – {oc.horaFim}
-                    </p>
-                  </div>
-                  <Etiqueta ocorrencia={oc} />
-                </Cartao>
-              ))}
-            </section>
-          );
-        })}
-      </main>
-
-      <Navegacao />
-    </div>
+                <div className="space-y-2">
+                  {aulas.map((oc) => (
+                    <LinhaAula key={oc.id} ocorrencia={oc} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </AppShell>
   );
 }
 
-/** Estado da aula em uma palavra — é o que ela precisa ver de relance. */
-function Etiqueta({ ocorrencia }: { ocorrencia: Ocorrencia }) {
-  if (ocorrencia.status === 'CANCELADA') {
-    return <span className="text-xs font-medium text-slate-500">Cancelada</span>;
-  }
-  if (ocorrencia.status === 'FERIADO') {
-    return <span className="text-xs font-medium text-slate-500">Feriado</span>;
-  }
-  if (ocorrencia.registro?.conteudoDado) {
-    return <span className="text-xs font-semibold text-emerald-700">Registrada</span>;
-  }
-  if (ocorrencia.registro?.planoPrevisto) {
-    return <span className="text-xs font-medium text-registro">Planejada</span>;
-  }
-  // Aula que já passou e não tem registro é o que o produto existe para evitar.
-  if (new Date(ocorrencia.fimEm) < new Date()) {
-    return <span className="text-xs font-semibold text-alarme">Sem registro</span>;
-  }
+function LinhaAula({ ocorrencia: oc }: { ocorrencia: Ocorrencia }) {
+  const cancelada = oc.status === 'CANCELADA' || oc.status === 'FERIADO';
+
+  return (
+    <Card
+      className={cn(
+        'flex items-center gap-3 p-3 transition-colors hover:bg-accent/40',
+        cancelada && 'opacity-60',
+      )}
+    >
+      <span
+        className="h-11 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: oc.cadeira.corHex }}
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1">
+        <p className={cn('truncate font-medium', cancelada && 'line-through')}>
+          {oc.cadeira.disciplina} · {oc.cadeira.turma}
+        </p>
+        <p className="tabular text-sm text-muted-foreground">
+          {oc.horaInicio} – {oc.horaFim}
+        </p>
+      </div>
+      <EtiquetaEstado ocorrencia={oc} />
+    </Card>
+  );
+}
+
+/** O estado da aula em uma palavra — é o que ela precisa ver de relance. */
+function EtiquetaEstado({ ocorrencia: oc }: { ocorrencia: Ocorrencia }) {
+  if (oc.status === 'CANCELADA') return <Badge variant="neutro">Cancelada</Badge>;
+  if (oc.status === 'FERIADO') return <Badge variant="neutro">Feriado</Badge>;
+  if (oc.registro?.conteudoDado) return <Badge variant="sucesso">Registrada</Badge>;
+  if (oc.registro?.planoPrevisto) return <Badge>Planejada</Badge>;
+  // Aula que já passou sem registro é exatamente o que o produto existe para
+  // evitar — por isso ganha a cor de alarme.
+  if (new Date(oc.fimEm) < new Date()) return <Badge variant="alarme">Sem registro</Badge>;
   return null;
+}
+
+function EsqueletoSemana() {
+  return (
+    <div className="space-y-5">
+      {[3, 2].map((quantas, i) => (
+        <section key={i} className="space-y-2">
+          <Skeleton className="h-3 w-40" />
+          <div className="space-y-2">
+            {Array.from({ length: quantas }).map((_, j) => (
+              <Card key={j} className="flex items-center gap-3 p-3">
+                <Skeleton className="h-11 w-1.5 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/5" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-5 w-20 rounded-full" />
+              </Card>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
 }

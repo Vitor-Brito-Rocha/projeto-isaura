@@ -2,24 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
+@layer base {
+  :root {
+    --background: 210 20% 96%;
+    --foreground: 225 20% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 225 20% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 20% 11%;
+
+    /* Azul de tinta de registro escolar — a cor da marca. */
+    --primary: 225 54% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 20% 93%;
+    --secondary-foreground: 225 20% 20%;
+
+    --muted: 214 20% 93%;
+    --muted-foreground: 220 10% 46%;
+
+    --accent: 214 20% 93%;
+    --accent-foreground: 225 20% 20%;
+
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Laranja de alarme. Semântico, separado da cor da marca: quando tudo é
+       destaque, nada é — o âmbar só aparece onde há degradação a comunicar. */
+    --alarme: 24 84% 39%;
+    --alarme-foreground: 0 0% 100%;
+    --alarme-suave: 30 90% 95%;
+
+    --sucesso: 160 70% 28%;
+    --sucesso-suave: 160 50% 94%;
+
+    --border: 214 18% 87%;
+    --input: 214 18% 87%;
+    --ring: 225 54% 40%;
+
+    --radius: 0.6rem;
+  }
+
+  .dark {
+    --background: 225 20% 8%;
+    --foreground: 210 20% 92%;
+
+    --card: 225 18% 12%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 225 18% 12%;
+    --popover-foreground: 210 20% 92%;
+
+    /* Clareado para manter contraste sobre fundo escuro — o azul de 40% de
+       luminosidade some no escuro. */
+    --primary: 224 70% 70%;
+    --primary-foreground: 225 30% 12%;
+
+    --secondary: 225 14% 18%;
+    --secondary-foreground: 210 20% 92%;
+
+    --muted: 225 14% 18%;
+    --muted-foreground: 220 10% 62%;
+
+    --accent: 225 14% 18%;
+    --accent-foreground: 210 20% 92%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --alarme: 28 85% 62%;
+    --alarme-foreground: 25 40% 12%;
+    --alarme-suave: 26 40% 16%;
+
+    --sucesso: 160 55% 55%;
+    --sucesso-suave: 160 30% 15%;
+
+    --border: 225 14% 22%;
+    --input: 225 14% 24%;
+    --ring: 224 70% 70%;
+  }
 }
 
-body {
-  @apply bg-papel text-tinta antialiased;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Helvetica,
-    Arial,
-    sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Helvetica,
+      Arial,
+      sans-serif;
+  }
+
+  /* Números em coluna (horários, minutos) alinhados. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-/* Área segura do iPhone: sem isto a barra inferior cobre os botões quando o
+/* Área segura do iPhone: sem isto a barra inferior cobre a navegação quando o
    app roda instalado na tela inicial. */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
