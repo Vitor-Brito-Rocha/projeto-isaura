@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { resolverAlarme } from '../alarmes/resolver-alarme';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCadeiraDto, UpdateCadeiraDto } from './dto/cadeira.dto';
+import { UpsertConfigAlarmeDto } from './dto/config-alarme.dto';
 
 @Injectable()
 export class CadeirasService {
@@ -56,6 +58,55 @@ export class CadeirasService {
       this.prisma.serieAula.updateMany({ where: { cadeiraId: id }, data: { ativo: false } }),
     ]);
     return { ok: true };
+  }
+
+  /**
+   * Config de alarme *efetiva* da cadeira — padrões da conta com o override
+   * aplicado por cima.
+   *
+   * A tela precisa mostrar os dois: o valor que vale hoje e se ele veio do
+   * padrão ou de um ajuste dela. Sem essa distinção, "5 minutos" na tela é
+   * ambíguo — ela não sabe se mexer ali afeta uma cadeira ou onze.
+   */
+  async configAlarme(professorId: string, cadeiraId: string) {
+    await this.buscar(professorId, cadeiraId);
+
+    const [professor, override] = await Promise.all([
+      this.prisma.professor.findUniqueOrThrow({ where: { id: professorId } }),
+      this.prisma.configAlarme.findUnique({ where: { cadeiraId } }),
+    ]);
+
+    return {
+      efetiva: resolverAlarme(professor, override),
+      override,
+      padroesDaConta: {
+        antecedenciaMin: professor.antecedenciaPadraoMin,
+        atrasoMin: professor.atrasoPadraoMin,
+        intensidadeAbertura: professor.intensidadeAberturaPadrao,
+        intensidadeFechamento: professor.intensidadeFechamentoPadrao,
+        som: professor.somPadrao,
+        vibra: professor.vibraPadrao,
+      },
+    };
+  }
+
+  async salvarConfigAlarme(professorId: string, cadeiraId: string, dto: UpsertConfigAlarmeDto) {
+    await this.buscar(professorId, cadeiraId);
+
+    await this.prisma.configAlarme.upsert({
+      where: { cadeiraId },
+      create: { professorId, cadeiraId, ...dto },
+      update: dto,
+    });
+
+    return this.configAlarme(professorId, cadeiraId);
+  }
+
+  /** Remove o override — a cadeira volta a herdar os padrões da conta. */
+  async limparConfigAlarme(professorId: string, cadeiraId: string) {
+    await this.buscar(professorId, cadeiraId);
+    await this.prisma.configAlarme.deleteMany({ where: { cadeiraId, professorId } });
+    return this.configAlarme(professorId, cadeiraId);
   }
 
   private async validarEscola(professorId: string, escolaId?: string) {

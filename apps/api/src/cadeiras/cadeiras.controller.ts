@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { AuthProfessor, CurrentProfessor } from '../auth/current-professor.decorator';
 import { CadeirasService } from './cadeiras.service';
 import { CreateCadeiraDto, UpdateCadeiraDto } from './dto/cadeira.dto';
+import { UpsertConfigAlarmeDto } from './dto/config-alarme.dto';
 
 @Controller('cadeiras')
 export class CadeirasController {
@@ -34,5 +35,24 @@ export class CadeirasController {
   @Delete(':id')
   desativar(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
     return this.cadeiras.desativar(p.id, id);
+  }
+
+  @Get(':id/alarme')
+  configAlarme(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
+    return this.cadeiras.configAlarme(p.id, id);
+  }
+
+  @Put(':id/alarme')
+  salvarConfigAlarme(
+    @CurrentProfessor() p: AuthProfessor,
+    @Param('id') id: string,
+    @Body() dto: UpsertConfigAlarmeDto,
+  ) {
+    return this.cadeiras.salvarConfigAlarme(p.id, id, dto);
+  }
+
+  @Delete(':id/alarme')
+  limparConfigAlarme(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
+    return this.cadeiras.limparConfigAlarme(p.id, id);
   }
 }

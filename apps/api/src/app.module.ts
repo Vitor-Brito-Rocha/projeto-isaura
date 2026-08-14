@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AgendaModule } from './agenda/agenda.module';
+import { AlarmesModule } from './alarmes/alarmes.module';
 import { AuthModule } from './auth/auth.module';
 import { SupabaseJwtGuard } from './auth/supabase-jwt.guard';
 import { CadeirasModule } from './cadeiras/cadeiras.module';
@@ -11,8 +12,10 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { EscolasModule } from './escolas/escolas.module';
 import { HealthController } from './health.controller';
 import { JobsModule } from './jobs/jobs.module';
+import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfessoresModule } from './professores/professores.module';
+import { PushModule } from './push/push.module';
 import { SeriesModule } from './series/series.module';
 
 @Module({
@@ -28,6 +31,9 @@ import { SeriesModule } from './series/series.module';
     CadeirasModule,
     SeriesModule,
     AgendaModule,
+    PushModule,
+    NotificacoesModule,
+    AlarmesModule,
     JobsModule,
   ],
   controllers: [HealthController],
