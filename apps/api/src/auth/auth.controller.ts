@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ProfessoresService } from '../professores/professores.service';
-import { AuthService, EmailJaCadastradoError } from './auth.service';
+import { AuthService, SemSessaoError } from './auth.service';
 import { AuthProfessor, CurrentProfessor } from './current-professor.decorator';
 import { LoginDto, SignupDto } from './dto/auth.dto';
 import { Public } from './public.decorator';
@@ -35,9 +35,9 @@ export class AuthController {
       setSessionCookies(this.config, res, session);
       return { ok: true, logado: true };
     } catch (e) {
-      // Resposta idêntica para "email já existe" e "confirmação pendente": as
-      // duas revelariam se a conta existe para quem só quer sondar.
-      if (e instanceof EmailJaCadastradoError) return { ok: true, logado: false };
+      // Resposta idêntica para "email já existe" e "confirmação pendente":
+      // distingui-las revelaria quais emails têm conta.
+      if (e instanceof SemSessaoError) return { ok: true, logado: false };
       throw e;
     }
   }

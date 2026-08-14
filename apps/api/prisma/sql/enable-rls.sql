@@ -27,9 +27,13 @@ ALTER TABLE anexos             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notificacoes       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- O cast para text não é decoração: `Professor.id` é String no Prisma, o que
+-- vira `text` no Postgres, enquanto `auth.uid()` devolve `uuid`. Sem o cast o
+-- CREATE POLICY falha com "operator does not exist: text = uuid".
+
 DROP POLICY IF EXISTS professores_proprio ON professores;
 CREATE POLICY professores_proprio ON professores
-  USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+  USING (id = auth.uid()::text) WITH CHECK (id = auth.uid()::text);
 
 DO $$
 DECLARE t text;
@@ -42,7 +46,7 @@ BEGIN
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I_proprio ON %I', t, t);
     EXECUTE format(
-      'CREATE POLICY %I_proprio ON %I USING (professor_id = auth.uid()) WITH CHECK (professor_id = auth.uid())',
+      'CREATE POLICY %I_proprio ON %I USING (professor_id = auth.uid()::text) WITH CHECK (professor_id = auth.uid()::text)',
       t, t
     );
   END LOOP;
@@ -64,31 +68,31 @@ DROP POLICY IF EXISTS series_horarios_proprio ON series_horarios;
 CREATE POLICY series_horarios_proprio ON series_horarios
   USING (EXISTS (
     SELECT 1 FROM series_aulas s
-    WHERE s.id = series_horarios.serie_id AND s.professor_id = auth.uid()
+    WHERE s.id = series_horarios.serie_id AND s.professor_id = auth.uid()::text
   ))
   WITH CHECK (EXISTS (
     SELECT 1 FROM series_aulas s
-    WHERE s.id = series_horarios.serie_id AND s.professor_id = auth.uid()
+    WHERE s.id = series_horarios.serie_id AND s.professor_id = auth.uid()::text
   ));
 
 DROP POLICY IF EXISTS topicos_proprio ON topicos;
 CREATE POLICY topicos_proprio ON topicos
   USING (EXISTS (
     SELECT 1 FROM unidades u
-    WHERE u.id = topicos.unidade_id AND u.professor_id = auth.uid()
+    WHERE u.id = topicos.unidade_id AND u.professor_id = auth.uid()::text
   ))
   WITH CHECK (EXISTS (
     SELECT 1 FROM unidades u
-    WHERE u.id = topicos.unidade_id AND u.professor_id = auth.uid()
+    WHERE u.id = topicos.unidade_id AND u.professor_id = auth.uid()::text
   ));
 
 DROP POLICY IF EXISTS registros_topicos_proprio ON registros_topicos;
 CREATE POLICY registros_topicos_proprio ON registros_topicos
   USING (EXISTS (
     SELECT 1 FROM registros_aula r
-    WHERE r.id = registros_topicos.registro_id AND r.professor_id = auth.uid()
+    WHERE r.id = registros_topicos.registro_id AND r.professor_id = auth.uid()::text
   ))
   WITH CHECK (EXISTS (
     SELECT 1 FROM registros_aula r
-    WHERE r.id = registros_topicos.registro_id AND r.professor_id = auth.uid()
+    WHERE r.id = registros_topicos.registro_id AND r.professor_id = auth.uid()::text
   ));

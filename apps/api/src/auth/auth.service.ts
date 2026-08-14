@@ -2,7 +2,16 @@ import { Injectable, InternalServerErrorException, UnauthorizedException } from 
 import { ConfigService } from '@nestjs/config';
 import type { SupabaseSession } from './session-cookies';
 
-export class EmailJaCadastradoError extends Error {}
+/**
+ * O cadastro foi aceito mas não há sessão para abrir.
+ *
+ * Cobre dois casos que o Supabase reporta de formas diferentes e que o app
+ * trata igual: email já cadastrado, e projeto configurado para exigir
+ * confirmação por email. Um nome só para os dois é de propósito — a resposta ao
+ * cliente também precisa ser a mesma, senão o endpoint vira um verificador de
+ * quais emails têm conta.
+ */
+export class SemSessaoError extends Error {}
 
 /**
  * Cliente fino do Supabase Auth (GoTrue) via REST.
@@ -52,12 +61,12 @@ export class AuthService {
         data: { nome },
       });
       // Sem sessão na resposta = projeto exige confirmação de email.
-      if (!json.access_token) throw new EmailJaCadastradoError('Confirmação pendente.');
+      if (!json.access_token) throw new SemSessaoError('Confirmação de email pendente.');
       return json as SupabaseSession;
     } catch (e: any) {
-      if (e instanceof EmailJaCadastradoError) throw e;
+      if (e instanceof SemSessaoError) throw e;
       if (e?.corpo?.msg?.includes('already registered')) {
-        throw new EmailJaCadastradoError('Email já cadastrado.');
+        throw new SemSessaoError('Email já cadastrado.');
       }
       throw e;
     }

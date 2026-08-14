@@ -55,6 +55,11 @@ export class AgendaService {
 
     const cancelada =
       dto.status === StatusOcorrencia.CANCELADA || dto.status === StatusOcorrencia.FERIADO;
+    // Reagendar uma aula cancelada precisa DEVOLVER os alarmes. Sem este ramo,
+    // marcar feriado por engano e desfazer deixaria a aula na grade com os dois
+    // alarmes permanentemente silenciados — o pior tipo de bug aqui, porque a
+    // tela mostra tudo certo e só o alarme não vem.
+    const reativada = dto.status === StatusOcorrencia.AGENDADA;
 
     return this.prisma.ocorrencia.update({
       where: { id },
@@ -67,6 +72,7 @@ export class AgendaService {
         ...(cancelada
           ? { aberturaNotificadaEm: new Date(), fechamentoNotificadoEm: new Date() }
           : {}),
+        ...(reativada ? { aberturaNotificadaEm: null, fechamentoNotificadoEm: null } : {}),
       },
     });
   }

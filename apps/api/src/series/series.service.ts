@@ -72,6 +72,16 @@ export class SeriesService {
     await this.buscar(professorId, id);
     if (dto.horarios) this.validarHorarios(dto.horarios);
 
+    // Qualquer um destes muda QUAIS datas a série gera, não só o horário delas.
+    // Trocar só os horários e esquecer o resto deixaria a grade desatualizada
+    // depois de "adiei o início para agosto" — a professora veria as aulas
+    // antigas continuarem lá.
+    const mudaAsDatas =
+      dto.horarios !== undefined ||
+      dto.frequencia !== undefined ||
+      dto.dataInicio !== undefined ||
+      dto.dataFim !== undefined;
+
     await this.prisma.$transaction(async (tx) => {
       await tx.serieAula.update({
         where: { id },
@@ -88,16 +98,20 @@ export class SeriesService {
         await tx.serieHorario.createMany({
           data: dto.horarios.map((h) => ({ ...h, serieId: id })),
         });
+      }
+
+      if (mudaAsDatas) {
         // Apaga as futuras ainda AGENDADAS para materializarFaltantes recriá-las
-        // no horário novo. As passadas e as já DADAS ficam: são histórico, e
-        // reescrevê-las apagaria o registro de aula que de fato aconteceu.
+        // com a configuração nova. As passadas e as já DADAS ficam: são
+        // histórico, e reescrevê-las apagaria o registro de aula que de fato
+        // aconteceu — junto com o RegistroAula pendurado nela (cascade).
         await tx.ocorrencia.deleteMany({
           where: { serieId: id, status: StatusOcorrencia.AGENDADA, data: { gte: hojeUTC() } },
         });
       }
     });
 
-    if (dto.horarios) await this.materializarFaltantes(id);
+    if (mudaAsDatas) await this.materializarFaltantes(id);
     return this.buscar(professorId, id);
   }
 
