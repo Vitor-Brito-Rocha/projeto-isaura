@@ -1,7 +1,12 @@
 /**
- * Cobre só `src/lib` — a lógica pura que decide o que o aparelho entrega e como
- * avisar a professora. Componentes React ficam de fora de propósito: o que
- * quebra neste app não é renderização, é prometer um alarme que não vai tocar.
+ * Cobre `src/lib` — a lógica pura que decide o que o aparelho entrega e como
+ * avisar a professora — e os componentes cuja quebra é de MONTAGEM, não de
+ * aparência.
+ *
+ * A regra era "componentes ficam de fora, o que quebra aqui não é renderização".
+ * Um `Button asChild` provou o contrário derrubando a home inteira, sem que
+ * `tsc` nem `next build` reclamassem. Teste de layout continua fora de escopo;
+ * teste de "a árvore monta" não.
  */
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts', 'tsx'],

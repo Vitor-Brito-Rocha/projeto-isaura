@@ -58,8 +58,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         {...props}
       >
-        {loading && <Loader2 className="animate-spin" aria-hidden />}
-        {children}
+        {/*
+          Com `asChild`, o filho vai puro: o Slot do Radix exige UM filho e usa
+          React.Children.only, que rejeita um array de dois mesmo quando o
+          primeiro é falsy — `{loading && ...}` sozinho já era suficiente para
+          derrubar a página inteira em runtime. Fora que injetar um spinner
+          dentro de um <Link> alheio não é do Button decidir; quem passa asChild
+          controla o próprio conteúdo.
+        */}
+        {asChild ? (
+          children
+        ) : (
+          <>
+            {loading && <Loader2 className="animate-spin" aria-hidden />}
+            {children}
+          </>
+        )}
       </Comp>
     );
   },
