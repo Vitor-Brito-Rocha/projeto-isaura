@@ -17,8 +17,27 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
+import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
 
 type Momento = 'abertura' | 'fechamento';
+
+/**
+ * Diz a verdade sobre onde o registro está.
+ *
+ * "Salvo" quando o texto só chegou no aparelho seria a mesma classe de mentira
+ * que prometer um alarme que não toca: ela fecharia o app achando que a
+ * coordenação já pode ver aquilo.
+ */
+function avisar(desfecho: Desfecho) {
+  if (desfecho === 'enviado') {
+    toast.success('Aula registrada.');
+    return;
+  }
+  toast.success('Salvo no aparelho.', {
+    description: 'Sem rede agora — sobe sozinho quando a conexão voltar.',
+    duration: 6000,
+  });
+}
 
 function dataCurta(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -179,14 +198,15 @@ function FormAbertura({
     setPlano(contexto.registro?.planoPrevisto ?? anterior?.texto ?? '');
   }, [contexto.registro?.planoPrevisto, anterior?.texto]);
 
+  const { salvar: salvarComFila } = useFilaOffline();
+
   const salvar = useMutation({
     mutationFn: () =>
-      apiFetch(`/registros/ocorrencia/${ocorrenciaId}/abertura`, {
-        method: 'PUT',
-        body: JSON.stringify({ planoPrevisto: plano }),
+      salvarComFila(`abertura:${ocorrenciaId}`, `/registros/ocorrencia/${ocorrenciaId}/abertura`, {
+        planoPrevisto: plano,
       }),
-    onSuccess: () => {
-      toast.success('Plano da aula salvo.');
+    onSuccess: (desfecho) => {
+      avisar(desfecho);
       onSalvo();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.'),
@@ -256,21 +276,24 @@ function FormFechamento({
     setProxima(registro?.planoProximaAula ?? '');
   }, [registro, sugestaoIrma?.unidadeId]);
 
+  const { salvar: salvarComFila } = useFilaOffline();
+
   const salvar = useMutation({
     mutationFn: () =>
-      apiFetch(`/registros/ocorrencia/${ocorrenciaId}/fechamento`, {
-        method: 'PUT',
-        body: JSON.stringify({
+      salvarComFila(
+        `fechamento:${ocorrenciaId}`,
+        `/registros/ocorrencia/${ocorrenciaId}/fechamento`,
+        {
           conteudoDado: conteudo,
           unidadeId: unidadeId || undefined,
           topicosCobertos: topicos,
           atividadeCasa: atividade,
           dataEntrega: entrega,
           planoProximaAula: proxima,
-        }),
-      }),
-    onSuccess: () => {
-      toast.success('Aula registrada.');
+        },
+      ),
+    onSuccess: (desfecho) => {
+      avisar(desfecho);
       onSalvo();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.'),

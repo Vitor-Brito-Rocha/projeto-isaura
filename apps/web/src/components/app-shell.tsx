@@ -1,8 +1,9 @@
 'use client';
 
-import { BookOpen, CalendarDays, GraduationCap, Settings } from 'lucide-react';
+import { BookOpen, CalendarDays, CloudOff, GraduationCap, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useFilaOffline } from '@/lib/usar-fila';
 import { cn } from '@/lib/utils';
 
 const ITENS = [
@@ -39,9 +40,23 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const caminho = usePathname();
+  const { pendentes } = useFilaOffline();
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      {/*
+        Registro parado no aparelho é coisa que ela precisa saber sem ter de
+        procurar: some sozinho quando sobe, e enquanto está lá diz onde está o
+        trabalho dela.
+      */}
+      {pendentes > 0 && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+          <CloudOff className="size-3.5 shrink-0" aria-hidden />
+          <span>
+            {pendentes} registro(s) salvos no aparelho, aguardando rede
+          </span>
+        </div>
+      )}
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
