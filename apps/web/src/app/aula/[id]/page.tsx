@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api';
+import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 
 type Momento = 'abertura' | 'fechamento';
@@ -43,6 +44,7 @@ export default function Aula() {
     queryFn: () => apiFetch<ContextoAula>(`/registros/ocorrencia/${id}`),
     enabled: Boolean(id),
   });
+  useRedirecionaSeDeslogado(error);
 
   if (isLoading) {
     return (

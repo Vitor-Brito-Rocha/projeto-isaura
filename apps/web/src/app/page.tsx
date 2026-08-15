@@ -5,21 +5,20 @@ import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
+import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { Ocorrencia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
 
 export default function Semana() {
-  const router = useRouter();
   const [offset, setOffset] = useState(0);
 
   const base = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), offset * 7);
@@ -34,9 +33,7 @@ export default function Semana() {
     placeholderData: (anterior) => anterior,
   });
 
-  useEffect(() => {
-    if (error instanceof ApiError && error.status === 401) router.push('/login');
-  }, [error, router]);
+  useRedirecionaSeDeslogado(error);
 
   const porDia = new Map<string, Ocorrencia[]>();
   for (const oc of data ?? []) {

@@ -31,7 +31,9 @@ export interface Cadeira {
   corHex: string;
   ativo: boolean;
   escola?: { id: string; nome: string } | null;
-  _count?: { series: number; unidades: number };
+  planoCurricularId?: string | null;
+  plano?: { id: string; nome: string; _count?: { unidades: number } } | null;
+  _count?: { series: number };
 }
 
 export interface AlarmeResolvido {
@@ -83,6 +85,12 @@ export interface PlanoCurricular {
   disciplina: string | null;
   anoLetivo: number;
   _count?: { unidades: number; cadeiras: number };
+}
+
+/** Resposta de `GET /planos/:id`. */
+export interface PlanoDetalhe extends PlanoCurricular {
+  unidades: Unidade[];
+  cadeiras: { id: string; disciplina: string; turma: string; corHex: string }[];
 }
 
 export interface RegistroAula {

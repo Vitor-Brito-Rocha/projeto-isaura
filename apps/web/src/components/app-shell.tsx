@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, GraduationCap, Settings } from 'lucide-react';
+import { BookOpen, CalendarDays, GraduationCap, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 const ITENS = [
   { href: '/', rotulo: 'Semana', Icone: CalendarDays },
   { href: '/cadeiras', rotulo: 'Cadeiras', Icone: GraduationCap },
+  { href: '/planos', rotulo: 'Planos', Icone: BookOpen },
   { href: '/config', rotulo: 'Ajustes', Icone: Settings },
 ] as const;
 
@@ -18,6 +19,14 @@ const ITENS = [
  * celular, onde o polegar alcança, e no topo no desktop, onde uma barra fixa
  * embaixo só rouba altura. Mesma lista, mesmas rotas — só o lugar muda.
  */
+/**
+ * Igualdade exata só serve para a raiz. Sem isto, `/planos/<id>` deixaria a
+ * navegação inteira apagada — a professora perde a referência de onde está.
+ */
+function estaNaSecao(caminho: string, href: string) {
+  return href === '/' ? caminho === '/' : caminho === href || caminho.startsWith(`${href}/`);
+}
+
 export function AppShell({
   titulo,
   descricao,
@@ -49,10 +58,10 @@ export function AppShell({
                 <Link
                   key={href}
                   href={href}
-                  aria-current={caminho === href ? 'page' : undefined}
+                  aria-current={estaNaSecao(caminho, href) ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    caminho === href
+                    estaNaSecao(caminho, href)
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                   )}
@@ -73,7 +82,7 @@ export function AppShell({
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t bg-card sm:hidden">
         <div className="mx-auto flex max-w-4xl">
           {ITENS.map(({ href, rotulo, Icone }) => {
-            const ativo = caminho === href;
+            const ativo = estaNaSecao(caminho, href);
             return (
               <Link
                 key={href}

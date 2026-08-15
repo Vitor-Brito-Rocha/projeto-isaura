@@ -23,14 +23,15 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 2. ~~**A rota `/aula/[id]` não existe**~~ — feito. `apps/web/src/app/aula/[id]/page.tsx` com os dois
    formulários, alimentada por `GET /registros/ocorrencia/:id`.
 
+3. ~~**Cadastro de plano curricular na UI**~~ — feito. `/planos` (lista + criação) e
+   `/planos/[id]` (unidades e tópicos). Vínculo turma↔plano no card de cada cadeira.
+
 ### O que falta na fase 3
 
-- **Cadastro de plano curricular na UI.** A API tem CRUD completo (`/planos`, unidades, tópicos),
-  mas não existe tela — hoje só dá para criar plano por chamada direta. Sem isso o select de
-  unidade no fechamento fica sempre vazio, que é justamente o que torna os registros comparáveis.
-- **Vincular cadeira a plano na UI** — o campo já existe no DTO e é validado por dono.
 - **Anexos** (foto/documento) e **escrita local-first** (IndexedDB + fila de sync). O local-first é
   requisito, não refinamento: é no fechamento que a rede falta.
+- **Editar unidade/tópico** — hoje só criar e remover. Renomear exige apagar e recriar, o que
+  perde o vínculo com registros que já cobriram aquele tópico. Os endpoints `PATCH` já existem.
 
 ### Pendências humanas (não são de código)
 

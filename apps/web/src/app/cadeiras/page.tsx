@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Smartphone, X } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
@@ -13,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
-import type { Cadeira } from '@/lib/types';
+import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import type { Cadeira, PlanoCurricular } from '@/lib/types';
 import { PainelAlarme } from './painel-alarme';
 
 export default function Cadeiras() {
@@ -24,9 +26,29 @@ export default function Cadeiras() {
   // Só no cliente: a detecção lê navigator/matchMedia, que não existem no SSR.
   useEffect(() => setCapacidade(detectarCapacidade()), []);
 
-  const { data: cadeiras, isLoading } = useQuery({
+  const { data: cadeiras, isLoading, error } = useQuery({
     queryKey: ['cadeiras'],
     queryFn: () => apiFetch<Cadeira[]>('/cadeiras'),
+  });
+  useRedirecionaSeDeslogado(error);
+
+  const { data: planos } = useQuery({
+    queryKey: ['planos'],
+    queryFn: () => apiFetch<PlanoCurricular[]>('/planos'),
+  });
+
+  const vincular = useMutation({
+    mutationFn: ({ id, planoCurricularId }: { id: string; planoCurricularId: string | null }) =>
+      apiFetch(`/cadeiras/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ planoCurricularId }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      qc.invalidateQueries({ queryKey: ['planos'] });
+      toast.success('Plano da turma atualizado.');
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível vincular.'),
   });
 
   const criar = useMutation({
@@ -121,7 +143,45 @@ export default function Cadeiras() {
                 </Badge>
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor={`plano-${c.id}`}>Plano de curso</Label>
+                {/* Select nativo: no celular abre a roleta do SO, mais rápida
+                    de acertar com o polegar do que uma lista customizada. */}
+                <select
+                  id={`plano-${c.id}`}
+                  value={c.planoCurricularId ?? ''}
+                  disabled={vincular.isPending || (planos?.length ?? 0) === 0}
+                  onChange={(e) =>
+                    vincular.mutate({ id: c.id, planoCurricularId: e.target.value || null })
+                  }
+                  className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                >
+                  <option value="">— sem plano —</option>
+                  {planos?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}
+                    </option>
+                  ))}
+                </select>
+                {(planos?.length ?? 0) === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhum plano cadastrado ainda —{' '}
+                    <Link href="/planos" className="underline underline-offset-2">
+                      crie um
+                    </Link>{' '}
+                    para o fechamento da aula ter unidade para escolher.
+                  </p>
+                ) : (
+                  !c.planoCurricularId && (
+                    <p className="text-xs text-muted-foreground">
+                      Sem plano, o fechamento desta turma não registra unidade — e o progresso dela
+                      não entra na comparação.
+                    </p>
+                  )
+                )}
+              </div>
+
               <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
             </CardContent>
           </Card>
