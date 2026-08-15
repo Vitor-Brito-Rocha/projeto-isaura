@@ -1,0 +1,1302 @@
+<title>Arquitetura da Isaura</title>
+<style>
+  :root {
+    --paper: #F1F2F4;
+    --surface: #FFFFFF;
+    --surface-2: #E7EAEF;
+    --ink: #151821;
+    --ink-2: #454B5A;
+    --ink-3: #6E7686;
+    --rule: #D4D9E1;
+    --rule-strong: #B7BFCB;
+    --accent: #2F4A9C;
+    --accent-soft: #E2E8F7;
+    --alarm: #B85210;
+    --alarm-soft: #FAE9DB;
+    --ok: #1D6B5B;
+    --ok-soft: #DBEDE8;
+    --risk: #A33A2E;
+    --risk-soft: #F8E3DF;
+
+    --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-body: Charter, "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    --measure: 70ch;
+    --wide: 1120px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0F1117;
+      --surface: #171A22;
+      --surface-2: #1F232D;
+      --ink: #E9EBF0;
+      --ink-2: #B0B7C5;
+      --ink-3: #7F8899;
+      --rule: #2A2F3B;
+      --rule-strong: #3C4352;
+      --accent: #8FA8EA;
+      --accent-soft: #1B2440;
+      --alarm: #EB9A54;
+      --alarm-soft: #32210F;
+      --ok: #62C2AA;
+      --ok-soft: #0F2820;
+      --risk: #E88574;
+      --risk-soft: #2E1512;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0F1117;
+    --surface: #171A22;
+    --surface-2: #1F232D;
+    --ink: #E9EBF0;
+    --ink-2: #B0B7C5;
+    --ink-3: #7F8899;
+    --rule: #2A2F3B;
+    --rule-strong: #3C4352;
+    --accent: #8FA8EA;
+    --accent-soft: #1B2440;
+    --alarm: #EB9A54;
+    --alarm-soft: #32210F;
+    --ok: #62C2AA;
+    --ok-soft: #0F2820;
+    --risk: #E88574;
+    --risk-soft: #2E1512;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: var(--wide);
+    margin: 0 auto;
+    padding: 0 24px 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .prose { max-width: var(--measure); }
+
+  p { margin: 0 0 1em; }
+  p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 700; color: var(--ink); }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.84em;
+    background: var(--surface-2);
+    padding: 0.14em 0.4em;
+    border-radius: 3px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: 72px 0 40px;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+    margin: 0;
+    text-wrap: balance;
+    max-width: 16ch;
+  }
+
+  .standfirst {
+    max-width: var(--measure);
+    font-size: 1.16rem;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+
+  .decided {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 6px;
+  }
+
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    padding: 7px 12px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 100px;
+    color: var(--ink-2);
+    background: var(--surface);
+  }
+
+  .chip b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- sections ---------- */
+
+  section {
+    padding: 64px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .sec-head {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: var(--measure);
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.55rem, 3.2vw, 2.1rem);
+    line-height: 1.12;
+    letter-spacing: -0.022em;
+    font-weight: 750;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    letter-spacing: -0.012em;
+    font-weight: 700;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- verdict ---------- */
+
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--alarm);
+    border-radius: 4px;
+    padding: 22px 26px;
+    max-width: var(--measure);
+  }
+
+  .verdict .lead {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+  }
+
+  /* ---------- tiers ---------- */
+
+  .tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .tier {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .tier.pick { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  .tier-top { display: flex; flex-direction: column; gap: 6px; }
+
+  .tier-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .tier.pick .tier-tag { color: var(--accent); }
+
+  .tier p { font-size: 0.95rem; color: var(--ink-2); margin: 0; }
+
+  .tier ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+
+  .tier li {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    padding-left: 22px;
+    position: relative;
+    color: var(--ink-2);
+  }
+
+  .tier li::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    font-weight: 700;
+  }
+
+  li.y::before { content: "SIM"; content: "✓"; color: var(--ok); font-size: 1em; }
+  li.n::before { content: "✕"; color: var(--risk); }
+  li.m::before { content: "~"; color: var(--ink-3); }
+
+  /* ---------- tables ---------- */
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    min-width: 640px;
+  }
+
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--rule-strong);
+    white-space: nowrap;
+    background: var(--surface-2);
+  }
+
+  td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    color: var(--ink-2);
+    line-height: 1.45;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.k { color: var(--ink); font-weight: 650; white-space: nowrap; }
+  td code { font-size: 0.82em; }
+
+  .yes { color: var(--ok); font-weight: 700; }
+  .no { color: var(--risk); font-weight: 700; }
+  .partial { color: var(--ink-3); font-weight: 700; }
+
+  /* ---------- timetable strip ---------- */
+
+  .strip {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 34px 28px 26px;
+    overflow-x: auto;
+  }
+
+  .strip-inner { min-width: 560px; }
+
+  .track {
+    position: relative;
+    height: 56px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    margin: 46px 0 8px;
+  }
+
+  .block {
+    position: absolute;
+    left: 22%;
+    width: 46%;
+    top: 0;
+    bottom: 0;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+
+  .pin {
+    position: absolute;
+    top: -44px;
+    bottom: -14px;
+    width: 2px;
+    background: var(--alarm);
+  }
+
+  .pin::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--alarm);
+  }
+
+  .pin span {
+    position: absolute;
+    top: -4px;
+    left: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--alarm);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .pin.a { left: 17%; }
+  .pin.b { left: 72%; }
+  .pin.b span { left: auto; right: 8px; text-align: right; }
+
+  .axis {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    padding-top: 6px;
+  }
+
+  /* ---------- pipeline ---------- */
+
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    position: relative;
+  }
+
+  .stage-n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+  }
+
+  .stage h4 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .stage p { font-size: 0.85rem; color: var(--ink-2); line-height: 1.45; margin: 0; }
+
+  /* ---------- callouts ---------- */
+
+  .note {
+    border-radius: 4px;
+    padding: 16px 20px;
+    max-width: var(--measure);
+    font-size: 0.94rem;
+    line-height: 1.55;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+  }
+
+  .note.risk { background: var(--risk-soft); border-color: var(--risk); color: var(--ink); }
+  .note.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ink); }
+  .note.alarm { background: var(--alarm-soft); border-color: var(--alarm); color: var(--ink); }
+
+  .note .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .note.risk .label { color: var(--risk); }
+  .note.ok .label { color: var(--ok); }
+  .note.alarm .label { color: var(--alarm); }
+
+  /* ---------- schema ---------- */
+
+  .schema {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+  }
+
+  .entity {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .entity-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-2);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .entity-head .nm {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .entity-head .src {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 100px;
+  }
+
+  .src.reuse { color: var(--ok); background: var(--ok-soft); }
+  .src.new { color: var(--alarm); background: var(--alarm-soft); }
+
+  .entity ul { margin: 0; padding: 12px 16px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+  .entity li {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+
+  .entity li b { color: var(--ink); font-weight: 700; }
+  .entity li i { font-style: normal; color: var(--ink-3); font-family: var(--font-body); font-size: 13px; }
+
+  /* ---------- phases ---------- */
+
+  .phases { display: flex; flex-direction: column; gap: 0; }
+
+  .phase {
+    display: grid;
+    grid-template-columns: 74px 1fr;
+    gap: 24px;
+    padding: 24px 0;
+    border-top: 1px solid var(--rule);
+    align-items: start;
+  }
+
+  .phase:last-child { border-bottom: 1px solid var(--rule); }
+
+  .phase-n {
+    font-family: var(--font-display);
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--rule-strong);
+    line-height: 1;
+    padding-top: 2px;
+  }
+
+  .phase-body { display: flex; flex-direction: column; gap: 8px; max-width: var(--measure); }
+
+  .phase-body p { font-size: 0.96rem; color: var(--ink-2); margin: 0; }
+
+  .phase-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* ---------- open questions ---------- */
+
+  .qs { display: flex; flex-direction: column; gap: 12px; max-width: var(--measure); }
+
+  .q {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .q .qq { font-family: var(--font-display); font-weight: 650; font-size: 0.98rem; letter-spacing: -0.01em; }
+  .q .qa { font-size: 0.9rem; color: var(--ink-2); line-height: 1.5; }
+
+  ul.plain { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 8px; max-width: var(--measure); }
+  ul.plain li { line-height: 1.55; }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 24px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-3);
+    line-height: 1.7;
+    max-width: var(--measure);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    a, summary { transition: color .15s ease; }
+  }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .page { padding: 0 18px 80px; }
+    .masthead { padding-top: 48px; }
+    .phase { grid-template-columns: 48px 1fr; gap: 16px; }
+    .phase-n { font-size: 1.5rem; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="kicker">Plano de arquitetura · projeto-isaura · Ago 2026</div>
+    <h1>Arquitetura da Isaura</h1>
+    <p class="standfirst">
+      Onze cadeiras, duas batidas de alarme por aula, e um registro de conteúdo que precisa
+      sobreviver ao fim da aula. Este documento resolve a pergunta que trava o resto —
+      <em>web app consegue dar alarme?</em> — e desenha o caminho a partir dela.
+    </p>
+    <div class="decided">
+      <span class="chip"><b>Decidido:</b> repo novo, transplantando peças do projeto-professor</span>
+      <span class="chip"><b>Decidido:</b> intensidade escolhida por ela, aula a aula</span>
+      <span class="chip"><b>Aberto:</b> Android, iPhone ou os dois</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">A pergunta que trava tudo</div>
+      <h2>Notificação e alarme são coisas diferentes</h2>
+    </div>
+
+    <div class="verdict">
+      <p class="lead">Um PWA não consegue dar alarme. Consegue dar notificação forte.</p>
+      <p style="margin-top:12px;color:var(--ink-2);font-size:0.97rem">
+        A diferença não é de grau, é de categoria. Notificação chega pela bandeja do sistema e
+        respeita o silencioso. Alarme fura o silencioso, ocupa a tela inteira e toca até alguém
+        desligar. Só o sistema operacional dá alarme, e ele só entrega esse poder para app
+        instalado — nunca para página web, por melhor que seja o service worker.
+      </p>
+    </div>
+
+    <p class="prose">
+      Vale registrar uma esperança que já morreu: a <strong>Notification Triggers API</strong>
+      (<code>TimestampTrigger</code>) prometia exatamente isso — agendar notificação local pelo
+      navegador, sem servidor, disparando no horário mesmo offline. Ficou em origin trial no Chrome
+      e nunca foi para o estável. Não dá para contar com ela.
+    </p>
+
+    <div class="tiers">
+      <div class="tier">
+        <div class="tier-top">
+          <div class="tier-tag">Nível 1 · PWA puro</div>
+          <h3>Web push + service worker</h3>
+        </div>
+        <p>É o que o projeto-professor já faz hoje, e funciona bem.</p>
+        <ul>
+          <li class="y">Tela de bloqueio, badge, botões de ação rápida</li>
+          <li class="y">Vibração no Android (<code>vibrate</code>)</li>
+          <li class="y">Fica fixa até ela interagir (<code>requireInteraction</code>)</li>
+          <li class="y">Funciona em Android e iPhone</li>
+          <li class="n">Não fura o silencioso nem o Não Perturbe</li>
+          <li class="n">Som customizado: impossível no iOS</li>
+          <li class="m">Entrega depende de FCM/APNs — pode atrasar</li>
+        </ul>
+      </div>
+
+      <div class="tier pick">
+        <div class="tier-top">
+          <div class="tier-tag">Nível 2 · Capacitor</div>
+          <h3>Notificação local agendada</h3>
+        </div>
+        <p>Mesmo código Next.js, embrulhado. O sistema agenda e dispara — sem depender de rede.</p>
+        <ul>
+          <li class="y">Dispara offline, sem servidor no caminho</li>
+          <li class="y">Som e vibração próprios no Android</li>
+          <li class="y">Horário exato (<code>AlarmManager</code>)</li>
+          <li class="y">Sobrevive a app fechado</li>
+          <li class="m">iOS: limite de 64 notificações locais pendentes</li>
+          <li class="n">iOS ainda respeita o silencioso</li>
+        </ul>
+      </div>
+
+      <div class="tier">
+        <div class="tier-top">
+          <div class="tier-tag">Nível 3 · Nativo Android</div>
+          <h3>Alarme de verdade</h3>
+        </div>
+        <p>Canal de notificação categoria alarme + <em>full-screen intent</em>. É o despertador.</p>
+        <ul>
+          <li class="y">Fura silencioso e Não Perturbe</li>
+          <li class="y">Toma a tela inteira, toca até desligar</li>
+          <li class="y">Soneca de verdade</li>
+          <li class="n">Android só — no iPhone não existe caminho equivalente</li>
+          <li class="m">Exige permissões especiais na Play Store</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note alarm">
+      <span class="label">Sobre o iPhone</span>
+      No iOS, alarme de verdade exigiria app na App Store com o entitlement de <em>Critical
+      Alerts</em>, que a Apple concede caso a caso e praticamente só para saúde e segurança.
+      Registro de aula não passa. <strong>Se ela usa iPhone, o teto é notificação forte</strong> —
+      e é melhor saber disso agora do que depois de construir.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">A decisão que você tomou</div>
+      <h2>Ela escolhe a intensidade, aula a aula</h2>
+    </div>
+
+    <p class="prose">
+      Você pediu que ela possa escolher entre notificação e alarme por aula — e essa é a decisão
+      certa, porque o custo dos dois é muito diferente. A aula das 7h10 numa segunda em que ela
+      chega correndo merece alarme. A quinta cadeira do dia, na sala ao lado da anterior, não
+      merece — vira ruído, e alarme que vira ruído é alarme que ela desliga.
+    </p>
+
+    <p class="prose">
+      Na prática isso vira um campo <code>intensidade</code> em cada configuração de alarme, com
+      três valores: <code>SILENCIOSO</code> (só entra no histórico do app, sem tocar),
+      <code>NOTIFICACAO</code> e <code>ALARME</code>. O ponto delicado é que
+      <strong><code>ALARME</code> não significa a mesma coisa em todo aparelho</strong> — e a
+      interface tem que ser honesta sobre isso em vez de prometer o que não entrega.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Intensidade escolhida</th>
+            <th>Android com wrapper</th>
+            <th>Android via navegador</th>
+            <th>iPhone</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k">SILENCIOSO</td>
+            <td>Só no histórico</td>
+            <td>Só no histórico</td>
+            <td>Só no histórico</td>
+          </tr>
+          <tr>
+            <td class="k">NOTIFICACAO</td>
+            <td><span class="yes">Completo</span> — som e vibração próprios</td>
+            <td><span class="yes">Completo</span> — vibração própria, som do sistema</td>
+            <td><span class="partial">Parcial</span> — som e vibração do sistema</td>
+          </tr>
+          <tr>
+            <td class="k">ALARME</td>
+            <td><span class="yes">Completo</span> — fura silencioso, tela cheia</td>
+            <td><span class="partial">Rebaixa</span> para notificação</td>
+            <td><span class="partial">Rebaixa</span> para notificação</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note ok">
+      <span class="label">Regra de interface</span>
+      Quando ela marcar <code>ALARME</code> num aparelho que não entrega alarme, a tela precisa
+      dizer isso na hora — <em>"neste aparelho vai chegar como notificação"</em> — e não fingir
+      que deu certo. O pior desfecho possível é ela confiar num alarme que nunca vai tocar e
+      perder o registro de uma aula.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">O ritmo da aula</div>
+      <h2>Duas batidas por aula</h2>
+    </div>
+
+    <p class="prose">
+      Cada ocorrência de aula gera dois alarmes, com folga configurável por ela em ambas as pontas.
+      O de abertura pergunta o plano; o de fechamento pergunta o que de fato aconteceu.
+    </p>
+
+    <div class="strip">
+      <div class="strip-inner">
+        <div class="track">
+          <div class="pin a"><span>−5 min<br>o que você planeja dar?</span></div>
+          <div class="block">Aula · 07:00 – 07:50</div>
+          <div class="pin b"><span>+5 min<br>o que você deu?</span></div>
+        </div>
+        <div class="axis">
+          <span>06:50</span>
+          <span>07:00</span>
+          <span>07:50</span>
+          <span>08:00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Alarme</th>
+            <th>Quando</th>
+            <th>O que ela responde</th>
+            <th>De onde vem o rascunho</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k">Abertura</td>
+            <td><code>inicio − antecedenciaMin</code><br>padrão 5 min</td>
+            <td>Plano da aula, unidade, o que pretende cobrir</td>
+            <td><strong>Do campo <code>planoProximaAula</code> do registro anterior</strong> — o
+              ciclo que faz o sistema valer a pena</td>
+          </tr>
+          <tr>
+            <td class="k">Fechamento</td>
+            <td><code>fim + atrasoMin</code><br>padrão 5 min</td>
+            <td>Conteúdo dado, unidade, atividade de casa, plano da próxima</td>
+            <td>Do plano registrado na abertura, para ela só confirmar ou corrigir</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <span class="label">O detalhe que fecha o laço</span>
+      O campo <em>"o que planejo dar na próxima"</em>, que você mencionou como opcional, é na
+      verdade a peça mais valiosa do modelo. Ele pré-preenche a abertura da aula seguinte. Sem ele,
+      cada alarme começa do zero e ela digita tudo de novo — com ele, o alarme de abertura vira um
+      toque de confirmação. É o que transforma onze cadeiras de trabalho em rotina.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Motor</div>
+      <h2>Como o alarme é disparado</h2>
+    </div>
+
+    <p class="prose">
+      A arquitetura é de duas camadas, e vale entender por quê: nenhuma das duas sozinha é
+      confiável. O servidor não alcança um celular sem rede; o dispositivo não sabe de uma aula
+      remarcada enquanto o app não abre. Juntas cobrem o buraco uma da outra.
+    </p>
+
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-n">CAMADA 1</div>
+        <h4>Agenda no aparelho</h4>
+        <p>Ao abrir o app, o cliente busca as ocorrências dos próximos dias e agenda notificações
+          locais no sistema. Dispara offline, no horário exato, com o som que ela escolheu.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">CAMADA 2</div>
+        <h4>Cron por minuto</h4>
+        <p>O NestJS varre a cada minuto quem tem alarme vencendo e manda web push. Cobre o caso do
+          celular reiniciado, o desktop, e o app que ficou semanas sem abrir.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">GARANTIA</div>
+        <h4>Reivindicação atômica</h4>
+        <p>Antes de enviar, um <code>updateMany</code> condicional marca a linha como notificada.
+          Se voltar zero, outro tick já pegou. É o que impede push duplicado em deploy.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">GARANTIA</div>
+        <h4>Tag compartilhada</h4>
+        <p>As duas camadas usam a mesma <code>tag</code> na notificação. O sistema substitui em vez
+          de empilhar, então ela nunca vê o mesmo alarme duas vezes.</p>
+      </div>
+    </div>
+
+    <div class="note ok">
+      <span class="label">Boa notícia</span>
+      A camada 2 já está pronta e testada no projeto-professor. O <code>preAvisoAula</code> dispara
+      15 minutos antes do início; o <code>lembreteInicioAula</code> dispara no início. São
+      exatamente as duas batidas que a Isaura precisa — falta tornar os minutos configuráveis e
+      escrever o gêmeo que olha para <code>horaFim</code> em vez de <code>horaInicio</code>.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Reaproveitamento</div>
+      <h2>O que vem pronto do projeto-professor</h2>
+    </div>
+
+    <p class="prose">
+      Esta é a razão de o projeto ser menor do que parece. A maior parte do encanamento difícil —
+      séries recorrentes, materialização de ocorrências, cron idempotente, VAPID, service worker —
+      já existe e já rodou em produção.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Arquivo</th>
+            <th>O que faz</th>
+            <th>O que muda</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k"><code>prisma/schema.prisma</code><br><small>SerieAula, SerieHorario</small></td>
+            <td>Série recorrente com horário por dia da semana</td>
+            <td>Troca <code>alunoId</code> por <code>cadeiraId</code>; remove cobrança e valores</td>
+          </tr>
+          <tr>
+            <td class="k"><code>Ocorrencia</code></td>
+            <td>Sessão concreta e datada, com status e marcas de notificação</td>
+            <td>Mantém a espinha; ganha relação 1:1 com o registro pedagógico</td>
+          </tr>
+          <tr>
+            <td class="k"><code>jobs.service.ts</code><br><small>gerarOcorrencias</small></td>
+            <td>Cron 03h materializa ocorrências futuras a partir das séries</td>
+            <td>Quase intacto — só perde o cálculo de valor</td>
+          </tr>
+          <tr>
+            <td class="k"><code>jobs.service.ts</code><br><small>preAvisoAula</small></td>
+            <td>Cron por minuto, janela de tolerância de 2 min, claim atômico</td>
+            <td>Antecedência vira configurável; nasce o gêmeo de fechamento</td>
+          </tr>
+          <tr>
+            <td class="k"><code>push.service.ts</code></td>
+            <td>VAPID, envio multi-dispositivo, limpeza de subscription morta,
+              persistência na central in-app</td>
+            <td>Praticamente nada. Ganha o campo <code>intensidade</code> no payload</td>
+          </tr>
+          <tr>
+            <td class="k"><code>public/sw.js</code></td>
+            <td>Ícone e vibração por tipo, ações rápidas, roteamento no clique</td>
+            <td>Vibração passa a vir do payload em vez de tabela fixa</td>
+          </tr>
+          <tr>
+            <td class="k"><code>Notificacao</code> + central</td>
+            <td>Histórico in-app que grava mesmo sem dispositivo inscrito</td>
+            <td>Direto, sem alteração. É a rede de segurança do sistema</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <span class="label">O que fica para trás</span>
+      Recibo, PIX, Stripe, assinatura, aulão, equipe, financeiro, convites e leads. É metade do
+      projeto-professor e nada disso serve aqui — motivo pelo qual repo novo ganha de fork.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Modelo de dados</div>
+      <h2>O que precisa nascer</h2>
+    </div>
+
+    <p class="prose">
+      Onze cadeiras não é onze de nada — é a razão de o modelo precisar de currículo de verdade.
+      Com uma disciplina só, uma lista de aulas basta. Com onze, ela precisa saber em que unidade
+      cada turma está e quanto falta, sem reconstruir isso de cabeça.
+    </p>
+
+    <div class="schema">
+      <div class="entity">
+        <div class="entity-head"><span class="nm">Cadeira</span><span class="src new">novo</span></div>
+        <ul>
+          <li><b>disciplina</b> <i>Matemática</i></li>
+          <li><b>turma</b> <i>8º A</i></li>
+          <li><b>escola</b> <i>opcional, se der aula em mais de uma</i></li>
+          <li><b>anoLetivo</b>, <b>corHex</b> <i>identificação visual rápida</i></li>
+        </ul>
+      </div>
+
+      <div class="entity">
+        <div class="entity-head"><span class="nm">Unidade</span><span class="src new">novo</span></div>
+        <ul>
+          <li><b>cadeiraId</b>, <b>ordem</b>, <b>titulo</b></li>
+          <li><b>dataInicio</b>, <b>dataFimPrevista</b></li>
+          <li><b>topicos[]</b> <i>o que dá para dar check</i></li>
+        </ul>
+      </div>
+
+      <div class="entity">
+        <div class="entity-head"><span class="nm">RegistroAula</span><span class="src new">novo</span></div>
+        <ul>
+          <li><b>ocorrenciaId</b> <i>1:1</i></li>
+          <li><b>planoPrevisto</b> <i>preenchido na abertura</i></li>
+          <li><b>conteudoDado</b> <i>preenchido no fechamento</i></li>
+          <li><b>unidadeId</b>, <b>topicosCobertos[]</b></li>
+          <li><b>atividadeCasa</b>, <b>dataEntrega</b></li>
+          <li><b>planoProximaAula</b> <i>alimenta a aula seguinte</i></li>
+          <li><b>transcricaoBruta</b> <i>o que ela falou, intacto</i></li>
+          <li><b>resumoPadronizado</b> <i>o que a IA devolveu</i></li>
+          <li><b>revisadoEm</b> <i>null = ainda é rascunho</i></li>
+        </ul>
+      </div>
+
+      <div class="entity">
+        <div class="entity-head"><span class="nm">ConfigAlarme</span><span class="src new">novo</span></div>
+        <ul>
+          <li><b>escopo</b> <i>global ou por cadeira</i></li>
+          <li><b>antecedenciaMin</b>, <b>atrasoMin</b></li>
+          <li><b>intensidadeAbertura</b>, <b>intensidadeFechamento</b></li>
+          <li><b>som</b>, <b>vibra</b>, <b>diasSemanaAtivos</b></li>
+        </ul>
+      </div>
+
+      <div class="entity">
+        <div class="entity-head"><span class="nm">Anexo</span><span class="src new">novo</span></div>
+        <ul>
+          <li><b>registroId</b>, <b>tipo</b> <i>foto, documento, áudio</i></li>
+          <li><b>storagePath</b> <i>Supabase Storage</i></li>
+          <li><b>enviadoEm</b> <i>null = ainda na fila offline</i></li>
+        </ul>
+      </div>
+
+      <div class="entity">
+        <div class="entity-head"><span class="nm">Ocorrencia</span><span class="src reuse">reaproveitado</span></div>
+        <ul>
+          <li><b>cadeiraId</b>, <b>data</b>, <b>horaInicio</b>, <b>horaFim</b></li>
+          <li><b>status</b> <i>agendada, dada, cancelada, feriado</i></li>
+          <li><b>aberturaNotificadaEm</b> <i>claim atômico</i></li>
+          <li><b>fechamentoNotificadoEm</b> <i>claim atômico</i></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note ok">
+      <span class="label">O que isso destrava</span>
+      Com <code>Unidade</code> e <code>topicosCobertos</code>, a tela de progresso deixa de ser
+      decorativa: <em>"8º A · Unidade 2 — 5 de 9 tópicos, 3 aulas até a prova"</em>. É a resposta
+      para "dar check nas unidades" que ela pediu, e é o que só faz sentido existir porque são onze
+      turmas em ritmos diferentes.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Voz e IA</div>
+      <h2>Do desabafo ao resumo padronizado</h2>
+    </div>
+
+    <p class="prose">
+      Sua intuição aqui está certa e é o diferencial do sistema. Falar logo depois da aula captura
+      muito mais do que digitar — mas fala vem torta, repetida, fora de ordem. Se o sistema
+      guardar a fala crua, em três meses ela tem noventa textos que ninguém consegue comparar. A
+      IA existe para transformar noventa jeitos de dizer em um formato só.
+    </p>
+
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-n">01</div>
+        <h4>Grava</h4>
+        <p><code>MediaRecorder</code> no navegador. O áudio fica no aparelho primeiro — ela pode
+          estar sem sinal na sala.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">02</div>
+        <h4>Transcreve</h4>
+        <p>Serviço de transcrição no backend quando houver rede. Ditado nativo do teclado serve
+          como caminho rápido e gratuito em paralelo.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">03</div>
+        <h4>Normaliza</h4>
+        <p>Claude recebe a transcrição <em>mais</em> o contexto da cadeira, o plano da unidade e o
+          que ela planejou na abertura. Devolve JSON validado por schema.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-n">04</div>
+        <h4>Ela confirma</h4>
+        <p>O resultado aparece como rascunho editável ao lado da fala original. Nada é salvo como
+          registro sem ela aprovar.</p>
+      </div>
+    </div>
+
+    <p class="prose">
+      O contexto do passo 3 é o que separa um resumo útil de um genérico. Quando ela diz
+      <em>"continuei o que eu tinha planejado e passei os exercícios da página 42"</em>, só um
+      modelo que enxerga o plano da abertura consegue expandir isso para o conteúdo real. Sem
+      contexto, o resumo repete a frase; com contexto, ele resolve a referência.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Decisão</th>
+            <th>Escolha</th>
+            <th>Por quê</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k">Modelo</td>
+            <td><code>claude-haiku-4-5</code></td>
+            <td>O JSON schema já garante os campos e a saída passa por revisão humana antes de
+              virar registro — o modelo pequeno basta. Subir para <code>claude-sonnet-5</code> só se
+              medir erro na resolução de referência vaga; é troca de uma string</td>
+          </tr>
+          <tr>
+            <td class="k">Formato</td>
+            <td><code>output_config.format</code> com JSON schema</td>
+            <td>Garante os campos certos sempre — sem regex, sem retry de parse</td>
+          </tr>
+          <tr>
+            <td class="k">Onde roda</td>
+            <td>NestJS, nunca no cliente</td>
+            <td>A chave da API não pode sair do servidor</td>
+          </tr>
+          <tr>
+            <td class="k">Como responde</td>
+            <td>Fila + Realtime do Supabase</td>
+            <td>Transcrever e resumir leva segundos; ela não fica olhando spinner</td>
+          </tr>
+          <tr>
+            <td class="k">Custo estimado</td>
+            <td>~US$ 0,33 por mês</td>
+            <td>~95 aulas/mês, textos curtos (~1.500 tokens de entrada, ~400 de saída).
+              <strong>Não vale otimizar</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note risk">
+      <span class="label">Regra inegociável</span>
+      A saída da IA é sempre rascunho, nunca registro. Ela vê o texto original e a versão
+      padronizada lado a lado, e edita antes de salvar. Um resumo que inventa um tópico que não foi
+      dado é pior do que resumo nenhum — porque o histórico dela é o que vai virar prova de
+      trabalho na frente da coordenação.
+    </div>
+
+    <div class="note risk">
+      <span class="label">Dado de aluno</span>
+      Se ela falar nome de aluno no áudio — <em>"o João não entregou"</em> — isso vira dado
+      pessoal de menor de idade sob a LGPD. Vale decidir logo: ou o resumo remove nomes por
+      padrão, ou o sistema assume esse dado explicitamente, com retenção e acesso definidos.
+      Deixar acontecer por acidente é a pior das três opções.
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Armadilhas</div>
+      <h2>O que costuma quebrar</h2>
+    </div>
+
+    <ul class="plain">
+      <li><strong>Otimização de bateria no Android.</strong> Xiaomi, Samsung e Motorola matam
+        processos em segundo plano de forma agressiva, e o alarme simplesmente não toca. Isso não
+        se resolve no código: o app precisa detectar e pedir a exceção, com um passo a passo na
+        tela de configuração.</li>
+      <li><strong>Limite de 64 notificações locais no iOS.</strong> Onze cadeiras × 2 alarmes ×
+        semanas cheias estoura rápido. A janela agendada precisa ser rolante — cerca de duas
+        semanas por vez, renovada a cada abertura do app.</li>
+      <li><strong>Sala sem sinal.</strong> O registro de fechamento é justamente onde a rede
+        costuma faltar. Gravar em IndexedDB primeiro e sincronizar depois não é refinamento — é
+        requisito, senão ela perde o registro no exato momento em que ele importa.</li>
+      <li><strong>Feriado, semana de prova, aula trocada.</strong> Uma agenda escolar tem mais
+        exceção do que regra. Ocorrência precisa ser editável individualmente sem quebrar a série,
+        e cancelar uma aula precisa cancelar os alarmes dela.</li>
+      <li><strong>Fuso horário.</strong> Guardar regra como hora local mais dia da semana, e só
+        materializar em <code>timestamptz</code>. O Brasil não tem horário de verão hoje, mas já
+        teve e o código não deveria depender disso.</li>
+      <li><strong>Alarme demais vira alarme nenhum.</strong> Vinte e dois toques por semana
+        cansam. Por isso a intensidade por cadeira importa, e por isso vale medir quantos alarmes
+        ela de fato responde antes de assumir que o sistema está funcionando.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Caminho</div>
+      <h2>Fases</h2>
+    </div>
+
+    <p class="prose">
+      A ordem tem uma lógica: cada fase entrega algo que ela consegue usar de verdade, e a decisão
+      cara — embrulhar em Capacitor — só é tomada depois que a realidade mostrar se é necessária.
+    </p>
+
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-n">1</div>
+        <div class="phase-body">
+          <h3>Fundação e grade</h3>
+          <p>Monorepo novo, auth Supabase, cadeiras, séries, horários, geração de ocorrências.
+            Transplante direto do projeto-professor com o domínio trocado.</p>
+          <div class="phase-meta">Entrega · a grade das onze cadeiras aparece na tela</div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-n">2</div>
+        <div class="phase-body">
+          <h3>Os dois alarmes</h3>
+          <p>Cron de abertura e fechamento com minutos configuráveis, web push, service worker,
+            tela de configuração de intensidade por cadeira.</p>
+          <div class="phase-meta">Entrega · o celular dela toca na hora certa</div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-n">3</div>
+        <div class="phase-body">
+          <h3>Registro por texto</h3>
+          <p>Formulário de abertura e fechamento, unidades e tópicos, atividade de casa, anexos,
+            e o encadeamento do plano da próxima aula. Escrita local-first com fila de sync.</p>
+          <div class="phase-meta">Entrega · o sistema já substitui o caderno</div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-n">4</div>
+        <div class="phase-body">
+          <h3>Voz e resumo padronizado</h3>
+          <p>Gravação, transcrição, normalização com Claude, tela de revisão lado a lado. Só entra
+            depois que o registro por texto estiver estável — a IA é a camada por cima, não a base.</p>
+          <div class="phase-meta">Entrega · ela fala, o sistema organiza</div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-n">5</div>
+        <div class="phase-body">
+          <h3>Progresso e histórico</h3>
+          <p>Painel por cadeira e unidade, linha do tempo, busca no histórico, exportação para
+            quando a coordenação pedir relatório.</p>
+          <div class="phase-meta">Entrega · a resposta para "onde eu parei no 8º A?"</div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-n">6</div>
+        <div class="phase-body">
+          <h3>Capacitor, se precisar</h3>
+          <p>Embrulhar o app para alarme de verdade no Android. <strong>Condicional de
+            propósito:</strong> só faz sentido se ela estiver perdendo registros com notificação
+            pura. Fase 2 já terá dado essa resposta.</p>
+          <div class="phase-meta">Entrega · alarme que fura o silencioso</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Antes de começar</div>
+      <h2>O que ainda precisa de resposta</h2>
+    </div>
+
+    <div class="qs">
+      <div class="q">
+        <div class="qq">Que celular ela usa?</div>
+        <div class="qa">É a única pergunta que muda a arquitetura. Android abre a fase 6; iPhone a
+          descarta e fixa o teto em notificação forte. Vale perguntar antes da fase 1.</div>
+      </div>
+      <div class="q">
+        <div class="qq">As onze cadeiras são onze turmas ou menos turmas com mais aulas?</div>
+        <div class="qa">Muda quantas séries e ocorrências existem, e o quanto o encadeamento de
+          plano economiza digitação por semana.</div>
+      </div>
+      <div class="q">
+        <div class="qq">O currículo já existe em papel?</div>
+        <div class="qa">Se ela já tem o plano de unidades da escola, isso vira carga inicial e a
+          fase 5 fica útil desde o primeiro dia em vez de esperar meses de histórico.</div>
+      </div>
+      <div class="q">
+        <div class="qq">Nome de aluno entra ou não entra?</div>
+        <div class="qa">Decisão de LGPD que é muito mais barata de tomar agora do que depois de
+          quinhentos registros gravados.</div>
+      </div>
+      <div class="q">
+        <div class="qq">Isso é só para ela ou vira produto?</div>
+        <div class="qa">Se for produto, o modelo precisa de escola e multi-professor desde o
+          início. Se for só para ela, dá para simplificar bastante e ganhar semanas.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Plano de arquitetura · projeto-isaura<br>
+    Baseado na leitura de <code>Vitor-Brito-Rocha/projeto-professor</code> @ <code>2d94119</code><br>
+    Stack: Next.js · NestJS · Prisma · Supabase · Claude
+  </footer>
+
+</div>
