@@ -36,6 +36,10 @@ export function Ditado({
   aoGerar: (rascunho: RascunhoIA) => void;
 }) {
   const [fala, setFala] = useState('');
+  // `temRascunho` vem do servidor e só chega no próximo refetch. Sem isto, o
+  // aviso de "ainda é rascunho" apareceria tarde — depois de ela já ter olhado
+  // os campos preenchidos e concluído que estavam salvos.
+  const [gerouAgora, setGerouAgora] = useState(false);
 
   useEffect(() => setFala(falaSalva), [falaSalva]);
 
@@ -60,6 +64,7 @@ export function Ditado({
       }),
     onSuccess: (r) => {
       aoGerar(r.rascunho);
+      setGerouAgora(true);
       toast.success('Rascunho pronto.', {
         description: 'Confira antes de salvar — ainda não conta como registro.',
         duration: 6000,
@@ -117,7 +122,7 @@ export function Ditado({
         <Wand2 /> {gerar.isPending ? 'Organizando…' : 'Preencher com o que eu falei'}
       </Button>
 
-      {temRascunho && (
+      {(temRascunho || gerouAgora) && (
         <p className="text-xs text-muted-foreground">
           Os campos abaixo estão preenchidos por IA e ainda são rascunho. Salvar é o que transforma
           isso em registro — e apaga esta fala do servidor.
