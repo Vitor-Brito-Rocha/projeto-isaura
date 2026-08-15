@@ -47,8 +47,22 @@ function avisar(desfecho: Desfecho) {
   });
 }
 
+/**
+ * `timeZone: 'UTC'` não é detalhe: `data` é um dia puro, gravado à meia-noite
+ * UTC. Formatar no fuso local jogaria a aula para o dia anterior em todo o
+ * Brasil — a grade mostraria 14/08 para uma aula do dia 15.
+ */
 function dataCurta(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
+/** "qui" — mesmo cuidado de fuso de `dataCurta`. */
+function diaDaSemana(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' });
 }
 
 /**
@@ -315,6 +329,7 @@ function FormFechamento({
 
   const unidadeAtual = unidades.find((u) => u.id === unidadeId);
   const rascunho = rascunhoPendente(registro);
+  const proximas = contexto.proximasAulas ?? [];
 
   return (
     <Card>
@@ -345,8 +360,13 @@ function FormFechamento({
           />
         )}
 
+        {/* Sem rótulo visível: o título do card já É a pergunta deste campo, e
+            repetir "Conteúdo dado" logo abaixo de "O que você deu?" faz parecer
+            que são duas coisas diferentes. */}
         <div className="space-y-1.5">
-          <Label htmlFor="conteudo">Conteúdo dado</Label>
+          <Label htmlFor="conteudo" className="sr-only">
+            O que você deu
+          </Label>
           <Textarea
             id="conteudo"
             value={conteudo}
@@ -431,6 +451,32 @@ function FormFechamento({
               value={entrega}
               onChange={(e) => setEntrega(e.target.value)}
             />
+            {/* Atalhos para as próximas aulas DESTA turma: é onde a tarefa
+                vence quase sempre, e escolher "qui, 20/08" não erra o dia da
+                semana como rolar o calendário do celular erra. */}
+            {proximas.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {proximas.map((a, i) => {
+                  const dia = a.data.slice(0, 10);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      aria-pressed={entrega === dia}
+                      onClick={() => setEntrega(entrega === dia ? '' : dia)}
+                    >
+                      <Badge
+                        variant={entrega === dia ? 'default' : 'outline'}
+                        className="cursor-pointer font-normal"
+                      >
+                        {i === 0 ? 'próxima aula · ' : ''}
+                        {diaDaSemana(a.data)} {dataCurta(a.data)}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

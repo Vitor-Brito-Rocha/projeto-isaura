@@ -31,6 +31,42 @@ export class AgendaService {
     });
   }
 
+  /**
+   * Aulas que já terminaram e continuam sem conteúdo escrito.
+   *
+   * O alarme é um empurrão, não a única porta. Numa escola, não conseguir
+   * escrever na hora é o caso comum e não a exceção: sinal ruim, aula emendada,
+   * aluno esperando na porta. Gravar já era possível a qualquer momento — o que
+   * faltava era ela **achar** a aula depois sem lembrar a data e caçar semana a
+   * semana na grade.
+   *
+   * Filtra por `fimEm`, e não por `data`: é instante absoluto, então a conta de
+   * "já terminou" acerta para professor em qualquer fuso.
+   */
+  pendencias(professorId: string, dias: number) {
+    const agora = new Date();
+    return this.prisma.ocorrencia.findMany({
+      where: {
+        professorId,
+        fimEm: { lte: agora, gte: new Date(agora.getTime() - dias * 86_400_000) },
+        // Aula cancelada e feriado não são pendência — não houve o que dar.
+        status: { notIn: [StatusOcorrencia.CANCELADA, StatusOcorrencia.FERIADO] },
+        OR: [
+          { registro: { is: null } },
+          { registro: { conteudoDado: null } },
+          { registro: { conteudoDado: '' } },
+        ],
+      },
+      // Mais recente primeiro: é a que ela ainda lembra.
+      orderBy: { inicioEm: 'desc' },
+      take: 60,
+      include: {
+        cadeira: { select: { id: true, disciplina: true, turma: true, corHex: true } },
+        registro: { select: { id: true, planoPrevisto: true, conteudoDado: true } },
+      },
+    });
+  }
+
   async buscar(professorId: string, id: string) {
     const ocorrencia = await this.prisma.ocorrencia.findFirst({
       where: { id, professorId },

@@ -125,9 +125,10 @@ export class AnexosService {
   /**
    * Apaga os áudios de um registro.
    *
-   * Chamado quando o fechamento é revisado. O áudio existe só para ela conferir
-   * se a IA inventou; cumprida essa função, vira passivo — é onde o nome de
-   * aluno fica literal, e a decisão de LGPD do PLANO é não guardar isso.
+   * Chamado quando o fechamento é revisado. A transcrição em texto ficou (ela
+   * pode querer reconferir depois), mas o áudio não: voz é identificador
+   * biométrico, e de menor. Guardar a frase "a Ana perguntou" é uma coisa;
+   * guardar a voz da Ana é outra. Ver "LGPD" em docs/PLANO.md.
    *
    * Objeto órfão no Storage seria justamente o que a regra proíbe, então aqui
    * a ordem se inverte em relação a `remover`: some do bucket primeiro.

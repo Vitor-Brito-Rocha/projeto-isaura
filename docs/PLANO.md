@@ -267,10 +267,21 @@ resolve só no prompt:
 
 1. **Resumo** — instrução explícita no prompt e nenhum campo de pessoa no JSON schema de saída.
    Nome falado vira *"um aluno"*.
-2. **Transcrição bruta e áudio** — é onde o nome fica literal. `transcricaoBruta` e o `Anexo` de
-   áudio existem **até `revisadoEm` ser preenchido** e são descartados depois. A transcrição serve
-   para ela conferir se a IA inventou; cumprida essa função, vira só passivo. Preserva a auditoria
-   sem criar o acervo de nomes de menores.
+2. **Transcrição bruta e áudio** — é onde o nome fica literal.
+
+   **Revisto em 15/08/2026, por decisão do usuário.** A regra original descartava a transcrição
+   junto com o áudio na revisão. Passou a ser: **o texto fica, o áudio não.**
+
+   - **`transcricaoBruta` e `resumoPadronizado` sobrevivem à revisão.** A dúvida sobre um registro
+     não aparece no dia seguinte; aparece meses depois, na frente da coordenação — e é exatamente
+     aí que ela precisa poder mostrar o que falou e o que a IA entendeu. Descartar destruía a
+     auditoria justamente antes da hora em que ela serve.
+   - **O áudio continua sendo descartado** em `revisadoEm` (`AnexosService.descartarAudios`). Voz é
+     identificador biométrico, e de menor: guardar a frase *"um aluno perguntou"* é uma coisa,
+     guardar a voz dele é outra. Hoje isso é preventivo — o ditado não produz arquivo de áudio.
+   - **O que ainda protege:** o prompt proíbe nome no resumo e o JSON schema não tem campo de
+     pessoa, então o **registro** — a parte que vira histórico e relatório — continua sem nomes.
+     O que sobrevive com nome é a fala dela, visível só para ela.
 3. **Fotos** — nenhum código impede fotografar um caderno com nome na capa. Vira uma linha na tela
    de anexo (*"fotos do quadro e do material, não dos alunos"*) e a decisão fica com ela.
 

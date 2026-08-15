@@ -190,7 +190,7 @@ descreve('RegistrosService (integração)', () => {
       expect(depois.topicos[0].topicoId).toBe(outro.id);
     });
 
-    it('salvar é a revisão: marca revisadoEm e descarta a fala bruta', async () => {
+    it('salvar é a revisão: marca revisadoEm e PRESERVA a fala e o resumo', async () => {
       const oc = await aula(cadeiraA, 0);
       // Estado deixado pelo ditado: rascunho da IA, ainda não conferido.
       await prisma.registroAula.create({
@@ -207,11 +207,11 @@ descreve('RegistrosService (integração)', () => {
       });
 
       expect(depois.revisadoEm).not.toBeNull();
-      // A fala é onde o nome do aluno fica literal. Revisada, some.
-      expect(depois.transcricaoBruta).toBeNull();
-      // O que a IA devolveu fica: é a prova de que o registro veio de um
-      // rascunho, e ela pode ter editado só metade.
+      // Os dois sobrevivem à revisão: ela pode querer reconferir o que falou e
+      // o que a IA entendeu meses depois, quando a dúvida aparecer.
+      expect(depois.transcricaoBruta).toContain('terminei frações');
       expect(depois.resumoPadronizado).toContain('Frações equivalentes');
+      // O áudio, não: voz é identificador biométrico, e de menor.
       expect(audiosDescartados).toEqual([depois.id]);
     });
 

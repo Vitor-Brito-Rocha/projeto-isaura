@@ -15,6 +15,7 @@ import { apiFetch } from '@/lib/api';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { Ocorrencia } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Pendencias } from './pendencias';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -67,6 +68,10 @@ export default function Semana() {
       <div className="h-0.5" aria-hidden>
         {isFetching && !isLoading && <div className="h-0.5 animate-pulse rounded-full bg-primary/40" />}
       </div>
+
+      {/* Fora do ramo de carregamento e do estado vazio de propósito: pendência
+          de três semanas atrás não some porque ESTA semana está vazia. */}
+      <Pendencias />
 
       {isLoading ? (
         <EsqueletoSemana />

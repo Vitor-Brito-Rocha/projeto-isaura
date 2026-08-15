@@ -109,6 +109,97 @@ descreve('AgendaService (integração)', () => {
     expect(oc.status).toBe(StatusOcorrencia.AGENDADA);
   });
 
+  /**
+   * O caminho de "não deu para escrever na hora, lembrei depois".
+   *
+   * Gravar nunca teve janela de tempo; o que faltava era achar a aula sem
+   * lembrar a data. Estes testes travam quem entra e quem não entra na lista —
+   * errar para mais transforma a tela num monte de ruído que ela ignora, e
+   * errar para menos some com a aula que ela precisava registrar.
+   */
+  describe('pendencias', () => {
+    const DIA = 86_400_000;
+
+    /** Aula terminada há `haDias`, na cadeira de PROF. */
+    async function aulaPassada(haDias: number, dono = PROF) {
+      const cadeira = await prisma.cadeira.create({
+        data: { professorId: dono, disciplina: 'Geografia', turma: '7º C', anoLetivo: 2026 },
+      });
+      const fim = new Date(Date.now() - haDias * DIA);
+      return prisma.ocorrencia.create({
+        data: {
+          professorId: dono,
+          cadeiraId: cadeira.id,
+          data: new Date('2026-01-01T00:00:00.000Z'),
+          horaInicio: '07:00',
+          horaFim: '07:50',
+          inicioEm: new Date(fim.getTime() - 50 * 60_000),
+          fimEm: fim,
+        },
+      });
+    }
+
+    const idsDe = async (dias = 45) =>
+      (await servico.pendencias(PROF, dias)).map((o) => o.id);
+
+    it('lista a aula que terminou sem nada escrito', async () => {
+      const oc = await aulaPassada(3);
+
+      expect(await idsDe()).toContain(oc.id);
+    });
+
+    it('some assim que o conteúdo é escrito', async () => {
+      const oc = await aulaPassada(3);
+      await prisma.registroAula.create({
+        data: { professorId: PROF, ocorrenciaId: oc.id, conteudoDado: 'Relevo do Brasil' },
+      });
+
+      expect(await idsDe()).not.toContain(oc.id);
+    });
+
+    it('registro só com plano previsto ainda é pendência', async () => {
+      // Ela respondeu o alarme de abertura e não voltou no fechamento: é
+      // exatamente a aula que corre risco de ficar sem registro nenhum.
+      const oc = await aulaPassada(3);
+      await prisma.registroAula.create({
+        data: { professorId: PROF, ocorrenciaId: oc.id, planoPrevisto: 'Relevo' },
+      });
+
+      expect(await idsDe()).toContain(oc.id);
+    });
+
+    it('não lista aula que ainda não terminou', async () => {
+      const futura = await prisma.ocorrencia.findFirstOrThrow({ where: { id: ocorrenciaId } });
+
+      expect(await idsDe(365)).not.toContain(futura.id);
+    });
+
+    it('não lista cancelada nem feriado', async () => {
+      const cancelada = await aulaPassada(3);
+      const feriado = await aulaPassada(4);
+      await servico.atualizar(PROF, cancelada.id, { status: StatusOcorrencia.CANCELADA });
+      await servico.atualizar(PROF, feriado.id, { status: StatusOcorrencia.FERIADO });
+
+      const ids = await idsDe();
+      expect(ids).not.toContain(cancelada.id);
+      expect(ids).not.toContain(feriado.id);
+    });
+
+    it('respeita a janela de dias pedida', async () => {
+      const antiga = await aulaPassada(60);
+
+      expect(await idsDe(45)).not.toContain(antiga.id);
+      expect(await idsDe(90)).toContain(antiga.id);
+    });
+
+    it('não mostra pendência de outro professor', async () => {
+      const alheia = await aulaPassada(3, OUTRO);
+
+      expect(await idsDe()).not.toContain(alheia.id);
+      expect((await servico.pendencias(OUTRO, 45)).map((o) => o.id)).toContain(alheia.id);
+    });
+  });
+
   it('listar devolve só a janela pedida, e só do professor certo', async () => {
     const naJanela = await servico.listar(PROF, '2026-09-01', '2026-09-30');
     expect(naJanela).toHaveLength(1);

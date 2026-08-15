@@ -19,10 +19,10 @@ interface Resposta {
 /**
  * Contar a aula falando, em vez de preencher seis campos.
  *
- * A fala fica visível ao lado do que a IA escreveu, e continua visível até ela
- * salvar: é assim que ela confere se o modelo inventou alguma coisa. O botão de
- * salvar do formulário é que marca a revisão — e é nesse momento que a fala é
- * descartada do servidor.
+ * A fala fica visível ao lado do que a IA escreveu: é assim que ela confere se
+ * o modelo inventou alguma coisa. O botão de salvar do formulário é que marca a
+ * revisão — e a fala **continua guardada** depois dela, por decisão do usuário,
+ * para ela poder reconferir meses depois. O que não sobrevive é áudio.
  */
 export function Ditado({
   ocorrenciaId,
@@ -125,7 +125,7 @@ export function Ditado({
       {(temRascunho || gerouAgora) && (
         <p className="text-xs text-muted-foreground">
           Os campos abaixo estão preenchidos por IA e ainda são rascunho. Salvar é o que transforma
-          isso em registro — e apaga esta fala do servidor.
+          isso em registro. Sua fala fica guardada aqui, para você reconferir depois.
         </p>
       )}
     </div>

@@ -26,9 +26,11 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 - **Ditado sem áudio** (`lib/ditado.ts`): Web Speech API onde existe, microfone do teclado onde
   não existe. Nenhum arquivo de áudio é criado — ver "Transcrição de áudio" em `docs/PLANO.md`
   para a decisão que falta se isso não bastar na sala.
-- **Revisão = salvar.** `salvarFechamento` agora marca `revisadoEm`, apaga `transcricaoBruta` e
-  descarta os anexos de áudio. Não há botão de "confirmar" separado: o rascunho vira registro no
-  mesmo gesto que ela já fazia.
+- **Revisão = salvar.** `salvarFechamento` marca `revisadoEm`. Não há botão de "confirmar"
+  separado: o rascunho vira registro no mesmo gesto que ela já fazia.
+- **A fala e o resumo da IA são guardados para sempre** (decisão do usuário, 15/08/2026, revendo o
+  PLANO): a dúvida sobre um registro aparece meses depois, e é aí que a auditoria serve. **Áudio,
+  não** — `descartarAudios` continua rodando na revisão, porque voz é biométrico e de menor.
 
 ### O que falta na fase 4
 
@@ -50,8 +52,11 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
   Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
 - **Comprar crédito na conta da Anthropic.** A chave está no `.env` e autentica, mas a conta está
   zerada e nenhuma chamada passa. Bloqueia a fase 4 inteira.
-- **Criar a conta da professora e um plano curricular de verdade** para o select de unidades sair
-  do vazio. Sem isso não dá para exercitar `/aula/[id]` no navegador — inclusive o ditado.
+- **Criar a conta da professora e um plano curricular de verdade.** Para *testar*, use
+  `dados:teste` (5 cadeiras, 52 aulas, histórico, duas turmas irmãs e dois alarmes plantados).
+  Ele exige conta já criada — não cria conta nem senha — e só apaga o que tem id `decafbad-`.
+  **Os ids que ele gera são uuid v4 de verdade**: a primeira versão usava `demo-u2` e a tela
+  devolvia "unidadeId must be a UUID" no primeiro salvamento.
 - Teste de relógio no aparelho real: aula terminando em ~3 min, confirmar que os dois pushes
   chegam. É o critério de aceite da fase 2; nenhum teste automatizado substitui.
 - Pedir o plano de curso escrito da professora (ele existe) antes da fase 5 — o formato decide se
@@ -86,7 +91,8 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 ## Comandos
 
 ```bash
-npm test              # 90 testes de API + 37 de web
+npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
+npm test              # 97 testes de API + 37 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -126,5 +132,16 @@ e só ele — gerar um resumo *zera* a marca, porque o que está na tela voltou 
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
 API em vez de o front falar direto com o serviço.
 
-**Nome de aluno não entra** (dado pessoal de menor). Não é só instrução de prompt: `transcricaoBruta`
-e o áudio existem só até a revisão e são descartados depois. Ver "LGPD" em `docs/PLANO.md`.
+**Nome de aluno não entra no REGISTRO** (dado pessoal de menor). Não é só instrução de prompt: o
+JSON schema de saída não tem campo de pessoa, então não há onde um nome caber mesmo se o modelo
+desobedecer. A fala dela (`transcricaoBruta`) pode conter nome e **é guardada** — só ela vê. Áudio
+é descartado na revisão. Ver "LGPD" em `docs/PLANO.md`.
+
+**Registrar não tem janela de tempo.** Os 5 minutos de antecedência/atraso são só quando o *alarme
+toca*; `salvarAbertura` e `salvarFechamento` nunca olharam o relógio. `GET /agenda/pendencias` é a
+porta de quem não conseguiu escrever na hora — sem ela, registrar a terça passada exigia lembrar a
+data e voltar semana a semana na grade.
+
+**Admin é `ADMIN_EMAIL`, não coluna no banco.** `AdminGuard` compara o email do JWT com a variável
+de ambiente. Uma flag `ehAdmin` no `Professor` estaria a um `UPDATE` de virar escalação de
+privilégio, e o `ErrosService` já escolhe quem alertar por este mesmo caminho.

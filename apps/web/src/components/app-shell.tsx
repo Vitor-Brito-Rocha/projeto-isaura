@@ -1,8 +1,17 @@
 'use client';
 
-import { BookOpen, CalendarDays, CloudOff, GraduationCap, Settings } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  BookOpen,
+  CalendarDays,
+  CloudOff,
+  GraduationCap,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 import { useFilaOffline } from '@/lib/usar-fila';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +21,25 @@ const ITENS = [
   { href: '/planos', rotulo: 'Planos', Icone: BookOpen },
   { href: '/config', rotulo: 'Ajustes', Icone: Settings },
 ] as const;
+
+const ADMIN = { href: '/admin', rotulo: 'Admin', Icone: ShieldCheck } as const;
+
+/**
+ * Pergunta ao servidor se esta conta é admin.
+ *
+ * A regra vive no `ADMIN_EMAIL` da API, não aqui: comparar email no navegador
+ * colocaria a decisão onde qualquer um edita. O item de menu some quando a rota
+ * responde 403 — e mesmo se alguém forçar a URL, a API recusa igual.
+ */
+function useEhAdmin() {
+  const { data } = useQuery({
+    queryKey: ['admin', 'status'],
+    queryFn: () => apiFetch<{ admin: boolean }>('/admin/status'),
+    retry: false,
+    staleTime: Infinity,
+  });
+  return data?.admin === true;
+}
 
 /**
  * Casca do app.
@@ -41,6 +69,10 @@ export function AppShell({
 }) {
   const caminho = usePathname();
   const { pendentes } = useFilaOffline();
+  // Admin entra só no topo: a barra do celular tem quatro dedos de largura, e
+  // um quinto item espremeria a navegação que a professora usa todo dia por uma
+  // que só existe para uma conta.
+  const itens = useEhAdmin() ? [...ITENS, ADMIN] : ITENS;
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -69,7 +101,7 @@ export function AppShell({
           <div className="flex shrink-0 items-center gap-2">
             {/* Navegação de desktop, ao lado da ação. */}
             <nav className="hidden items-center gap-1 sm:flex">
-              {ITENS.map(({ href, rotulo, Icone }) => (
+              {itens.map(({ href, rotulo, Icone }) => (
                 <Link
                   key={href}
                   href={href}

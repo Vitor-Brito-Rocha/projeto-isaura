@@ -127,6 +127,8 @@ export interface ContextoAula {
   };
   registro: RegistroAula | null;
   unidades: Unidade[];
+  /** As próximas aulas desta turma — atalhos para a data de entrega. */
+  proximasAulas: { id: string; data: string; horaInicio: string }[];
   sugestoes: {
     daAulaAnterior: { data: string; texto: string } | null;
     daTurmaIrma: {
@@ -136,6 +138,56 @@ export interface ContextoAula {
       unidadeId: string | null;
     } | null;
   };
+}
+
+// ---- Admin (só para quem passa no AdminGuard da API) ----
+
+export interface AdminResumo {
+  professores: { total: number; novos30: number; ativos7d: number; comDevice: number };
+  aulas: {
+    cadeirasAtivas: number;
+    agendadas: number;
+    jaAconteceram: number;
+    registradas: number;
+    /** null quando ainda não houve aula — evita dividir por zero na tela. */
+    taxaRegistro: number | null;
+  };
+  erros: { ultimas24h: number; ultimos7d: number };
+}
+
+export interface AdminProfessor {
+  id: string;
+  nome: string;
+  email: string;
+  timezone: string;
+  criadoEm: string;
+  cadeiras: number;
+  ocorrencias: number;
+  devices: number;
+  registros: number;
+  ultimoRegistroEm: string | null;
+}
+
+export interface ErroLog {
+  id: string;
+  criadoEm: string;
+  origem: string;
+  metodo: string;
+  rota: string;
+  professorId: string | null;
+  mensagem: string;
+}
+
+/** A stack só vem no detalhe: na lista ela estouraria a resposta. */
+export interface ErroLogDetalhe extends ErroLog {
+  stack: string | null;
+}
+
+export interface Pagina<T> {
+  total: number;
+  pagina: number;
+  tamanho: number;
+  itens: T[];
 }
 
 export interface Notificacao {

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AdminModule } from './admin/admin.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { AlarmesModule } from './alarmes/alarmes.module';
 import { AnexosModule } from './anexos/anexos.module';
@@ -45,6 +46,7 @@ import { SeriesModule } from './series/series.module';
     NotificacoesModule,
     AlarmesModule,
     JobsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { StatusOcorrencia } from '@prisma/client';
 import { AnexosService } from '../anexos/anexos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalvarAberturaDto, SalvarFechamentoDto } from './dto/registro.dto';
@@ -49,11 +50,40 @@ export class RegistrosService {
       ocorrencia,
       registro: ocorrencia.registro,
       unidades: ocorrencia.cadeira.plano?.unidades ?? [],
+      proximasAulas: await this.proximasAulas(professorId, ocorrencia),
       sugestoes: {
         daAulaAnterior: await this.planoDaAulaAnterior(professorId, ocorrencia),
         daTurmaIrma: await this.conteudoDaTurmaIrma(professorId, ocorrencia),
       },
     };
+  }
+
+  /**
+   * As próximas aulas desta mesma turma.
+   *
+   * Tarefa de casa quase nunca vence numa data solta: vence "na próxima aula"
+   * ou "na outra". Escolher `qui, 20/08` é um toque; achar 20/08 no seletor de
+   * data do celular é rolagem de mês e chance de errar o dia da semana — que é
+   * o erro que faz a turma inteira entregar na aula errada.
+   *
+   * Cancelada e feriado ficam de fora: não dá para receber tarefa em aula que
+   * não vai existir.
+   */
+  private async proximasAulas(
+    professorId: string,
+    ocorrencia: { cadeiraId: string; inicioEm: Date },
+  ) {
+    return this.prisma.ocorrencia.findMany({
+      where: {
+        professorId,
+        cadeiraId: ocorrencia.cadeiraId,
+        inicioEm: { gt: ocorrencia.inicioEm },
+        status: { notIn: [StatusOcorrencia.CANCELADA, StatusOcorrencia.FERIADO] },
+      },
+      orderBy: { inicioEm: 'asc' },
+      take: 4,
+      select: { id: true, data: true, horaInicio: true },
+    });
   }
 
   /**
@@ -151,9 +181,11 @@ export class RegistrosService {
       // que nem o que ela digitou à mão conta.
       revisadoEm: new Date(),
 
-      // A fala bruta existia para ela conferir se a IA inventou. Conferido,
-      // vira só um acervo de nome de aluno — ver "LGPD" em docs/PLANO.md.
-      transcricaoBruta: null,
+      // `transcricaoBruta` e `resumoPadronizado` NÃO são apagados aqui.
+      // Decisão do usuário (15/08/2026), revendo o PLANO: ela pode querer
+      // reconferir o que falou e o que a IA entendeu meses depois, quando a
+      // dúvida sobre um registro aparecer. O áudio continua sendo descartado —
+      // ver `descartarAudios`, e a nota de LGPD em docs/PLANO.md.
     };
 
     // Numa transação: a lista de tópicos é substituída por inteiro, e um
