@@ -122,6 +122,30 @@ export class AnexosService {
     return { ok: true };
   }
 
+  /**
+   * Apaga os áudios de um registro.
+   *
+   * Chamado quando o fechamento é revisado. O áudio existe só para ela conferir
+   * se a IA inventou; cumprida essa função, vira passivo — é onde o nome de
+   * aluno fica literal, e a decisão de LGPD do PLANO é não guardar isso.
+   *
+   * Objeto órfão no Storage seria justamente o que a regra proíbe, então aqui
+   * a ordem se inverte em relação a `remover`: some do bucket primeiro.
+   */
+  async descartarAudios(professorId: string, registroId: string): Promise<number> {
+    const audios = await this.prisma.anexo.findMany({
+      where: { registroId, professorId, tipo: TipoAnexo.AUDIO },
+      select: { id: true, storagePath: true },
+    });
+    if (!audios.length) return 0;
+
+    if (this.storage.ativo) {
+      await Promise.all(audios.map((a) => this.storage.remover(a.storagePath)));
+    }
+    await this.prisma.anexo.deleteMany({ where: { id: { in: audios.map((a) => a.id) } } });
+    return audios.length;
+  }
+
   private async registroDaOcorrencia(professorId: string, ocorrenciaId: string) {
     return this.prisma.registroAula.findFirst({
       where: { ocorrenciaId, professorId },

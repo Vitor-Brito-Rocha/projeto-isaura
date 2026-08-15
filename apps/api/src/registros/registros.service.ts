@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { AnexosService } from '../anexos/anexos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SalvarAberturaDto, SalvarFechamentoDto } from './dto/registro.dto';
 
@@ -11,7 +12,10 @@ function data(valor?: string): Date | null | undefined {
 
 @Injectable()
 export class RegistrosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly anexos: AnexosService,
+  ) {}
 
   /**
    * Tudo que a tela `/aula/[id]` precisa, numa chamada só.
@@ -140,11 +144,21 @@ export class RegistrosService {
       atividadeCasa: dto.atividadeCasa,
       dataEntrega: data(dto.dataEntrega),
       planoProximaAula: dto.planoProximaAula,
+
+      // Ela leu o formulário e salvou: isto deixa de ser rascunho de modelo e
+      // passa a contar como registro. É o outro lado da regra "saída da IA é
+      // sempre rascunho" — sem alguém marcando o fim, `revisadoEm` nulo diria
+      // que nem o que ela digitou à mão conta.
+      revisadoEm: new Date(),
+
+      // A fala bruta existia para ela conferir se a IA inventou. Conferido,
+      // vira só um acervo de nome de aluno — ver "LGPD" em docs/PLANO.md.
+      transcricaoBruta: null,
     };
 
     // Numa transação: a lista de tópicos é substituída por inteiro, e um
     // fechamento salvo pela metade (texto sim, tópicos não) é pior que nenhum.
-    return this.prisma.$transaction(async (tx) => {
+    const registro = await this.prisma.$transaction(async (tx) => {
       const registro = await tx.registroAula.upsert({
         where: { ocorrenciaId },
         create: { professorId, ocorrenciaId, ...campos },
@@ -166,6 +180,13 @@ export class RegistrosService {
         include: { topicos: true },
       });
     });
+
+    // Fora da transação de propósito: apagar objeto no Storage é chamada de
+    // rede, e segurar a transação por ela é o caminho para lock em tabela
+    // quente. Se falhar, o registro já está salvo e o áudio sai na próxima.
+    await this.anexos.descartarAudios(professorId, registro.id);
+
+    return registro;
   }
 
   // ---- Guardas ------------------------------------------------------------

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, Lightbulb, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +15,17 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api';
+import {
+  rascunhoPendente,
+  valoresDoRascunho,
+  valoresIniciais,
+  type RascunhoIA,
+} from '@/lib/rascunho';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
 import { Anexos } from './anexos';
+import { Ditado } from './ditado';
 
 type Momento = 'abertura' | 'fechamento';
 
@@ -268,14 +275,20 @@ function FormFechamento({
   const [entrega, setEntrega] = useState('');
   const [proxima, setProxima] = useState('');
 
+  // Um rascunho pendente da IA ganha do que está gravado nos campos: é o mais
+  // novo, e é o que ela precisa conferir. Ver `lib/rascunho.ts`.
+  const aplicar = useCallback((v: ReturnType<typeof valoresIniciais>) => {
+    setConteudo(v.conteudo);
+    setUnidadeId(v.unidadeId);
+    setTopicos(v.topicos);
+    setAtividade(v.atividade);
+    setEntrega(v.entrega);
+    setProxima(v.proxima);
+  }, []);
+
   useEffect(() => {
-    setConteudo(registro?.conteudoDado ?? '');
-    setUnidadeId(registro?.unidadeId ?? sugestaoIrma?.unidadeId ?? '');
-    setTopicos(registro?.topicos.map((t) => t.topicoId) ?? []);
-    setAtividade(registro?.atividadeCasa ?? '');
-    setEntrega(registro?.dataEntrega?.slice(0, 10) ?? '');
-    setProxima(registro?.planoProximaAula ?? '');
-  }, [registro, sugestaoIrma?.unidadeId]);
+    aplicar(valoresIniciais(registro, sugestaoIrma?.unidadeId));
+  }, [registro, sugestaoIrma?.unidadeId, aplicar]);
 
   const { salvar: salvarComFila } = useFilaOffline();
 
@@ -301,6 +314,7 @@ function FormFechamento({
   });
 
   const unidadeAtual = unidades.find((u) => u.id === unidadeId);
+  const rascunho = rascunhoPendente(registro);
 
   return (
     <Card>
@@ -315,7 +329,14 @@ function FormFechamento({
           </div>
         )}
 
-        {sugestaoIrma && !registro?.conteudoDado && (
+        <Ditado
+          ocorrenciaId={ocorrenciaId}
+          falaSalva={registro?.transcricaoBruta ?? ''}
+          temRascunho={rascunho !== null}
+          aoGerar={(r: RascunhoIA) => aplicar(valoresDoRascunho(r))}
+        />
+
+        {sugestaoIrma && !conteudo && (
           <Sugestao
             icone={Users}
             rotulo={`No ${sugestaoIrma.turma}, em ${dataCurta(sugestaoIrma.data)}, você deu`}

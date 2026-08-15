@@ -111,6 +111,11 @@ export interface RegistroAula {
   atividadeCasa: string | null;
   dataEntrega: string | null;
   planoProximaAula: string | null;
+  /** A fala original. Existe só até `revisadoEm`; depois o servidor a apaga. */
+  transcricaoBruta: string | null;
+  /** JSON do último rascunho da IA. Ver `lib/rascunho.ts`. */
+  resumoPadronizado: string | null;
+  /** null = ainda é rascunho e não conta como registro. */
   revisadoEm: string | null;
   topicos: { registroId: string; topicoId: string }[];
 }

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { AnexosService } from '../anexos/anexos.service';
 import { PlanosService } from '../planos/planos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegistrosService } from './registros.service';
@@ -37,9 +38,19 @@ descreve('RegistrosService (integração)', () => {
   const MIN = 60_000;
   const BASE = new Date('2026-04-06T12:00:00.000Z');
 
+  // Dublê: o descarte de áudio depende do Storage, que não é o que este
+  // arquivo checa. O que importa aqui é que o fechamento o chame.
+  let audiosDescartados: string[];
+  const anexosFalso = {
+    descartarAudios: async (_professorId: string, registroId: string) => {
+      audiosDescartados.push(registroId);
+      return 0;
+    },
+  } as unknown as AnexosService;
+
   beforeAll(() => {
     prisma = new PrismaClient({ datasources: { db: { url } } }) as unknown as PrismaService;
-    registros = new RegistrosService(prisma);
+    registros = new RegistrosService(prisma, anexosFalso);
     planos = new PlanosService(prisma);
   });
 
@@ -49,6 +60,7 @@ descreve('RegistrosService (integração)', () => {
   });
 
   beforeEach(async () => {
+    audiosDescartados = [];
     await prisma.professor.deleteMany({ where: { id: { in: [PROF, OUTRO] } } });
     for (const id of [PROF, OUTRO]) {
       await prisma.professor.create({
@@ -176,6 +188,31 @@ descreve('RegistrosService (integração)', () => {
 
       expect(depois.topicos).toHaveLength(1);
       expect(depois.topicos[0].topicoId).toBe(outro.id);
+    });
+
+    it('salvar é a revisão: marca revisadoEm e descarta a fala bruta', async () => {
+      const oc = await aula(cadeiraA, 0);
+      // Estado deixado pelo ditado: rascunho da IA, ainda não conferido.
+      await prisma.registroAula.create({
+        data: {
+          professorId: PROF,
+          ocorrenciaId: oc.id,
+          transcricaoBruta: 'terminei frações, a Ana perguntou sobre denominador',
+          resumoPadronizado: '{"conteudoDado":"Frações equivalentes"}',
+        },
+      });
+
+      const depois = await registros.salvarFechamento(PROF, oc.id, {
+        conteudoDado: 'Frações equivalentes',
+      });
+
+      expect(depois.revisadoEm).not.toBeNull();
+      // A fala é onde o nome do aluno fica literal. Revisada, some.
+      expect(depois.transcricaoBruta).toBeNull();
+      // O que a IA devolveu fica: é a prova de que o registro veio de um
+      // rascunho, e ela pode ter editado só metade.
+      expect(depois.resumoPadronizado).toContain('Frações equivalentes');
+      expect(audiosDescartados).toEqual([depois.id]);
     });
 
     it('cria o registro na primeira gravação e edita na segunda', async () => {

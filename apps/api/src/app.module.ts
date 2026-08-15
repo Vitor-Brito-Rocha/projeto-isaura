@@ -13,6 +13,7 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { ErrosModule } from './common/erros.module';
 import { EscolasModule } from './escolas/escolas.module';
 import { HealthController } from './health.controller';
+import { IaModule } from './ia/ia.module';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { PlanosModule } from './planos/planos.module';
@@ -37,6 +38,7 @@ import { SeriesModule } from './series/series.module';
     PlanosModule,
     RegistrosModule,
     AnexosModule,
+    IaModule,
     SeriesModule,
     AgendaModule,
     PushModule,

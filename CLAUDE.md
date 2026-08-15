@@ -11,37 +11,47 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 |---|---|
 | 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`) |
 | 2 — Os dois alarmes + casca PWA | feita (`aa71e52`, `37baa31`, `9c8dfdb`); falta só a verificação em aparelho real |
-| 3 — Registro por texto | **em andamento** (`57f85a8`, `HEAD`) — falta cadastro de plano na UI, anexos e local-first |
-| 4 — Voz e resumo padronizado | não começada |
+| 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
+| 4 — Voz e resumo padronizado | **em andamento** (`HEAD`) — construída, **não verificada: conta Anthropic sem saldo** |
 | 5 — Progresso e histórico | não começada |
 | 6 — Capacitor no Android | não começada (deixou de ser condicional) |
 
-### O que já saiu da fase 3
+### Fase 4 — o que existe
 
-1. ~~**`PlanoCurricular`**~~ — feito. `Unidade` pendura no plano, não na cadeira;
-   `Cadeira.planoCurricularId` é nulável. Endpoints em `src/planos/`.
-2. ~~**A rota `/aula/[id]` não existe**~~ — feito. `apps/web/src/app/aula/[id]/page.tsx` com os dois
-   formulários, alimentada por `GET /registros/ocorrencia/:id`.
+- **`src/ia/`** — `POST /ia/ocorrencia/:id/resumo` recebe a fala e devolve um rascunho.
+  `resumo.prompt.ts` é puro e testado; `resumo.service.ts` faz a chamada.
+- **O modelo nunca vê um uuid.** Unidades e tópicos vão numerados, e `aplicarResumo` traduz os
+  números de volta. Número fora da lista simplesmente não existe — é o que impede alucinação de
+  id de virar tópico marcado, um passo antes de `garantirTopicos`.
+- **Ditado sem áudio** (`lib/ditado.ts`): Web Speech API onde existe, microfone do teclado onde
+  não existe. Nenhum arquivo de áudio é criado — ver "Transcrição de áudio" em `docs/PLANO.md`
+  para a decisão que falta se isso não bastar na sala.
+- **Revisão = salvar.** `salvarFechamento` agora marca `revisadoEm`, apaga `transcricaoBruta` e
+  descarta os anexos de áudio. Não há botão de "confirmar" separado: o rascunho vira registro no
+  mesmo gesto que ela já fazia.
 
-3. ~~**Cadastro de plano curricular na UI**~~ — feito. `/planos` (lista + criação) e
-   `/planos/[id]` (unidades e tópicos). Vínculo turma↔plano no card de cada cadeira.
+### O que falta na fase 4
 
-4. ~~**Escrita local-first**~~ — feito. `lib/fila-offline.ts` (lógica, testada) +
-   `lib/armazenamento-idb.ts` (IndexedDB). Anexo **não** entra na fila: exige rede na hora.
-5. ~~**Editar unidade/tópico**~~ e ~~**anexos**~~ — feitos.
+- **Saldo na conta da Anthropic.** A chave autentica (chega na org e no workspace certos), mas toda
+  chamada volta `400 invalid_request_error` de crédito. **A cobrança é checada antes da validação
+  de parâmetros** — testei com um modelo inexistente e o erro é o mesmo —, então o schema, o
+  `output_config.format` e a ausência de `effort` **ainda não foram aceitos por ninguém**. Não
+  tratar como funcionando até uma chamada real passar.
+- **Comparar com 5 falas reais dela**, que é o critério de aceite da fase (PLANO, "Verificação").
 
 ### O que falta na fase 3
 
-- **Colar `SUPABASE_SERVICE_ROLE_KEY`** em `apps/api/.env`. Sem ela os anexos respondem 503 e o
-  resto do app funciona normal. O bucket `anexos` já existe (privado, 10 MB, imagem e PDF).
 - **Teste de modo avião no aparelho** — preencher um fechamento offline, fechar o app, voltar
   online. É o critério de aceite da fase e nenhum teste automatizado substitui.
 
 ### Pendências humanas (não são de código)
 
-- ~~Gerar as chaves VAPID~~ e ~~colar as strings de conexão~~ — **feito**.
+- ~~Gerar as chaves VAPID~~, ~~colar as strings de conexão~~, ~~colar a chave de serviço do
+  Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
+- **Comprar crédito na conta da Anthropic.** A chave está no `.env` e autentica, mas a conta está
+  zerada e nenhuma chamada passa. Bloqueia a fase 4 inteira.
 - **Criar a conta da professora e um plano curricular de verdade** para o select de unidades sair
-  do vazio.
+  do vazio. Sem isso não dá para exercitar `/aula/[id]` no navegador — inclusive o ditado.
 - Teste de relógio no aparelho real: aula terminando em ~3 min, confirmar que os dois pushes
   chegam. É o critério de aceite da fase 2; nenhum teste automatizado substitui.
 - Pedir o plano de curso escrito da professora (ele existe) antes da fase 5 — o formato decide se
@@ -76,7 +86,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 ## Comandos
 
 ```bash
-npm test              # 75 testes de API + 16 de web
+npm test              # 90 testes de API + 37 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -109,7 +119,12 @@ avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior des
 16 testes travam essa regra.
 
 **Saída da IA é sempre rascunho.** `revisadoEm` nulo = não conta como registro. O histórico pode
-virar prova de trabalho na frente da coordenação.
+virar prova de trabalho na frente da coordenação. Quem preenche `revisadoEm` é `salvarFechamento`,
+e só ele — gerar um resumo *zera* a marca, porque o que está na tela voltou a ser saída de modelo.
+
+**Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
+existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
+API em vez de o front falar direto com o serviço.
 
 **Nome de aluno não entra** (dado pessoal de menor). Não é só instrução de prompt: `transcricaoBruta`
 e o áudio existem só até a revisão e são descartados depois. Ver "LGPD" em `docs/PLANO.md`.

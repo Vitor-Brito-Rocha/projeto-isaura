@@ -215,6 +215,25 @@ Só é possível porque a unidade saiu da cadeira.
 1. **Grava** — `MediaRecorder`, áudio fica no aparelho primeiro (sala sem sinal é o caso normal).
 2. **Transcreve** — serviço de transcrição no backend quando houver rede; ditado nativo do teclado
    como caminho rápido paralelo.
+
+### Transcrição de áudio — decisão pendente
+
+**O que foi construído é só o caminho 2b: o ditado.** `lib/ditado.ts` usa a Web Speech API quando
+existe e, onde não existe, a tela manda ela usar o microfone do teclado do sistema. Nos dois casos
+**o que sai é texto — nenhum arquivo de áudio chega a existir.**
+
+Isso não foi economia de esforço: gravar e transcrever no servidor exige um provedor de
+transcrição, e a Anthropic não faz áudio. Escolher um significa **mandar a voz dela, com nome de
+aluno falado, para um terceiro** — exatamente o artefato que a seção de LGPD manda descartar. Sem
+áudio, o problema não existe: não há o que subir, guardar nem apagar.
+
+O que se perde: numa sala barulhenta o ditado erra mais que uma transcrição boa, e o iOS corta o
+ditado do teclado depois de ~30 s de fala contínua.
+
+**Decisão para o usuário, se o ditado não bastar no uso real:** escolher provedor (Whisper da
+OpenAI, Google STT, Deepgram), aceitar que a voz sai do aparelho, e pagar por minuto. O código
+já está preparado — `AUDIO` existe em `TipoAnexo` e o descarte na revisão já está implementado e
+testado, mesmo sem nada produzir áudio hoje.
 3. **Normaliza** — Claude recebe transcrição **+ contexto da cadeira + plano da unidade + o que ela
    planejou na abertura**. O contexto é o que separa resumo útil de genérico: sem ele, *"continuei
    o que eu tinha planejado"* fica como está; com ele, a referência é resolvida.
@@ -355,13 +374,17 @@ mostrar se é necessária.
 1. ~~**Fundação e grade**~~ — **feito** (`8921d81`, `8ed4568`), menos a tela, que foi para a fase 2.
 2. ~~**Os dois alarmes**~~ — **feito** (`aa71e52`, `37baa31`). Falta só a verificação que exige
    aparelho real: gerar as chaves VAPID e fazer o teste de relógio no celular dela.
-3. **Registro por texto** — **em andamento.** Feitos: `PlanoCurricular` + unidades + tópicos na
-   API, `RegistroAula` por ocorrência, a tela `/aula/[id]` com os dois formulários, encadeamento
-   `planoProximaAula` e a sugestão da turma irmã. Faltam: telas de cadastro do plano curricular e
-   de vínculo cadeira↔plano, anexos e escrita local-first.
+3. ~~**Registro por texto**~~ — **feito.** `PlanoCurricular` + unidades + tópicos, `RegistroAula`
+   por ocorrência, a tela `/aula/[id]` com os dois formulários, encadeamento `planoProximaAula`,
+   sugestão da turma irmã, telas de plano curricular e vínculo cadeira↔plano, anexos e escrita
+   local-first. Falta só o teste de modo avião no aparelho.
    *Entrega: substitui o caderno.*
-4. **Voz e resumo padronizado** — gravação, transcrição, normalização com Claude, revisão lado a
-   lado. Só depois do texto estar estável — a IA é camada por cima, não base.
+4. **Voz e resumo padronizado** — **em andamento.** Feitos: ditado por voz sem gravar áudio,
+   normalização com `claude-haiku-4-5` (`POST /ia/ocorrencia/:id/resumo`), rascunho ao lado da
+   fala e revisão que descarta a fala. **Não verificado com o modelo de verdade: a conta da
+   Anthropic está sem saldo** — a chave autentica, mas toda chamada volta 400 de crédito, e a
+   cobrança é checada *antes* da validação de parâmetros, então nem o schema foi aceito ainda.
+   Falta também a transcrição de áudio no servidor (ver "Transcrição de áudio" abaixo).
 5. **Progresso e histórico** — painel por cadeira/unidade, linha do tempo, busca, exportação.
    *Entrega: a resposta para "onde eu parei no 8º A?".*
 6. **Capacitor no Android** — alarme real: canal categoria alarme + full-screen intent, furando o
