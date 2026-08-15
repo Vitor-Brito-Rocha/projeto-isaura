@@ -15,10 +15,11 @@
 -- Tabelas com professor_id direto: a policy compara com o uid do JWT.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE professores        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE escolas            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cadeiras           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE unidades           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE professores          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE escolas              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cadeiras             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE planos_curriculares  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unidades             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE series_aulas       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ocorrencias        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE registros_aula     ENABLE ROW LEVEL SECURITY;
@@ -39,8 +40,8 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'escolas', 'cadeiras', 'unidades', 'series_aulas', 'ocorrencias',
-    'registros_aula', 'configs_alarme', 'anexos', 'notificacoes',
+    'escolas', 'cadeiras', 'planos_curriculares', 'unidades', 'series_aulas',
+    'ocorrencias', 'registros_aula', 'configs_alarme', 'anexos', 'notificacoes',
     'push_subscriptions'
   ]
   LOOP
@@ -85,6 +86,17 @@ CREATE POLICY topicos_proprio ON topicos
     SELECT 1 FROM unidades u
     WHERE u.id = topicos.unidade_id AND u.professor_id = auth.uid()::text
   ));
+
+-- ---------------------------------------------------------------------------
+-- erros_log: RLS LIGADO E SEM NENHUMA POLICY, de propósito.
+--
+-- No Postgres, RLS ligado sem policy nega tudo. É o que queremos: mensagem e
+-- stack de 5xx podem conter nome de tabela, trecho de query e dado de outra
+-- professora, então nada disso pode sair pelo PostgREST com a anon key. A API
+-- conecta como dono da tabela (BYPASSRLS) e continua lendo e gravando normal.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE erros_log ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS registros_topicos_proprio ON registros_topicos;
 CREATE POLICY registros_topicos_proprio ON registros_topicos

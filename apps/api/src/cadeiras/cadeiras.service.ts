@@ -14,7 +14,13 @@ export class CadeirasService {
       orderBy: [{ disciplina: 'asc' }, { turma: 'asc' }],
       include: {
         escola: { select: { id: true, nome: true } },
-        _count: { select: { series: true, unidades: true } },
+        // As unidades moraram na cadeira até a fase 3; agora moram no plano
+        // curricular, que várias turmas irmãs compartilham. Por isso a contagem
+        // vem de dentro do plano em vez de sair no `_count` da cadeira.
+        plano: {
+          select: { id: true, nome: true, _count: { select: { unidades: true } } },
+        },
+        _count: { select: { series: true } },
       },
     });
   }
@@ -24,7 +30,14 @@ export class CadeirasService {
       where: { id, professorId },
       include: {
         escola: { select: { id: true, nome: true } },
-        unidades: { orderBy: { ordem: 'asc' }, include: { topicos: { orderBy: { ordem: 'asc' } } } },
+        plano: {
+          include: {
+            unidades: {
+              orderBy: { ordem: 'asc' },
+              include: { topicos: { orderBy: { ordem: 'asc' } } },
+            },
+          },
+        },
         config: true,
       },
     });

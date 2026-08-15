@@ -1,4 +1,5 @@
 import { IntensidadeAlarme, PrismaClient, StatusOcorrencia } from '@prisma/client';
+import type { ErrosService } from '../common/erros.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PushPayload, PushService } from '../push/push.service';
 import {
@@ -45,9 +46,15 @@ descreve('AlarmesService (integração)', () => {
     },
   } as unknown as PushService;
 
+  // Dublê: o que interessa aqui é o alarme, não a trilha de erro. Registrar de
+  // verdade gravaria em erros_log a cada rodada de teste.
+  const errosFalso = {
+    registrar: async () => undefined,
+  } as unknown as ErrosService;
+
   beforeAll(() => {
     prisma = new PrismaClient({ datasources: { db: { url } } }) as unknown as PrismaService;
-    servico = new AlarmesService(prisma, pushFalso);
+    servico = new AlarmesService(prisma, pushFalso, errosFalso);
   });
 
   afterAll(async () => {

@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { SupabaseJwtGuard } from './auth/supabase-jwt.guard';
 import { CadeirasModule } from './cadeiras/cadeiras.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { ErrosModule } from './common/erros.module';
 import { EscolasModule } from './escolas/escolas.module';
 import { HealthController } from './health.controller';
 import { JobsModule } from './jobs/jobs.module';
@@ -25,6 +26,7 @@ import { SeriesModule } from './series/series.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    ErrosModule,
     AuthModule,
     ProfessoresModule,
     EscolasModule,

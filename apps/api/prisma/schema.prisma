@@ -84,6 +84,7 @@ model Professor {
   series        SerieAula[]
   ocorrencias   Ocorrencia[]
   registros     RegistroAula[]
+  planos        PlanoCurricular[]
   unidades      Unidade[]
   configs       ConfigAlarme[]
   anexos        Anexo[]
@@ -123,39 +124,76 @@ model Cadeira {
   corHex      String  @default("#2F4A9C") @map("cor_hex") // identificação visual rápida na grade
   ativo       Boolean @default(true)
 
+  /// Qual currículo esta turma segue. Nulável de propósito: cadeira sem plano
+  /// continua funcionando, e o cadastro do plano pode vir depois da grade.
+  planoCurricularId String? @map("plano_curricular_id")
+
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  professor   Professor     @relation(fields: [professorId], references: [id], onDelete: Cascade)
-  escola      Escola?       @relation(fields: [escolaId], references: [id], onDelete: SetNull)
-  unidades    Unidade[]
+  professor   Professor        @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  escola      Escola?          @relation(fields: [escolaId], references: [id], onDelete: SetNull)
+  plano       PlanoCurricular? @relation(fields: [planoCurricularId], references: [id], onDelete: SetNull)
   series      SerieAula[]
   ocorrencias Ocorrencia[]
   config      ConfigAlarme?
 
   @@index([professorId, ativo])
   @@index([escolaId])
+  @@index([planoCurricularId])
   @@map("cadeiras")
 }
 
-/// Unidade do currículo (bimestre, capítulo, módulo). Com onze turmas em ritmos
-/// diferentes, é isso que responde "onde eu parei no 8º A?".
+/// O currículo em si — "o que se ensina", separado de "onde cada turma está".
+///
+/// Existe porque onze turmas se agrupam em poucas disciplinas: com `Unidade`
+/// pendurada na cadeira, o mesmo plano de Matemática teria de ser digitado uma
+/// vez por turma e corrigido uma vez por turma. É o atrito que faz abandonar o
+/// app na segunda semana.
+///
+/// Não é derivado do nome da disciplina: a mesma disciplina em escolas
+/// diferentes pode ter currículo diferente, então o plano é objeto que ela cria
+/// quantas vezes quiser e aponta de quantas cadeiras quiser.
+model PlanoCurricular {
+  id          String  @id @default(uuid())
+  professorId String  @map("professor_id")
+  nome        String // "Matemática 8º ano — 2026"
+  disciplina  String? // livre; serve para agrupar e sugerir, não para identificar
+  anoLetivo   Int     @map("ano_letivo")
+
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime? @updatedAt @map("atualizado_em")
+
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  unidades  Unidade[]
+  cadeiras  Cadeira[]
+
+  @@index([professorId, anoLetivo])
+  @@map("planos_curriculares")
+}
+
+/// Unidade do currículo (bimestre, capítulo, módulo).
+///
+/// Pendura no PLANO, não na cadeira: a unidade é o que se ensina, e várias
+/// turmas irmãs compartilham a mesma. "Onde o 8º A parou" não mora aqui — sai
+/// de `RegistroTopico`, que pendura no registro de cada aula. Por isso "8ºA no
+/// tópico 5, 8ºB no tópico 3" funciona sem duplicar currículo.
 model Unidade {
-  id              String    @id @default(uuid())
-  professorId     String    @map("professor_id")
-  cadeiraId       String    @map("cadeira_id")
-  ordem           Int
-  titulo          String
-  dataInicio      DateTime? @map("data_inicio") @db.Date
-  dataFimPrevista DateTime? @map("data_fim_prevista") @db.Date
+  id                String    @id @default(uuid())
+  professorId       String    @map("professor_id")
+  planoCurricularId String    @map("plano_curricular_id")
+  ordem             Int
+  titulo            String
+  dataInicio        DateTime? @map("data_inicio") @db.Date
+  dataFimPrevista   DateTime? @map("data_fim_prevista") @db.Date
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  professor Professor      @relation(fields: [professorId], references: [id], onDelete: Cascade)
-  cadeira   Cadeira        @relation(fields: [cadeiraId], references: [id], onDelete: Cascade)
+  professor Professor       @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  plano     PlanoCurricular @relation(fields: [planoCurricularId], references: [id], onDelete: Cascade)
   topicos   Topico[]
   registros RegistroAula[]
 
-  @@unique([cadeiraId, ordem])
+  @@unique([planoCurricularId, ordem])
   @@index([professorId])
   @@map("unidades")
 }
@@ -394,4 +432,24 @@ model PushSubscription {
 
   @@index([professorId])
   @@map("push_subscriptions")
+}
+
+/// Histórico de 5xx e de falha de cron. Padrão herdado do projeto-professor.
+///
+/// Sem `@relation` com Professor de propósito, e é a única tabela do sistema
+/// assim: um erro pode acontecer ANTES de autenticar (professor_id nulo), e o
+/// cascade de "excluir minha conta" não pode apagar a trilha de um bug. Por
+/// isso `professor_id` aqui é só um rastro, não uma chave estrangeira.
+model ErroLog {
+  id          String   @id @default(uuid())
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  metodo      String // verbo HTTP, ou "CRON"
+  rota        String // caminho da requisição, ou nome do job
+  professorId String?  @map("professor_id")
+  mensagem    String
+  stack       String?
+  origem      String // "http" | "cron:<nome>"
+
+  @@index([criadoEm])
+  @@map("erros_log")
 }

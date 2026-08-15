@@ -26,8 +26,18 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 ### Pendências humanas (não são de código)
 
-- Gerar as chaves VAPID e colocá-las em `.env` (raiz) e `apps/web/.env.local`.
-  **Nunca em `.env.example`, que é versionado** — o `.gitignore` tem um `!.env.example` explícito.
+- ~~Gerar as chaves VAPID~~ — **feito**, já estão nos `.env` locais.
+- Colar as duas strings de conexão do Supabase em `apps/api/.env` (ver comentários no arquivo).
+
+### Onde os `.env` moram
+
+O real da API é **`apps/api/.env`**, não a raiz: `npm run --workspace apps/api` roda com
+cwd = `apps/api`, e é de lá que `ConfigModule.forRoot()` e o Prisma leem. Um `.env` na raiz é
+lido por ninguém. O `.env.example` fica na raiz só como documentação das variáveis.
+O do front é `apps/web/.env.local`.
+
+**Nunca ponha valor real em `.env.example`, que é versionado** — o `.gitignore` tem um
+`!.env.example` explícito, então ele passa por cima da regra `.env` e é commitado.
 - Teste de relógio no aparelho real: aula terminando em ~3 min, confirmar que os dois pushes
   chegam. É o critério de aceite da fase 2; nenhum teste automatizado substitui.
 - Pedir o plano de curso escrito da professora (ele existe) antes da fase 5 — o formato decide se
