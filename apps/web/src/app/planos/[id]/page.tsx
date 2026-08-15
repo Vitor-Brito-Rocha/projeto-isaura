@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
+import { TextoEditavel } from '@/components/texto-editavel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -203,13 +204,39 @@ function CartaoUnidade({
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível remover.'),
   });
 
+  const renomearUnidade = useMutation({
+    mutationFn: (titulo: string) =>
+      apiFetch(`/planos/${planoId}/unidades/${unidade.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ titulo }),
+      }),
+    onSuccess: onMudou,
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
+  });
+
+  const renomearTopico = useMutation({
+    mutationFn: ({ id, titulo }: { id: string; titulo: string }) =>
+      apiFetch(`/planos/${planoId}/unidades/${unidade.id}/topicos/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ titulo }),
+      }),
+    onSuccess: onMudou,
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
+  });
+
   return (
     <Card>
       <CardHeader className="flex-row items-start gap-3 space-y-0 pb-3">
         <Badge variant="neutro" className="mt-0.5 shrink-0">
           {unidade.ordem}
         </Badge>
-        <CardTitle className="min-w-0 flex-1 text-base">{unidade.titulo}</CardTitle>
+        <CardTitle className="min-w-0 flex-1 text-base">
+          <TextoEditavel
+            valor={unidade.titulo}
+            rotuloAcessivel={`unidade ${unidade.titulo}`}
+            aoSalvar={(t) => renomearUnidade.mutate(t)}
+          />
+        </CardTitle>
         <Button
           size="icon"
           variant="ghost"
@@ -235,7 +262,13 @@ function CartaoUnidade({
                 className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent/50"
               >
                 <span className="w-5 shrink-0 text-xs text-muted-foreground">{t.ordem}.</span>
-                <span className="min-w-0 flex-1 truncate">{t.titulo}</span>
+                <div className="min-w-0 flex-1">
+                  <TextoEditavel
+                    valor={t.titulo}
+                    rotuloAcessivel={`tópico ${t.titulo}`}
+                    aoSalvar={(titulo) => renomearTopico.mutate({ id: t.id, titulo })}
+                  />
+                </div>
                 <Button
                   size="icon"
                   variant="ghost"
