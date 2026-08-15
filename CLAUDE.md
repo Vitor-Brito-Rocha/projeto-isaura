@@ -26,12 +26,16 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 3. ~~**Cadastro de plano curricular na UI**~~ — feito. `/planos` (lista + criação) e
    `/planos/[id]` (unidades e tópicos). Vínculo turma↔plano no card de cada cadeira.
 
+4. ~~**Escrita local-first**~~ — feito. `lib/fila-offline.ts` (lógica, testada) +
+   `lib/armazenamento-idb.ts` (IndexedDB). Anexo **não** entra na fila: exige rede na hora.
+5. ~~**Editar unidade/tópico**~~ e ~~**anexos**~~ — feitos.
+
 ### O que falta na fase 3
 
-- **Anexos** (foto/documento) e **escrita local-first** (IndexedDB + fila de sync). O local-first é
-  requisito, não refinamento: é no fechamento que a rede falta.
-- **Editar unidade/tópico** — hoje só criar e remover. Renomear exige apagar e recriar, o que
-  perde o vínculo com registros que já cobriram aquele tópico. Os endpoints `PATCH` já existem.
+- **Colar `SUPABASE_SERVICE_ROLE_KEY`** em `apps/api/.env`. Sem ela os anexos respondem 503 e o
+  resto do app funciona normal. O bucket `anexos` já existe (privado, 10 MB, imagem e PDF).
+- **Teste de modo avião no aparelho** — preencher um fechamento offline, fechar o app, voltar
+  online. É o critério de aceite da fase e nenhum teste automatizado substitui.
 
 ### Pendências humanas (não são de código)
 
@@ -59,6 +63,15 @@ Ficam pulados sem `TEST_DATABASE_URL`. Para rodar, aponte-o para o **session poo
 o mesmo valor de `DIRECT_URL`. Eles não fazem `TRUNCATE`: cada spec só apaga professores de id
 sintético fixo (`prof-alarmes`, `prof-registros`…), então rodar contra o banco de desenvolvimento
 não toca em dado real.
+
+`common/teste-db.ts` acrescenta `connection_limit=1` à URL. O Jest roda ~7 arquivos em paralelo e
+cada `PrismaClient` abriria `(cpus × 2 + 1)` conexões, contra um teto de 60 no pooler — com a API
+de desenvolvimento também conectada, estoura.
+
+**Instabilidade observada, causa não confirmada.** Houve rodadas com falhas em specs aleatórios que
+passavam com `--runInBand` e depois pararam de aparecer; o `connection_limit` é precaução para a
+hipótese mais provável, não um conserto comprovado. Se voltar a acontecer, **capture o log inteiro
+antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou para diagnosticar.
 
 ## Comandos
 

@@ -53,13 +53,35 @@ export class AuthService {
     return json;
   }
 
+  /**
+   * Para onde o link do email de confirmação devolve a pessoa.
+   *
+   * Vai como `redirect_to` no signup em vez de depender do "Site URL" fixo do
+   * painel: o Site URL é um só, e o mesmo projeto Supabase atende localhost e
+   * produção. Sem isto, confirmar cadastro em desenvolvimento jogaria a pessoa
+   * no site publicado — ou o contrário, que é pior.
+   *
+   * `WEB_ORIGIN` já existe e já é diferente por ambiente (é a mesma origem
+   * usada no CORS), então não há uma segunda variável para configurar errado.
+   * O Supabase só aceita destinos que estejam na allowlist de Redirect URLs;
+   * cada origem usada precisa estar lá.
+   */
+  private get destinoDeRetorno(): string | null {
+    const origem = this.config.get<string>('WEB_ORIGIN')?.split(',')[0]?.trim();
+    return origem || null;
+  }
+
   async signup(email: string, senha: string, nome: string): Promise<SupabaseSession> {
     try {
-      const json = await this.chamar('/signup', {
-        email,
-        password: senha,
-        data: { nome },
-      });
+      const destino = this.destinoDeRetorno;
+      const json = await this.chamar(
+        destino ? `/signup?redirect_to=${encodeURIComponent(destino)}` : '/signup',
+        {
+          email,
+          password: senha,
+          data: { nome },
+        },
+      );
       // Sem sessão na resposta = projeto exige confirmação de email.
       if (!json.access_token) throw new SemSessaoError('Confirmação de email pendente.');
       return json as SupabaseSession;

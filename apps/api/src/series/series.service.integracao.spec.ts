@@ -3,6 +3,7 @@ import { RecorrenciaService } from '../agenda/recorrencia.service';
 import { hhmmNaTz, instanteDeParede, isoDeDataUTC } from '../common/tz';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeriesService } from './series.service';
+import { urlDeTeste } from '../common/teste-db';
 
 /**
  * Teste de integração contra um Postgres real.
@@ -17,7 +18,7 @@ import { SeriesService } from './series.service';
  * professor. Esse é o bug que o modelo antigo (comparar "HH:mm" como string)
  * teria, e ele só aparece com dois professores em fusos diferentes.
  */
-const url = process.env.TEST_DATABASE_URL;
+const url = urlDeTeste();
 const descreve = url ? describe : describe.skip;
 
 descreve('SeriesService (integração)', () => {

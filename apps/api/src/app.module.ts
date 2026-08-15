@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AgendaModule } from './agenda/agenda.module';
 import { AlarmesModule } from './alarmes/alarmes.module';
+import { AnexosModule } from './anexos/anexos.module';
 import { AuthModule } from './auth/auth.module';
 import { SupabaseJwtGuard } from './auth/supabase-jwt.guard';
 import { CadeirasModule } from './cadeiras/cadeiras.module';
@@ -35,6 +36,7 @@ import { SeriesModule } from './series/series.module';
     CadeirasModule,
     PlanosModule,
     RegistrosModule,
+    AnexosModule,
     SeriesModule,
     AgendaModule,
     PushModule,

@@ -2,6 +2,7 @@ import { PrismaClient, StatusOcorrencia } from '@prisma/client';
 import { instanteDeParede } from '../common/tz';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendaService } from './agenda.service';
+import { urlDeTeste } from '../common/teste-db';
 
 /**
  * Ver o cabeçalho de series.service.integracao.spec.ts para como rodar.
@@ -10,7 +11,7 @@ import { AgendaService } from './agenda.service';
  * do cron. É a lógica onde um erro não aparece na tela: a aula fica lá, bonita
  * na grade, e só o alarme nunca vem.
  */
-const url = process.env.TEST_DATABASE_URL;
+const url = urlDeTeste();
 const descreve = url ? describe : describe.skip;
 
 descreve('AgendaService (integração)', () => {

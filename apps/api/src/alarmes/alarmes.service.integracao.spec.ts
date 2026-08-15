@@ -2,6 +2,7 @@ import { IntensidadeAlarme, PrismaClient, StatusOcorrencia } from '@prisma/clien
 import type { ErrosService } from '../common/erros.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PushPayload, PushService } from '../push/push.service';
+import { urlDeTeste } from '../common/teste-db';
 import {
   AlarmesService,
   TOLERANCIA_ABERTURA_MIN,
@@ -21,7 +22,7 @@ import {
  * significa que outro arquivo de teste rodando em paralelo no mesmo banco entra
  * na contagem — o retorno do cron não é um número isolável.
  */
-const url = process.env.TEST_DATABASE_URL;
+const url = urlDeTeste();
 const descreve = url ? describe : describe.skip;
 
 const MIN = 60_000;

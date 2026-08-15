@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PlanosService } from '../planos/planos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegistrosService } from './registros.service';
+import { urlDeTeste } from '../common/teste-db';
 
 /**
  * Teste de integração contra um Postgres real.
@@ -16,7 +17,7 @@ import { RegistrosService } from './registros.service';
  * de outra conta atravessa — inclusive em `registros_topicos`, que não tem
  * `professorId` próprio.
  */
-const url = process.env.TEST_DATABASE_URL;
+const url = urlDeTeste();
 const descreve = url ? describe : describe.skip;
 
 descreve('RegistrosService (integração)', () => {

@@ -93,6 +93,16 @@ export interface PlanoDetalhe extends PlanoCurricular {
   cadeiras: { id: string; disciplina: string; turma: string; corHex: string }[];
 }
 
+export interface Anexo {
+  id: string;
+  tipo: 'FOTO' | 'DOCUMENTO' | 'AUDIO';
+  nomeArquivo: string;
+  tamanhoBytes: number | null;
+  criadoEm: string;
+  /** Assinada na leitura e temporária — o bucket é privado. */
+  url: string | null;
+}
+
 export interface RegistroAula {
   id: string;
   planoPrevisto: string | null;

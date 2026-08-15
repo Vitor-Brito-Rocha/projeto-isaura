@@ -18,6 +18,7 @@ import { apiFetch } from '@/lib/api';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
+import { Anexos } from './anexos';
 
 type Momento = 'abertura' | 'fechamento';
 
@@ -411,6 +412,8 @@ function FormFechamento({
             />
           </div>
         </div>
+
+        <Anexos ocorrenciaId={ocorrenciaId} />
 
         <div className="space-y-1.5">
           <Label htmlFor="proxima">Plano da próxima aula</Label>

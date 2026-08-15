@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { IntensidadeAlarme, PrismaClient, TipoNotificacao } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from './push.service';
+import { urlDeTeste } from '../common/teste-db';
 
 /**
  * Ver o cabeçalho de series.service.integracao.spec.ts para como rodar.
@@ -11,7 +12,7 @@ import { PushService } from './push.service';
  * exatamente o cenário que queremos exercitar — se o registro dependesse do
  * push, um alarme perdido sumiria sem deixar rastro.
  */
-const url = process.env.TEST_DATABASE_URL;
+const url = urlDeTeste();
 const descreve = url ? describe : describe.skip;
 
 descreve('PushService (integração)', () => {
