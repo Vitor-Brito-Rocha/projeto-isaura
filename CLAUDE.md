@@ -11,23 +11,36 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 |---|---|
 | 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`) |
 | 2 — Os dois alarmes + casca PWA | feita (`aa71e52`, `37baa31`, `9c8dfdb`); falta só a verificação em aparelho real |
-| 3 — Registro por texto | **próxima** |
+| 3 — Registro por texto | **em andamento** (`57f85a8`, `HEAD`) — falta cadastro de plano na UI, anexos e local-first |
 | 4 — Voz e resumo padronizado | não começada |
 | 5 — Progresso e histórico | não começada |
 | 6 — Capacitor no Android | não começada (deixou de ser condicional) |
 
-### Onde a fase 3 começa
+### O que já saiu da fase 3
 
-1. **`PlanoCurricular`** — hoje `Unidade` pendura em `cadeiraId`, o que faria a professora digitar
-   o mesmo plano de Matemática uma vez por turma. Ver "Correção pendente" em `docs/PLANO.md`.
-2. **A rota `/aula/[id]` não existe.** `alarmes.service.ts` já manda
-   `url: /aula/${oc.id}?momento=abertura|fechamento` no payload do push, e o service worker abre
-   esse link no clique — então hoje **um alarme clicado cai em 404**.
+1. ~~**`PlanoCurricular`**~~ — feito. `Unidade` pendura no plano, não na cadeira;
+   `Cadeira.planoCurricularId` é nulável. Endpoints em `src/planos/`.
+2. ~~**A rota `/aula/[id]` não existe**~~ — feito. `apps/web/src/app/aula/[id]/page.tsx` com os dois
+   formulários, alimentada por `GET /registros/ocorrencia/:id`.
+
+### O que falta na fase 3
+
+- **Cadastro de plano curricular na UI.** A API tem CRUD completo (`/planos`, unidades, tópicos),
+  mas não existe tela — hoje só dá para criar plano por chamada direta. Sem isso o select de
+  unidade no fechamento fica sempre vazio, que é justamente o que torna os registros comparáveis.
+- **Vincular cadeira a plano na UI** — o campo já existe no DTO e é validado por dono.
+- **Anexos** (foto/documento) e **escrita local-first** (IndexedDB + fila de sync). O local-first é
+  requisito, não refinamento: é no fechamento que a rede falta.
 
 ### Pendências humanas (não são de código)
 
-- ~~Gerar as chaves VAPID~~ — **feito**, já estão nos `.env` locais.
-- Colar as duas strings de conexão do Supabase em `apps/api/.env` (ver comentários no arquivo).
+- ~~Gerar as chaves VAPID~~ e ~~colar as strings de conexão~~ — **feito**.
+- **Criar a conta da professora e um plano curricular de verdade** para o select de unidades sair
+  do vazio.
+- Teste de relógio no aparelho real: aula terminando em ~3 min, confirmar que os dois pushes
+  chegam. É o critério de aceite da fase 2; nenhum teste automatizado substitui.
+- Pedir o plano de curso escrito da professora (ele existe) antes da fase 5 — o formato decide se
+  a importação é parsing ou visão.
 
 ### Onde os `.env` moram
 
@@ -38,15 +51,18 @@ O do front é `apps/web/.env.local`.
 
 **Nunca ponha valor real em `.env.example`, que é versionado** — o `.gitignore` tem um
 `!.env.example` explícito, então ele passa por cima da regra `.env` e é commitado.
-- Teste de relógio no aparelho real: aula terminando em ~3 min, confirmar que os dois pushes
-  chegam. É o critério de aceite da fase 2; nenhum teste automatizado substitui.
-- Pedir o plano de curso escrito da professora (ele existe) antes da fase 5 — o formato decide se
-  a importação é parsing ou visão.
+
+### Testes de integração
+
+Ficam pulados sem `TEST_DATABASE_URL`. Para rodar, aponte-o para o **session pooler** (5432) —
+o mesmo valor de `DIRECT_URL`. Eles não fazem `TRUNCATE`: cada spec só apaga professores de id
+sintético fixo (`prof-alarmes`, `prof-registros`…), então rodar contra o banco de desenvolvimento
+não toca em dado real.
 
 ## Comandos
 
 ```bash
-npm test              # 65 testes de API + 16 de web
+npm test              # 75 testes de API + 16 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000

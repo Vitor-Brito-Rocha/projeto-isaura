@@ -34,6 +34,11 @@ export class CreateCadeiraDto {
   @IsOptional()
   @IsHexColor()
   corHex?: string;
+
+  /** Qual currículo esta turma segue. Turmas irmãs apontam para o mesmo. */
+  @IsOptional()
+  @IsUUID()
+  planoCurricularId?: string;
 }
 
 export class UpdateCadeiraDto {
@@ -62,6 +67,10 @@ export class UpdateCadeiraDto {
   @IsOptional()
   @IsHexColor()
   corHex?: string;
+
+  @IsOptional()
+  @IsUUID()
+  planoCurricularId?: string;
 
   @IsOptional()
   @IsBoolean()

@@ -62,6 +62,59 @@ export interface Ocorrencia {
   registro: { id: string; planoPrevisto: string | null; conteudoDado: string | null } | null;
 }
 
+export interface Topico {
+  id: string;
+  ordem: number;
+  titulo: string;
+}
+
+export interface Unidade {
+  id: string;
+  ordem: number;
+  titulo: string;
+  dataInicio: string | null;
+  dataFimPrevista: string | null;
+  topicos: Topico[];
+}
+
+export interface PlanoCurricular {
+  id: string;
+  nome: string;
+  disciplina: string | null;
+  anoLetivo: number;
+  _count?: { unidades: number; cadeiras: number };
+}
+
+export interface RegistroAula {
+  id: string;
+  planoPrevisto: string | null;
+  conteudoDado: string | null;
+  unidadeId: string | null;
+  atividadeCasa: string | null;
+  dataEntrega: string | null;
+  planoProximaAula: string | null;
+  revisadoEm: string | null;
+  topicos: { registroId: string; topicoId: string }[];
+}
+
+/** Resposta de `GET /registros/ocorrencia/:id` — tudo que a tela precisa. */
+export interface ContextoAula {
+  ocorrencia: Ocorrencia & {
+    cadeira: Cadeira & { planoCurricularId: string | null };
+  };
+  registro: RegistroAula | null;
+  unidades: Unidade[];
+  sugestoes: {
+    daAulaAnterior: { data: string; texto: string } | null;
+    daTurmaIrma: {
+      turma: string;
+      data: string;
+      texto: string;
+      unidadeId: string | null;
+    } | null;
+  };
+}
+
 export interface Notificacao {
   id: string;
   tipo: TipoNotificacao;

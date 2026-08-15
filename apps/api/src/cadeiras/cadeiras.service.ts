@@ -47,12 +47,14 @@ export class CadeirasService {
 
   async criar(professorId: string, dto: CreateCadeiraDto) {
     await this.validarEscola(professorId, dto.escolaId);
+    await this.validarPlano(professorId, dto.planoCurricularId);
     return this.prisma.cadeira.create({ data: { ...dto, professorId } });
   }
 
   async atualizar(professorId: string, id: string, dto: UpdateCadeiraDto) {
     await this.buscar(professorId, id);
     await this.validarEscola(professorId, dto.escolaId);
+    await this.validarPlano(professorId, dto.planoCurricularId);
     return this.prisma.cadeira.update({ where: { id }, data: dto });
   }
 
@@ -131,5 +133,15 @@ export class CadeirasService {
     // Sem esta checagem, um escolaId de outro professor passaria pela FK (ela só
     // valida existência) e criaria um vínculo entre contas.
     if (!escola) throw new BadRequestException('Escola não encontrada.');
+  }
+
+  /** Mesmo motivo do `validarEscola`: a FK confere existência, não dono. */
+  private async validarPlano(professorId: string, planoCurricularId?: string) {
+    if (!planoCurricularId) return;
+    const plano = await this.prisma.planoCurricular.findFirst({
+      where: { id: planoCurricularId, professorId },
+      select: { id: true },
+    });
+    if (!plano) throw new BadRequestException('Plano curricular não encontrado.');
   }
 }

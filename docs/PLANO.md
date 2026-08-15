@@ -179,12 +179,12 @@ seguinte, transformando o alarme de abertura num toque de confirmação em vez d
 `Unidade` + `topicosCobertos` destravam a tela de progresso que ela pediu ("dar check nas
 unidades"): *"8º A · Unidade 2 — 5 de 9 tópicos, 3 aulas até a prova"*.
 
-### Correção pendente: currículo é da disciplina, não da cadeira
+### ~~Correção pendente~~: currículo é da disciplina, não da cadeira — **feita** (`57f85a8`)
 
-**A ser feito no início da fase 3, antes dos formulários.** Hoje `Unidade` pendura em `cadeiraId`
-(`@@unique([cadeiraId, ordem])`). Com 11 turmas em poucas disciplinas, isso obriga a digitar o
-mesmo plano de Matemática 4 vezes — e a corrigir 4 vezes. É o atrito que faz abandonar o app na
-segunda semana.
+Foi feita no início da fase 3, antes dos formulários, como planejado. `Unidade` pendurava em
+`cadeiraId` (`@@unique([cadeiraId, ordem])`). Com 11 turmas em poucas disciplinas, isso obrigava a
+digitar o mesmo plano de Matemática 4 vezes — e a corrigir 4 vezes. É o atrito que faz abandonar o
+app na segunda semana.
 
 Separar o que hoje está colado:
 
@@ -201,7 +201,12 @@ porque a mesma disciplina em escolas diferentes pode ter currículo diferente.
 dias de diferença. Na abertura do 8ºB, mostrar *o que ela deu no 8ºA na mesma unidade* transforma o
 formulário em confirmação em vez de digitação.
 
-Custo agora: uma migration sem dado nenhum. Custo depois: migrar histórico.
+Custo agora: uma migration sem dado nenhum. Custo depois: migrar histórico. (Saiu por uma
+migration vazia, como previsto.)
+
+O ganho colateral já está implementado e coberto por teste: `GET /registros/ocorrencia/:id`
+devolve, junto com a aula, o que foi dado na **turma irmã** mais recente que segue o mesmo plano.
+Só é possível porque a unidade saiu da cadeira.
 
 ---
 
@@ -350,8 +355,11 @@ mostrar se é necessária.
 1. ~~**Fundação e grade**~~ — **feito** (`8921d81`, `8ed4568`), menos a tela, que foi para a fase 2.
 2. ~~**Os dois alarmes**~~ — **feito** (`aa71e52`, `37baa31`). Falta só a verificação que exige
    aparelho real: gerar as chaves VAPID e fazer o teste de relógio no celular dela.
-3. **Registro por texto** — formulários de abertura/fechamento, unidades e tópicos, atividade de
-   casa, anexos, encadeamento `planoProximaAula`, escrita local-first. *Entrega: substitui o caderno.*
+3. **Registro por texto** — **em andamento.** Feitos: `PlanoCurricular` + unidades + tópicos na
+   API, `RegistroAula` por ocorrência, a tela `/aula/[id]` com os dois formulários, encadeamento
+   `planoProximaAula` e a sugestão da turma irmã. Faltam: telas de cadastro do plano curricular e
+   de vínculo cadeira↔plano, anexos e escrita local-first.
+   *Entrega: substitui o caderno.*
 4. **Voz e resumo padronizado** — gravação, transcrição, normalização com Claude, revisão lado a
    lado. Só depois do texto estar estável — a IA é camada por cima, não base.
 5. **Progresso e histórico** — painel por cadeira/unidade, linha do tempo, busca, exportação.
@@ -418,7 +426,7 @@ caderno) decide se a importação é parsing ou visão, e isso não dá para adi
 
 ---
 
-*Também escrevi uma versão navegável deste plano (com as tabelas de degradação, o diagrama do
-motor e o mapa de reaproveitamento) em `scratchpad/arquitetura-isaura.html` — posso publicá-la como
-página compartilhável se você quiser mostrar para a professora. Ela ainda diz `claude-opus-5` na
-tabela de IA; sincronizo com `claude-haiku-4-5` antes de publicar.*
+*A versão navegável deste plano (com as tabelas de degradação, o diagrama do motor e o mapa de
+reaproveitamento) está em `docs/arquitetura.html`, versionada junto. A tabela de IA já diz
+`claude-haiku-4-5`. Posso publicá-la como página compartilhável se você quiser mostrar para a
+professora.*

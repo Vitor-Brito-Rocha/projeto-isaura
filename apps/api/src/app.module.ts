@@ -14,8 +14,10 @@ import { EscolasModule } from './escolas/escolas.module';
 import { HealthController } from './health.controller';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
+import { PlanosModule } from './planos/planos.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfessoresModule } from './professores/professores.module';
+import { RegistrosModule } from './registros/registros.module';
 import { PushModule } from './push/push.module';
 import { SeriesModule } from './series/series.module';
 
@@ -31,6 +33,8 @@ import { SeriesModule } from './series/series.module';
     ProfessoresModule,
     EscolasModule,
     CadeirasModule,
+    PlanosModule,
+    RegistrosModule,
     SeriesModule,
     AgendaModule,
     PushModule,
