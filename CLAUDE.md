@@ -32,8 +32,9 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
   PLANO): a dúvida sobre um registro aparece meses depois, e é aí que a auditoria serve. **Áudio,
   não** — `descartarAudios` continua rodando na revisão, porque voz é biométrico e de menor.
 
-- **Dois provedores, um pipeline.** `IA_PROVEDOR` escolhe entre `anthropic` (`claude-haiku-4-5`) e
-  `groq` (`openai/gpt-oss-120b`, gratuito). O prompt, o `ESQUEMA` e `aplicarResumo` são os mesmos —
+- **Dois provedores, um pipeline — e quem roda é a Groq.** `IA_PROVEDOR` escolhe entre `groq`
+  (`openai/gpt-oss-120b`, gratuito, **o único verificado por chamada real**) e `anthropic`
+  (`claude-haiku-4-5`, sem saldo na conta). O prompt, o `ESQUEMA` e `aplicarResumo` são os mesmos —
   só o transporte muda. O schema já nasceu compatível com o modo estrito da Groq (todo campo
   obrigatório, `additionalProperties: false`). Groq e não o free tier do Gemini **porque o Gemini
   grátis treina com o que você manda e a Groq não treina em nenhum plano** — e o que trafega é a

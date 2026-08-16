@@ -1107,15 +1107,24 @@
         <tbody>
           <tr>
             <td class="k">Modelo</td>
-            <td><code>claude-haiku-4-5</code></td>
+            <td><code>openai/gpt-oss-120b</code><br><small>pela Groq</small></td>
             <td>O JSON schema já garante os campos e a saída passa por revisão humana antes de
-              virar registro — o modelo pequeno basta. Subir para <code>claude-sonnet-5</code> só se
-              medir erro na resolução de referência vaga; é troca de uma string</td>
+              virar registro — modelo pequeno basta. É o que roda hoje, e o único caminho
+              verificado por uma chamada de verdade</td>
+          </tr>
+          <tr>
+            <td class="k">Por que não o Gemini</td>
+            <td>política de dados</td>
+            <td>O free tier do Gemini <strong>treina com o que você manda</strong>; a Groq não
+              treina em plano nenhum. O que trafega aqui é a fala dela, que pode ter nome de
+              aluno — não foi preço nem qualidade que decidiu</td>
           </tr>
           <tr>
             <td class="k">Formato</td>
-            <td><code>output_config.format</code> com JSON schema</td>
-            <td>Garante os campos certos sempre — sem regex, sem retry de parse</td>
+            <td>JSON schema com <code>strict: true</code></td>
+            <td>Garante os campos certos sempre — sem regex, sem retry de parse. O schema trafega
+              <strong>títulos</strong>, não números: numerando, o modelo devolvia
+              <code>[12]</code> para os tópicos 1 e 2</td>
           </tr>
           <tr>
             <td class="k">Onde roda</td>
@@ -1123,15 +1132,16 @@
             <td>A chave da API não pode sair do servidor</td>
           </tr>
           <tr>
-            <td class="k">Como responde</td>
-            <td>Fila + Realtime do Supabase</td>
-            <td>Transcrever e resumir leva segundos; ela não fica olhando spinner</td>
+            <td class="k">Custo</td>
+            <td>grátis</td>
+            <td>Limite de requisições por minuto, folgado para ~95 aulas/mês.
+              <strong>Não vale otimizar</strong></td>
           </tr>
           <tr>
-            <td class="k">Custo estimado</td>
-            <td>~US$ 0,33 por mês</td>
-            <td>~95 aulas/mês, textos curtos (~1.500 tokens de entrada, ~400 de saída).
-              <strong>Não vale otimizar</strong></td>
+            <td class="k">Alternativa paga</td>
+            <td><code>claude-haiku-4-5</code></td>
+            <td>~US$ 0,33/mês. Trocar <code>IA_PROVEDOR</code> para <code>anthropic</code> — uma
+              variável de ambiente. Só se medir erro na resolução de referência vaga</td>
           </tr>
         </tbody>
       </table>

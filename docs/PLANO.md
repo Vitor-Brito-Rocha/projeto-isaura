@@ -241,32 +241,33 @@ testado, mesmo sem nada produzir áudio hoje.
 
 | Decisão | Escolha |
 |---|---|
-| Modelo | **`claude-haiku-4-5`** |
-| Formato | `output_config.format` com JSON schema (sem regex, sem retry de parse) |
-| Thinking | desligado — é extração com schema, não raciocínio |
+| Modelo | **`openai/gpt-oss-120b` pela Groq** — é o que roda hoje |
+| Formato | JSON schema com `strict: true` (sem regex, sem retry de parse) |
 | Onde roda | NestJS — a chave nunca sai do servidor |
-| Resposta | fila + Realtime do Supabase (sem spinner) |
-| Custo | ~US$ 0,33/mês (~95 aulas × ~1.500 in / ~400 out tokens) |
+| Custo | grátis, com limite de requisições por minuto |
 
-**Por que o modelo pequeno basta:** o schema já garante os campos, e a saída passa por revisão
+**Por que um modelo pequeno basta:** o schema já garante os campos, e a saída passa por revisão
 humana antes de virar registro. O único ponto onde um modelo maior ajudaria é resolver referência
-vaga (*"continuei o que eu tinha planejado"* → o conteúdo real, puxando do `planoPrevisto`).
+vaga (*"continuei o que eu tinha planejado"* → o conteúdo real, puxando do `planoPrevisto`) — e
+isso a Groq já resolveu numa chamada real (`fbb7499`).
 
-**Critério de upgrade:** se na fase 4, ao comparar com 5 falas reais dela, o resumo errar a
-resolução de referência ou a associação com a `Unidade`, subir para `claude-sonnet-5`. É troca de
-uma string. Não subir preventivamente — medir primeiro.
+**Critério de upgrade:** se ao comparar com 5 falas reais dela o resumo errar a resolução de
+referência ou a associação com a `Unidade`, trocar `IA_PROVEDOR` para `anthropic`. É troca de uma
+variável de ambiente. Não trocar preventivamente — medir primeiro.
 
-### Provedor de IA — Groq como plano gratuito do MVP
+### Provedor de IA — a Groq é o que roda
 
-A conta da Anthropic está sem saldo, então o pipeline ganhou um segundo caminho. `IA_PROVEDOR`
-escolhe; o prompt, o schema e a tradução dos números são os mesmos nos dois.
+O plano original era Anthropic. A conta ficou sem saldo, o pipeline ganhou um segundo caminho, e
+**foi o segundo que passou numa chamada real** — então a Groq deixou de ser plano B. `IA_PROVEDOR`
+escolhe; o prompt, o `ESQUEMA` e `aplicarResumo` são os mesmos nos dois, só o transporte muda.
 
-| | Anthropic (alvo) | **Groq (MVP grátis)** | Gemini free tier |
+| | **Groq (em uso)** | Anthropic (comparação) | Gemini free tier |
 |---|---|---|---|
-| Modelo | `claude-haiku-4-5` | `openai/gpt-oss-120b` | `gemini-*-flash` |
-| Custo | ~US$ 0,33/mês | grátis, com limite de req/min | grátis |
-| Schema garantido | sim | sim (`strict: true`) | sim (`responseSchema`) |
-| **Treina com o que você manda** | **não** | **não, em nenhum plano** | **sim, no free tier** |
+| Modelo | **`openai/gpt-oss-120b`** | `claude-haiku-4-5` | `gemini-*-flash` |
+| Custo | grátis, com limite de req/min | ~US$ 0,33/mês | grátis |
+| Schema garantido | sim (`strict: true`) | sim | sim (`responseSchema`) |
+| **Treina com o que você manda** | **não, em nenhum plano** | **não** | **sim, no free tier** |
+| Verificado ponta a ponta | **sim** (`fbb7499`) | não — conta sem saldo | não testado |
 
 **O critério que decidiu não foi preço nem qualidade: foi a última linha.** O free tier do Gemini
 usa prompts e respostas para melhorar os produtos do Google, e só o tier pago desliga isso. O que
@@ -278,11 +279,16 @@ de modelo fundacional.
 `gpt-oss-120b` e não `20b`: a diferença aparece justamente em resolver referência vaga em português,
 que é o único ponto onde este pipeline precisa de cabeça.
 
-**Quando comprar crédito na Anthropic, é trocar `IA_PROVEDOR` para `anthropic`.** Vale medir os dois
-com as mesmas 5 falas antes de decidir — pode ser que o gratuito baste.
+**Comprar crédito na Anthropic não é pré-requisito de nada** — é o que permite comparar os dois com
+as mesmas 5 falas. Como o gratuito já passou, a comparação é para saber se vale pagar, não para
+destravar a fase.
 
-*Nota: `claude-haiku-4-5` não aceita o parâmetro `effort` (erro) e usa a forma antiga de thinking;
-como thinking fica desligado aqui, nenhum dos dois é problema.*
+**O `[12]` que o título consertou.** A primeira versão numerava unidades e tópicos e pedia o número
+de volta; com dois tópicos marcados, o modelo devolvia `topicos: [12]` — concatenando os dígitos de
+1 e 2, de forma determinística mesmo a temperatura 0. O `strict: true` da Groq **valida depois de
+gerar, não restringe a geração**, então o efeito era um 400 na cara dela. Duas correções: o schema
+passou a trafegar **títulos** em vez de números, e a chamada tenta estrito e repete sem — erro de
+schema vira rascunho pior, nunca tela de erro.
 
 **Regra inegociável:** saída da IA é sempre rascunho, nunca registro. O histórico dela pode virar
 prova de trabalho na frente da coordenação; resumo que inventa tópico é pior que resumo nenhum.
@@ -639,6 +645,6 @@ caderno) decide se a importação é parsing ou visão, e isso não dá para adi
 ---
 
 *A versão navegável deste plano (com as tabelas de degradação, o diagrama do motor e o mapa de
-reaproveitamento) está em `docs/arquitetura.html`, versionada junto. A tabela de IA já diz
-`claude-haiku-4-5`. Posso publicá-la como página compartilhável se você quiser mostrar para a
-professora.*
+reaproveitamento) está em `docs/arquitetura.html`, versionada junto e sincronizada com este
+documento — a tabela de IA diz `openai/gpt-oss-120b` pela Groq, que é o que roda. Posso publicá-la
+como página compartilhável se você quiser mostrar para a professora.*
