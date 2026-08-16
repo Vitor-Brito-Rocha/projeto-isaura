@@ -11,17 +11,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { dataHoraBR } from '@/lib/datas';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ErroLog, ErroLogDetalhe, Pagina } from '@/lib/types';
 
-function quando(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 /**
  * O log de erro que o `ErrosService` grava.
@@ -107,7 +100,7 @@ export default function Erros() {
                 <span className="font-mono">
                   {e.metodo} {e.rota}
                 </span>
-                <span className="ml-auto">{quando(e.criadoEm)}</span>
+                <span className="ml-auto">{dataHoraBR(e.criadoEm)}</span>
               </div>
 
               <p className="whitespace-pre-wrap break-words text-sm">{e.mensagem}</p>

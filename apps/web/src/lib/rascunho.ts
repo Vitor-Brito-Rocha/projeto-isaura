@@ -1,3 +1,4 @@
+import { paraCampoDeData } from './datas';
 import type { RegistroAula } from './types';
 
 /** O rascunho da IA, do jeito que o servidor guardou em `resumoPadronizado`. */
@@ -80,7 +81,7 @@ export function valoresIniciais(
     unidadeId: registro?.unidadeId ?? unidadeDaIrma ?? '',
     topicos: registro?.topicos.map((t) => t.topicoId) ?? [],
     atividade: registro?.atividadeCasa ?? '',
-    entrega: registro?.dataEntrega?.slice(0, 10) ?? '',
+    entrega: paraCampoDeData(registro?.dataEntrega),
     proxima: registro?.planoProximaAula ?? '',
   };
 }

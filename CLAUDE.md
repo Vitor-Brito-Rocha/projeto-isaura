@@ -131,6 +131,14 @@ em vez de instante pré-calculado, por que o claim vem antes do envio) — segui
 `inicioEm`/`fimEm` em `timestamptz`, derivados na materialização via `common/tz.ts`. Comparar
 `"HH:mm"` como string quebra em silêncio para professores em outro fuso.
 
+**Data na tela é sempre DD/MM/YYYY, e sempre por `lib/datas.ts`.** Nada de `toLocaleDateString`
+solto em componente — havia três cópias divergentes e uma delas mostrava 14/08 para a aula do dia
+15. Dia puro (`Ocorrencia.data`, `dataEntrega`) formata com `timeZone: 'UTC'`, porque é gravado à
+meia-noite UTC e o fuso local o recuaria um dia; instante (log de erro) usa o fuso local, que é o
+certo para "quando aconteceu". O ano vai junto: ela registra aula atrasada e consulta semestre
+passado. O `<input type="date">` desenha no formato do SISTEMA e não dá para controlar — por isso a
+tela escreve a data escolhida por extenso ao lado dele.
+
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.

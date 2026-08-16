@@ -9,13 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { dataBR } from '@/lib/datas';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { AdminProfessor, AdminResumo } from '@/lib/types';
 
-function dataCurta(iso: string | null) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
+const ultimo = (iso: string | null) => (iso ? dataBR(iso) : '—');
 
 function Numero({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) {
   return (
@@ -177,7 +175,7 @@ export default function Admin() {
                             )}
                           </td>
                           <td className="px-3 py-2 text-right text-xs text-muted-foreground">
-                            {dataCurta(p.ultimoRegistroEm)}
+                            {ultimo(p.ultimoRegistroEm)}
                           </td>
                         </tr>
                       ))}

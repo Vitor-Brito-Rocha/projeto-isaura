@@ -8,21 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { apiFetch } from '@/lib/api';
+import { diaEDataBR } from '@/lib/datas';
 import type { Ocorrencia } from '@/lib/types';
 
 const MOSTRA_INICIAL = 4;
-
-function dataCurta(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'UTC',
-  });
-}
-
-function diaDaSemana(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' });
-}
 
 /**
  * As aulas que já aconteceram e continuam sem conteúdo escrito.
@@ -81,7 +70,7 @@ export function Pendencias() {
                   </Badge>
                 )}
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {diaDaSemana(oc.data)} {dataCurta(oc.data)}
+                  {diaEDataBR(oc.data)}
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               </Link>

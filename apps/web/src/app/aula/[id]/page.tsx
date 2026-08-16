@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api';
+import { dataBR, diaEDataBR, paraCampoDeData } from '@/lib/datas';
 import {
   rascunhoPendente,
   valoresDoRascunho,
@@ -47,23 +48,6 @@ function avisar(desfecho: Desfecho) {
   });
 }
 
-/**
- * `timeZone: 'UTC'` não é detalhe: `data` é um dia puro, gravado à meia-noite
- * UTC. Formatar no fuso local jogaria a aula para o dia anterior em todo o
- * Brasil — a grade mostraria 14/08 para uma aula do dia 15.
- */
-function dataCurta(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: 'UTC',
-  });
-}
-
-/** "qui" — mesmo cuidado de fuso de `dataCurta`. */
-function diaDaSemana(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' });
-}
 
 /**
  * A tela que o alarme abre.
@@ -124,7 +108,7 @@ export default function Aula() {
   return (
     <AppShell
       titulo={`${cadeira.disciplina} · ${cadeira.turma}`}
-      descricao={`${dataCurta(ocorrencia.data)} · ${ocorrencia.horaInicio}–${ocorrencia.horaFim}`}
+      descricao={`${dataBR(ocorrencia.data)} · ${ocorrencia.horaInicio}–${ocorrencia.horaFim}`}
       acao={
         <Button asChild size="sm" variant="outline">
           <Link href="/">
@@ -243,7 +227,7 @@ function FormAbertura({
         {anterior && !contexto.registro?.planoPrevisto && (
           <Sugestao
             icone={Lightbulb}
-            rotulo={`Você planejou isto no fim da aula de ${dataCurta(anterior.data)}`}
+            rotulo={`Você planejou isto no fim da aula de ${dataBR(anterior.data)}`}
             texto={anterior.texto}
             onUsar={() => setPlano(anterior.texto)}
           />
@@ -354,7 +338,7 @@ function FormFechamento({
         {sugestaoIrma && !conteudo && (
           <Sugestao
             icone={Users}
-            rotulo={`No ${sugestaoIrma.turma}, em ${dataCurta(sugestaoIrma.data)}, você deu`}
+            rotulo={`No ${sugestaoIrma.turma}, em ${dataBR(sugestaoIrma.data)}, você deu`}
             texto={sugestaoIrma.texto}
             onUsar={() => setConteudo(sugestaoIrma.texto)}
           />
@@ -451,13 +435,23 @@ function FormFechamento({
               value={entrega}
               onChange={(e) => setEntrega(e.target.value)}
             />
+            {/* O seletor nativo desenha a data no formato do SISTEMA, que este
+                código não controla — num aparelho em inglês sai MM/DD/YYYY.
+                Escrever por extenso ao lado tira a dúvida de "06/07 é 6 de
+                julho ou 7 de junho?", que num campo de entrega faz a turma
+                inteira entregar no dia errado. */}
+            {entrega && (
+              <p className="text-xs text-muted-foreground">
+                Entrega em <strong className="font-medium">{diaEDataBR(entrega)}</strong>
+              </p>
+            )}
             {/* Atalhos para as próximas aulas DESTA turma: é onde a tarefa
                 vence quase sempre, e escolher "qui, 20/08" não erra o dia da
                 semana como rolar o calendário do celular erra. */}
             {proximas.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-0.5">
                 {proximas.map((a, i) => {
-                  const dia = a.data.slice(0, 10);
+                  const dia = paraCampoDeData(a.data);
                   return (
                     <button
                       key={a.id}
@@ -470,7 +464,7 @@ function FormFechamento({
                         className="cursor-pointer font-normal"
                       >
                         {i === 0 ? 'próxima aula · ' : ''}
-                        {diaDaSemana(a.data)} {dataCurta(a.data)}
+                        {diaEDataBR(a.data)}
                       </Badge>
                     </button>
                   );
