@@ -328,7 +328,7 @@ resolve só no prompt:
 
 ---
 
-## Fase 2 — detalhamento (próxima a executar)
+## Fase 2 — detalhamento (feita)
 
 ### Motor: dois crons gêmeos, por minuto
 
@@ -415,20 +415,159 @@ mostrar se é necessária.
    sugestão da turma irmã, telas de plano curricular e vínculo cadeira↔plano, anexos e escrita
    local-first. Falta só o teste de modo avião no aparelho.
    *Entrega: substitui o caderno.*
-4. **Voz e resumo padronizado** — **em andamento.** Feitos: ditado por voz sem gravar áudio,
-   normalização com `claude-haiku-4-5` (`POST /ia/ocorrencia/:id/resumo`), rascunho ao lado da
-   fala e revisão que descarta a fala. **Não verificado com o modelo de verdade: a conta da
-   Anthropic está sem saldo** — a chave autentica, mas toda chamada volta 400 de crédito, e a
-   cobrança é checada *antes* da validação de parâmetros, então nem o schema foi aceito ainda.
-   Falta também a transcrição de áudio no servidor (ver "Transcrição de áudio" abaixo).
-5. **Progresso e histórico** — painel por cadeira/unidade, linha do tempo, busca, exportação.
-   *Entrega: a resposta para "onde eu parei no 8º A?".*
+4. **Voz e resumo padronizado** — **construída e verificada pela Groq** (`fbb7499`). Ditado sem
+   gravar áudio, `POST /ia/ocorrencia/:id/resumo` devolvendo rascunho, revisão que preserva a fala
+   e descarta o áudio. Uma chamada real passou ponta a ponta: referência vaga resolvida, data
+   relativa resolvida e nenhum nome de aluno na saída. **Falta o critério de aceite:** comparar com
+   5 falas reais dela. A Anthropic segue sem saldo — é comparação, não bloqueio.
+5. **Progresso e histórico** — painel por cadeira/unidade, linha do tempo, busca, exportação e a
+   importação do plano de curso. Detalhada abaixo. *Entrega: a resposta para "onde eu parei no
+   8º A?".*
 6. **Capacitor no Android** — alarme real: canal categoria alarme + full-screen intent, furando o
    silencioso. **Deixou de ser condicional** (decisão 3). O `capacidade.ts` já detecta
    `window.Capacitor`, então entra como casca fina sobre o mesmo web — não é app paralelo.
    Custos que só aparecem aqui: conta de desenvolvedor Google (US$ 25, uma vez) ou APK por fora, e
    atualização que passa a exigir build/redistribuição em vez de sair no deploy do web. Canal de
    teste interno da Play Store resolve no começo. O iPhone segue no PWA, com o teto que ele tem.
+
+---
+
+## Fase 5 — detalhamento (próxima a executar)
+
+Toda a fase 5 é **leitura**. Nenhuma tabela nova, nenhuma coluna nova, nenhuma policy nova — o
+schema que a fase 3 deixou já tem tudo: `RegistroTopico` liga registro a tópico, `Unidade.ordem` dá
+a sequência e `Unidade.dataFimPrevista` existe e **hoje não é consumida por ninguém**. É a fase de
+menor risco do projeto e a de maior efeito visível, porque é a primeira em que o sistema *devolve*
+alguma coisa em vez de só guardar.
+
+Ordem proposta: **5a → 5b → 5d → 5c → 5e**. Cada uma é entregável sozinha.
+
+### A regra que atravessa a fase inteira
+
+**Rascunho não conta.** Progresso, histórico, busca e exportação filtram `revisadoEm != null`. Um
+tópico marcado por um resumo de IA que ela ainda não conferiu não pode empurrar a barra de
+progresso — senão o número que ela mostra para a coordenação é, em parte, invenção de modelo.
+
+Na prática o filtro é barato: `salvarFechamento` sempre preenche `revisadoEm`, então só rascunho
+pendente fica de fora.
+
+### 5a — Progresso por cadeira e unidade
+
+O numerador sai de `RegistroTopico` (distinto, porque um tópico revisitado em três aulas conta
+uma vez); o denominador, dos tópicos das unidades do `PlanoCurricular` da cadeira.
+
+- `GET /progresso` — uma linha por cadeira: unidade corrente, tópicos cobertos / total, e a data
+  prevista de fim.
+- `GET /progresso/:cadeiraId` — unidade a unidade, com quais tópicos ainda faltam.
+
+**A porcentagem não é o número que importa.** "55%" não diz o que fazer. O que ela precisa é
+**ritmo**: *"faltam 4 tópicos e 3 aulas até 30/09"* — isso se responde cruzando os tópicos
+pendentes com as ocorrências `AGENDADA` até `Unidade.dataFimPrevista`. É o único lugar do sistema
+que transforma registro em aviso, e é o que justifica a fase.
+
+**Turmas irmãs lado a lado** sai quase de graça depois disso: mesmo plano, cadeiras diferentes,
+uma coluna cada. *"8ºA na unidade 2, 8ºB na 3"* é exatamente o que 11 turmas tornam difícil de
+manter na cabeça — e o motivo de o `PlanoCurricular` ter sido separado da cadeira na fase 3.
+
+Cadeira sem plano vinculado não tem denominador. Mostra as aulas registradas e um convite para
+vincular um plano, nunca uma barra vazia que parece atraso.
+
+### 5b — Linha do tempo da cadeira
+
+`GET /registros?cadeiraId=&pagina=` — os registros revisados em ordem cronológica, com conteúdo,
+unidade, tópicos e anexos. É a tela que ela abre quando a coordenação pergunta o que foi dado.
+
+Reaproveita a paginação de `AdminService.erros`, que já resolve o mesmo problema.
+
+### 5c — Busca no histórico
+
+`ILIKE` sem índice, sobre `conteudoDado`, `planoPrevisto` e `atividadeCasa`, filtrado por
+professor.
+
+**Deliberadamente burro.** Uma professora gera algo como 500 registros por ano; `tsvector` com
+stemming em português, coluna gerada e migration é engenharia para um problema que ela não tem.
+Se um dia a busca ficar lenta, `pg_trgm` é uma migration de uma linha — e aí já haverá um número
+real para justificar.
+
+Buscar em `transcricaoBruta` **não** entra: é o campo que pode conter nome de aluno, e busca é o
+caminho mais fácil de transformar um campo privado em índice consultável.
+
+### 5d — Exportação
+
+Dois formatos, nenhuma dependência nova:
+
+- **Página de impressão** (`/cadeiras/:id/relatorio`) com `@media print`. O navegador dela já
+  imprime em PDF; uma biblioteca de PDF no servidor seria peso morto para gerar o que o Chrome
+  gera de graça.
+- **CSV** para quando pedirem planilha.
+
+**A exportação é o artefato que sai da mão dela — é onde a regra de LGPD tem de ser estrutural,
+não editorial.** O que sai: conteúdo dado, unidade, tópicos, atividade, datas. O que **nunca**
+sai: `transcricaoBruta` e `resumoPadronizado`. A fala é dela e pode ter nome de aluno; o registro
+revisado é o documento. Isso não é opção de tela — é o `select` do endpoint que não busca as
+colunas.
+
+### 5e — Importação do plano de curso
+
+A melhor primeira impressão possível: ela abre o app e o ano dela já está lá. **Bloqueada até o
+documento chegar** — e o formato decide o caminho:
+
+| Formato real | Caminho | Provedor |
+|---|---|---|
+| Word, PDF digital, planilha | extrai texto no servidor e manda pelo pipeline de texto que já existe | **Groq, grátis, hoje** |
+| Foto do caderno, PDF escaneado | precisa de visão | `gpt-oss-120b` é **texto puro** — exige modelo de visão ou crédito na Anthropic |
+
+Por isso *pedir o documento antes de começar* está no plano desde o início: se for digital, esta
+peça é barata e sai na infraestrutura atual; se for foto, ela reabre a conta de custo da fase 4.
+
+Reaproveita o desenho de `resumo.prompt.ts` inteiro — prompt puro e testável, JSON schema com
+`additionalProperties: false`, e a saída **sempre rascunho**. Aqui a regra vale dobrado: um plano
+importado com a unidade 3 errada contamina todo registro que apontar para ela, e o erro só aparece
+meses depois. Ela vê a estrutura extraída na tela, corrige e confirma; só o confirmar cria
+`PlanoCurricular` + `Unidade` + `Topico`, num POST só. **Rascunho nenhum toca o banco** — o que
+dispensa tabela de rascunho, e portanto policy nova.
+
+---
+
+## Fase 6 — detalhamento
+
+O que a fase 6 realmente entrega, e que nenhuma outra entrega: **a camada 1 do motor de alarmes**.
+Hoje só existe a camada 2 (cron + push), e ela depende de rede no instante do alarme. Numa escola
+com sinal ruim, o alarme chega quando a conexão voltar — que é depois da aula. É esse o furo que a
+fase 6 fecha, não o barulho.
+
+### O degrau que o Capacitor sozinho não sobe
+
+`@capacitor/local-notifications` entrega **notificação local agendada** — o nível 2 da tabela de
+degradação, não o nível 3. Alarme de verdade exige, do lado Android:
+
+- `AlarmManager.setAlarmClock()` — o único agendamento que sobrevive ao Doze
+- `NotificationChannel` com `IMPORTANCE_HIGH` e `AudioAttributes.USAGE_ALARM` — é o que fura o
+  silencioso
+- Activity de tela cheia via *full-screen intent*
+- permissões `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` e `USE_FULL_SCREEN_INTENT`
+
+Ou seja: **um plugin nativo pequeno, escrito à mão.** Planejar a fase 6 como "instalar o Capacitor
+e pronto" é subestimá-la pela metade — e é o erro que faria a fase entregar exatamente o que o PWA
+já entrega.
+
+### Riscos que só aparecem aqui
+
+- **Android 14+ restringe full-screen intent** a apps de alarme e chamada. A permissão é declarada
+  e **revisada pelo Google**; um registro de aulas precisa argumentar o caso. Se for negada, o app
+  cai para notificação — o mesmo teto do PWA, com o custo de manter um build Android.
+- **Otimização de bateria** (Xiaomi, Samsung, Motorola) mata o agendamento em silêncio. Precisa de
+  uma tela que detecte e conduza ela até a exceção. Não se resolve em código.
+- **Atualização deixa de ser deploy.** Web sai no push; Android exige build e redistribuição.
+- **Assets embarcados, não `server.url`.** Apontar o Capacitor para a web publicada tornaria a
+  atualização instantânea, mas o app pararia de abrir sem rede — jogando fora o local-first da
+  fase 3. Empacotar o web e deixar só a API remota preserva o offline.
+
+### Pré-requisito
+
+Fazer o **teste de relógio da fase 2 no aparelho dela antes de começar a fase 6.** Ele responde a
+única pergunta que dimensiona esta fase: o push chega a tempo na escola dela? Se chegar, a fase 6
+é conforto; se não chegar, ela é o produto.
 
 ---
 
@@ -450,7 +589,21 @@ mostrar se é necessária.
 - **Fase 3** — modo avião: preencher um fechamento offline, fechar o app, voltar online, confirmar
   que sincronizou sem perder nada.
 - **Fase 4** — gravar 5 falas reais dela (não texto sintético) e comparar o resumo padronizado com
-  o que ela teria escrito. O critério é ela reconhecer a própria aula no resumo.
+  o que ela teria escrito. O critério é ela reconhecer a própria aula no resumo. *Uma chamada real
+  já passou pela Groq (`fbb7499`), com referência vaga e data relativa resolvidas e nenhum nome na
+  saída — mas texto escrito por mim não é fala dela, e é a fala dela que decide.*
+- **Fase 5** — o teste é de reconhecimento, não de número: abrir o painel do 8º A e ela dizer se
+  aquilo bate com onde a turma está. Além disso:
+  - **Rascunho não conta:** gerar um resumo por IA sem revisar e conferir que a barra de progresso
+    não se mexe. É a regra mais fácil de furar sem ninguém notar.
+  - **Tópico repetido conta uma vez:** marcar o mesmo tópico em três aulas e conferir que o
+    denominador não some.
+  - **Exportação sem fala:** conferir que `transcricaoBruta` e `resumoPadronizado` não aparecem em
+    nenhum dos dois formatos. Cobrível por teste — e deve ser, porque é regra de LGPD.
+  - **Cadeira sem plano** não mostra barra vazia nem divide por zero.
+- **Fase 6** — o mesmo teste de relógio da fase 2, mas **com o celular em modo avião**: é a única
+  prova de que a camada 1 existe. Depois: silencioso ligado (o alarme tem de furar) e o app fechado
+  há dias (o agendamento tem de sobreviver).
 - **Testes automatizados** — seguir o padrão de `apps/api/src/jobs/jobs.service.spec.ts`, que já
   cobre janelas de tolerância e idempotência dos crons.
 
