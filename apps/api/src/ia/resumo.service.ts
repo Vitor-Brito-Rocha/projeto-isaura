@@ -18,7 +18,7 @@ import {
 } from './provedor';
 import {
   aplicarResumo,
-  ESQUEMA,
+  montarEsquema,
   montarPrompt,
   SISTEMA,
   type ResumoBruto,
@@ -122,7 +122,10 @@ export class ResumoService {
       transcricao,
     );
 
-    const bruto = await this.chamar(professorId, ocorrenciaId, prompt);
+    // O schema depende das unidades desta cadeira: os números válidos entram
+    // como `enum`, e é isso que impede o modelo de pedir um tópico que não
+    // existe. Ver `montarEsquema`.
+    const bruto = await this.chamar(professorId, ocorrenciaId, prompt, montarEsquema(unidades));
     const rascunho = aplicarResumo(bruto, unidades);
 
     // Grava como RASCUNHO: a fala original e a saída da IA entram no registro,
@@ -153,10 +156,13 @@ export class ResumoService {
     professorId: string,
     ocorrenciaId: string,
     prompt: string,
+    esquema: Record<string, unknown>,
   ): Promise<ResumoBruto> {
     try {
       const json =
-        this.provedor === 'groq' ? await this.viaGroq(prompt) : await this.viaAnthropic(prompt);
+        this.provedor === 'groq'
+          ? await this.viaGroq(prompt, esquema)
+          : await this.viaAnthropic(prompt, esquema);
       return JSON.parse(json) as ResumoBruto;
     } catch (e) {
       if (e instanceof BadGatewayException) throw e;
@@ -175,7 +181,10 @@ export class ResumoService {
     }
   }
 
-  private async viaAnthropic(prompt: string): Promise<string> {
+  private async viaAnthropic(
+    prompt: string,
+    esquema: Record<string, unknown>,
+  ): Promise<string> {
     // Sem `thinking` (neste modelo omitir já desliga) e sem `effort`, que
     // `claude-haiku-4-5` recusa: isto é extração com schema, não raciocínio.
     const resposta = await this.anthropic!.messages.create({
@@ -183,7 +192,7 @@ export class ResumoService {
       max_tokens: MAX_TOKENS,
       system: SISTEMA,
       messages: [{ role: 'user', content: prompt }],
-      output_config: { format: { type: 'json_schema', schema: ESQUEMA } },
+      output_config: { format: { type: 'json_schema', schema: esquema } },
     });
 
     if (resposta.stop_reason === 'refusal') {
@@ -202,12 +211,35 @@ export class ResumoService {
    * Groq via REST, sem SDK — mesmo critério do StorageService e do AuthService:
    * é uma chamada só, e a API é compatível com a da OpenAI.
    *
-   * `strict: true` é o que faz valer a pena: o mesmo `ESQUEMA` que a Anthropic
-   * recebe vira decodificação restrita aqui, então campo faltando não existe.
-   * Ele já nasceu compatível (todo campo obrigatório, `additionalProperties`
-   * falso), que são exatamente as exigências do modo estrito.
+   * `strict: true` é o que faz valer a pena: o mesmo schema que a Anthropic
+   * recebe vira decodificação restrita aqui, então campo faltando não existe e
+   * número fora do `enum` é impossível de emitir. Ele já nasceu compatível
+   * (todo campo obrigatório, `additionalProperties` falso), que são exatamente
+   * as exigências do modo estrito.
    */
-  private async viaGroq(prompt: string): Promise<string> {
+  private async viaGroq(prompt: string, esquema: Record<string, unknown>): Promise<string> {
+    const estrito = await this.pedirAGroq(prompt, esquema, true);
+    if (estrito.ok) return estrito.texto;
+
+    // `strict: true` na Groq VALIDA depois de gerar — não restringe a
+    // decodificação. Medido: pedindo dois tópicos, o modelo devolveu `[12]`
+    // emendando os dígitos de 1 e 2, e a chamada inteira virou 400.
+    //
+    // Repetir sem o modo estrito troca "erro na cara dela" por "rascunho com um
+    // campo a menos", e `aplicarResumo` já descarta número que não existe. Para
+    // um rascunho que ela vai revisar de qualquer jeito, é o lado certo de
+    // errar — e só custa uma segunda chamada quando a primeira falha.
+    this.logger.warn(`Groq recusou o schema estrito, repetindo sem: ${estrito.erro}`);
+    const frouxo = await this.pedirAGroq(prompt, esquema, false);
+    if (!frouxo.ok) throw new Error(`Groq respondeu ${frouxo.erro}`);
+    return frouxo.texto;
+  }
+
+  private async pedirAGroq(
+    prompt: string,
+    esquema: Record<string, unknown>,
+    estrito: boolean,
+  ): Promise<{ ok: true; texto: string } | { ok: false; erro: string }> {
     const chave = this.config.get<string>('GROQ_API_KEY');
     const r = await fetch(`${GROQ_BASE}/chat/completions`, {
       method: 'POST',
@@ -220,7 +252,7 @@ export class ResumoService {
         ],
         response_format: {
           type: 'json_schema',
-          json_schema: { name: 'resumo_da_aula', strict: true, schema: ESQUEMA },
+          json_schema: { name: 'resumo_da_aula', strict: estrito, schema: esquema },
         },
         max_completion_tokens: MAX_TOKENS,
         // Extração não quer criatividade: a mesma fala tem de dar o mesmo
@@ -232,7 +264,7 @@ export class ResumoService {
 
     if (!r.ok) {
       const corpo = await r.text().catch(() => '');
-      throw new Error(`Groq respondeu ${r.status}: ${corpo.slice(0, 300)}`);
+      return { ok: false, erro: `${r.status}: ${corpo.slice(0, 300)}` };
     }
 
     const dados = (await r.json()) as {
@@ -245,6 +277,6 @@ export class ResumoService {
     }
     const texto = escolha?.message?.content;
     if (!texto) throw new BadGatewayException('O modelo não devolveu resumo.');
-    return texto;
+    return { ok: true, texto };
   }
 }

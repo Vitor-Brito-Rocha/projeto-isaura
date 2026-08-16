@@ -1,4 +1,4 @@
-import { aplicarResumo, ESQUEMA, montarPrompt, type ResumoBruto } from './resumo.prompt';
+import { aplicarResumo, montarEsquema, montarPrompt, type ResumoBruto } from './resumo.prompt';
 
 /**
  * Só a parte pura do pipeline de voz: montar o contexto e traduzir a resposta.
@@ -37,7 +37,7 @@ const AULA = {
 function resposta(parcial: Partial<ResumoBruto> = {}): ResumoBruto {
   return {
     conteudoDado: '',
-    unidade: 0,
+    unidade: '',
     topicos: [],
     atividadeCasa: '',
     dataEntrega: '',
@@ -47,15 +47,16 @@ function resposta(parcial: Partial<ResumoBruto> = {}): ResumoBruto {
 }
 
 describe('montarPrompt', () => {
-  it('numera unidades e tópicos, e não expõe nenhum id', () => {
+  it('lista unidades e tópicos por título, e não expõe nenhum id', () => {
     const prompt = montarPrompt(AULA, 'terminei frações');
 
-    expect(prompt).toContain('1. Números racionais');
-    expect(prompt).toContain('2. Geometria plana');
-    expect(prompt).toContain('1. [unidade 1] Frações equivalentes');
-    expect(prompt).toContain('3. [unidade 2] Ângulos');
+    expect(prompt).toContain('Números racionais');
+    expect(prompt).toContain('- Frações equivalentes');
+    expect(prompt).toContain('- Ângulos');
 
-    // O modelo trabalha com números justamente para não ter um id à mão.
+    // O modelo copia títulos justamente para nunca ter um id à mão: número
+    // fora da lista ou título inventado simplesmente não casam em
+    // `aplicarResumo`, e não viram marcação no plano.
     for (const id of ['u1', 'u2', 't1', 't2', 't3']) {
       expect(prompt).not.toContain(id);
     }
@@ -91,13 +92,14 @@ describe('montarPrompt', () => {
   });
 });
 
-describe('ESQUEMA', () => {
+describe('montarEsquema', () => {
+  const props = (us = UNIDADES) =>
+    (montarEsquema(us).properties as Record<string, Record<string, unknown>>);
+
   it('não tem campo de pessoa', () => {
     // A regra de LGPD não pode depender só da instrução no prompt: sem campo,
     // não há onde um nome de aluno caber, mesmo se o modelo desobedecer.
-    const campos = Object.keys(ESQUEMA.properties as object);
-
-    expect(campos).toEqual([
+    expect(Object.keys(props())).toEqual([
       'conteudoDado',
       'unidade',
       'topicos',
@@ -105,29 +107,53 @@ describe('ESQUEMA', () => {
       'dataEntrega',
       'planoProximaAula',
     ]);
-    expect(ESQUEMA.additionalProperties).toBe(false);
+    expect(montarEsquema(UNIDADES).additionalProperties).toBe(false);
+  });
+
+  it('lista os títulos válidos como enum', () => {
+    // O motivo de o schema ser montado por aula. Com número, o modelo pedia
+    // `[12]` querendo dizer "1 e 2" — emendava os dígitos, medido contra o
+    // modelo de verdade. Título não tem como emendar.
+    expect(props().unidade.enum).toEqual(['', 'Números racionais', 'Geometria plana']);
+    expect((props().topicos.items as { enum: string[] }).enum).toEqual([
+      'Frações equivalentes',
+      'Soma de frações',
+      'Ângulos',
+    ]);
+  });
+
+  it('sem tópicos no plano, cai na string solta em vez de enum vazio', () => {
+    // `enum: []` é schema inválido e o provedor recusaria a chamada inteira.
+    const semTopicos = [{ id: 'u1', titulo: 'Sem tópicos', topicos: [] }];
+
+    expect(props(semTopicos).topicos.items).toEqual({ type: 'string' });
+    expect(props(semTopicos).unidade.enum).toEqual(['', 'Sem tópicos']);
+  });
+
+  it('sem plano nenhum, ainda deixa devolver vazio', () => {
+    expect(props([]).unidade.enum).toEqual(['']);
   });
 });
 
 describe('aplicarResumo', () => {
-  it('traduz números para os ids reais', () => {
-    const r = aplicarResumo(resposta({ unidade: 1, topicos: [1, 2] }), UNIDADES);
+  it('traduz títulos para os ids reais', () => {
+    const r = aplicarResumo(resposta({ unidade: 'Números racionais', topicos: ['Frações equivalentes', 'Soma de frações'] }), UNIDADES);
 
     expect(r.unidadeId).toBe('u1');
     expect(r.topicosCobertos).toEqual(['t1', 't2']);
   });
 
-  it('descarta número fora da lista', () => {
-    // O schema garante inteiro, não que o inteiro exista. Este é o caso em que
-    // uma alucinação de índice viraria marcação no plano.
-    const r = aplicarResumo(resposta({ unidade: 99, topicos: [1, 42, -3] }), UNIDADES);
+  it('descarta título que não existe na lista', () => {
+    // O enum reduz a chance, mas `strict` na Groq valida DEPOIS de gerar — e
+    // sem ele a resposta passa crua. É aqui que a alucinação morre.
+    const r = aplicarResumo(resposta({ unidade: 'Unidade que não existe', topicos: ['Frações equivalentes', 'Fotossíntese'] }), UNIDADES);
 
     expect(r.unidadeId).toBe('u1'); // caiu de volta na unidade dos tópicos válidos
     expect(r.topicosCobertos).toEqual(['t1']);
   });
 
   it('deduz a unidade a partir dos tópicos quando ela não veio', () => {
-    const r = aplicarResumo(resposta({ unidade: 0, topicos: [3] }), UNIDADES);
+    const r = aplicarResumo(resposta({ topicos: ['Ângulos'] }), UNIDADES);
 
     expect(r.unidadeId).toBe('u2');
     expect(r.topicosCobertos).toEqual(['t3']);
@@ -136,14 +162,14 @@ describe('aplicarResumo', () => {
   it('não deixa tópico de outra unidade passar', () => {
     // O formulário só mostra os tópicos da unidade escolhida. Tópico de fora
     // viraria marcação invisível: gravada e impossível de desmarcar na tela.
-    const r = aplicarResumo(resposta({ unidade: 2, topicos: [1, 3] }), UNIDADES);
+    const r = aplicarResumo(resposta({ unidade: 'Geometria plana', topicos: ['Frações equivalentes', 'Ângulos'] }), UNIDADES);
 
     expect(r.unidadeId).toBe('u2');
     expect(r.topicosCobertos).toEqual(['t3']);
   });
 
   it('não repete tópico citado duas vezes', () => {
-    const r = aplicarResumo(resposta({ unidade: 1, topicos: [1, 1, 2] }), UNIDADES);
+    const r = aplicarResumo(resposta({ unidade: 'Números racionais', topicos: ['Frações equivalentes', 'Frações equivalentes', 'Soma de frações'] }), UNIDADES);
 
     expect(r.topicosCobertos).toEqual(['t1', 't2']);
   });

@@ -18,11 +18,18 @@ export interface DadosDaAula {
   unidades: UnidadeContexto[];
 }
 
-/** O que o modelo devolve. Números, nunca ids — ver `aplicarResumo`. */
+/**
+ * O que o modelo devolve. **Títulos, nunca ids** — ver `aplicarResumo`.
+ *
+ * Foram números até a primeira medição com modelo de verdade: pedindo dois
+ * tópicos, ele devolvia `[12]` — emendava os dígitos de 1 e 2 — de forma
+ * determinística, mesmo com o enum no schema e com o exemplo no prompt. Título
+ * não tem como emendar: ou é uma string da lista, ou não é.
+ */
 export interface ResumoBruto {
   conteudoDado: string;
-  unidade: number;
-  topicos: number[];
+  unidade: string;
+  topicos: string[];
   atividadeCasa: string;
   dataEntrega: string;
   planoProximaAula: string;
@@ -53,56 +60,77 @@ Escolha unidade e tópicos apenas entre os números listados no contexto. Se nad
 Campo sobre o qual a fala não disse nada: devolva string vazia. Não deduza.`;
 
 /**
- * Schema da saída.
+ * Schema da saída, montado por aula.
  *
  * Todos os campos são obrigatórios e nenhum é nulável: "não sei" é string
  * vazia, 0 ou lista vazia. Sai mais feio que um union com `null`, mas o
  * contrato fica o mais simples que a API garante, e o código que lê não
- * precisa de um ramo por campo ausente.
+ * precisa de um ramo por campo ausente. É também o formato que o modo estrito
+ * da Groq exige, então o mesmo objeto serve aos dois provedores.
  *
- * Nenhum campo de pessoa existe aqui de propósito. A regra de LGPD não pode
- * depender só da instrução no prompt: se não há onde escrever um nome, não
- * há como um nome vazar por desobediência do modelo.
+ * **Os números válidos entram como `enum`, e é por isso que ele é montado por
+ * aula em vez de ser constante.** Com `items: {type:'integer'}` solto, o modelo
+ * pediu `[12]` querendo dizer "1 e 2" — emendou os dígitos. `aplicarResumo`
+ * descartou (número 12 não existe), mas o estrago já estava feito: a aula ficou
+ * sem tópico nenhum. Com o enum, a decodificação restrita não consegue emitir
+ * 12; só um dos números que existem.
+ *
+ * Nenhum campo de pessoa existe aqui, de propósito. A regra de LGPD não pode
+ * depender só da instrução no prompt: se não há onde escrever um nome, não há
+ * como um nome vazar por desobediência do modelo.
  */
-export const ESQUEMA: Record<string, unknown> = {
-  type: 'object',
-  additionalProperties: false,
-  required: [
-    'conteudoDado',
-    'unidade',
-    'topicos',
-    'atividadeCasa',
-    'dataEntrega',
-    'planoProximaAula',
-  ],
-  properties: {
-    conteudoDado: {
-      type: 'string',
-      description: 'O que foi efetivamente dado, em uma ou duas frases. Vazio se a fala não disser.',
+export function montarEsquema(unidades: UnidadeContexto[]): Record<string, unknown> {
+  const titulosDeTopico = [...new Set(numerarTopicos(unidades).map((t) => t.titulo))];
+  const titulosDeUnidade = unidades.map((u) => u.titulo);
+
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'conteudoDado',
+      'unidade',
+      'topicos',
+      'atividadeCasa',
+      'dataEntrega',
+      'planoProximaAula',
+    ],
+    properties: {
+      conteudoDado: {
+        type: 'string',
+        description:
+          'O que foi efetivamente dado, em uma ou duas frases. Vazio se a fala não disser.',
+      },
+      unidade: {
+        type: 'string',
+        // A string vazia sempre cabe: é "nenhuma unidade corresponde".
+        enum: ['', ...titulosDeUnidade],
+        description: 'Título exato da unidade, copiado da lista. Vazio se nenhuma corresponde.',
+      },
+      topicos: {
+        type: 'array',
+        // Sem tópico no plano, um enum vazio seria schema inválido — cai na
+        // string solta, e a lista vem vazia de qualquer jeito.
+        items: titulosDeTopico.length
+          ? { type: 'string', enum: titulosDeTopico }
+          : { type: 'string' },
+        description:
+          'Títulos exatos dos tópicos cobertos, copiados da lista. Vazia se nenhum corresponde.',
+      },
+      atividadeCasa: {
+        type: 'string',
+        description: 'Tarefa passada para casa. Vazio se não houve.',
+      },
+      dataEntrega: {
+        type: 'string',
+        description: 'Entrega da tarefa, no formato AAAA-MM-DD. Vazio se não houve.',
+      },
+      planoProximaAula: {
+        type: 'string',
+        description: 'O que ela disse que vai dar na próxima aula desta turma. Vazio se não disse.',
+      },
     },
-    unidade: {
-      type: 'integer',
-      description: 'Número da unidade na lista do contexto. 0 quando nenhuma corresponde.',
-    },
-    topicos: {
-      type: 'array',
-      items: { type: 'integer' },
-      description: 'Números dos tópicos cobertos, da lista do contexto. Vazia se nenhum corresponde.',
-    },
-    atividadeCasa: {
-      type: 'string',
-      description: 'Tarefa passada para casa. Vazio se não houve.',
-    },
-    dataEntrega: {
-      type: 'string',
-      description: 'Entrega da tarefa, no formato AAAA-MM-DD. Vazio se não houve.',
-    },
-    planoProximaAula: {
-      type: 'string',
-      description: 'O que ela disse que vai dar na próxima aula desta turma. Vazio se não disse.',
-    },
-  },
-};
+  };
+}
 
 const DIAS = [
   'domingo',
@@ -157,15 +185,12 @@ export function montarPrompt(aula: DadosDaAula, transcricao: string): string {
   );
 
   if (aula.unidades.length) {
-    linhas.push('\nUnidades do plano curricular:');
-    aula.unidades.forEach((u, i) => linhas.push(`  ${i + 1}. ${u.titulo}`));
-
-    const topicos = numerarTopicos(aula.unidades);
-    if (topicos.length) {
-      linhas.push('\nTópicos:');
-      for (const t of topicos) {
-        linhas.push(`  ${t.numero}. [unidade ${t.unidade}] ${t.titulo}`);
-      }
+    // Sem numeração: o modelo copia o título de volta. Numerar reintroduziria
+    // exatamente o erro que a numeração causava — ver `ResumoBruto`.
+    linhas.push('\nUnidades e tópicos do plano curricular (copie o título exato):');
+    for (const u of aula.unidades) {
+      linhas.push(`  ${u.titulo}`);
+      for (const t of u.topicos) linhas.push(`    - ${t.titulo}`);
     }
   } else {
     linhas.push('\nEsta cadeira não segue plano curricular: devolva unidade 0 e tópicos vazios.');
@@ -200,16 +225,19 @@ function dataValida(bruto: unknown): string {
  */
 export function aplicarResumo(bruto: ResumoBruto, unidades: UnidadeContexto[]): ResumoAplicado {
   const numerados = numerarTopicos(unidades);
-  const porNumero = new Map(numerados.map((t) => [t.numero, t]));
+  // Primeiro que casa, quando dois tópicos têm o mesmo título em unidades
+  // diferentes ("Revisão"). O filtro por unidade, logo abaixo, desempata.
+  const porTitulo = new Map<string, TopicoNumerado>();
+  for (const t of numerados) if (!porTitulo.has(t.titulo)) porTitulo.set(t.titulo, t);
 
   const escolhidos = [...new Set(Array.isArray(bruto.topicos) ? bruto.topicos : [])]
-    .map((n) => porNumero.get(n))
+    .map((titulo) => porTitulo.get(typeof titulo === 'string' ? titulo.trim() : ''))
     .filter((t): t is TopicoNumerado => Boolean(t));
 
   // Sem unidade explícita mas com tópicos, a unidade sai dos próprios tópicos:
   // ela disse o conteúdo, só não nomeou a unidade.
-  const indice =
-    unidades[bruto.unidade - 1] !== undefined ? bruto.unidade : (escolhidos[0]?.unidade ?? 0);
+  const pedida = unidades.findIndex((u) => u.titulo === bruto.unidade?.trim()) + 1;
+  const indice = pedida > 0 ? pedida : (escolhidos[0]?.unidade ?? 0);
   const unidade = unidades[indice - 1] ?? null;
 
   return {
