@@ -4,6 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCadeiraDto, UpdateCadeiraDto } from './dto/cadeira.dto';
 import { UpsertConfigAlarmeDto } from './dto/config-alarme.dto';
 
+/**
+ * Chave de comparação de nome de disciplina: sem acento, sem caixa.
+ *
+ * `\p{Diacritic}` sobre a forma decomposta em vez de uma faixa de code points
+ * escrita à mão — a faixa some do arquivo em qualquer normalização de encoding,
+ * e ninguém percebe até "matematica" parar de casar com "Matemática".
+ */
+const semAcento = (s: string) =>
+  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
 @Injectable()
 export class CadeirasService {
   constructor(private readonly prisma: PrismaService) {}
@@ -23,6 +33,41 @@ export class CadeirasService {
         _count: { select: { series: true } },
       },
     });
+  }
+
+  /**
+   * As disciplinas que esta conta já usou, para a tela sugerir enquanto ela
+   * digita.
+   *
+   * Inclui cadeira inativa e plano de propósito: "Matemática" do semestre
+   * passado continua sendo a grafia certa deste semestre, e é exatamente aí que
+   * a sugestão evita criar "Matematica" ao lado de "Matemática" — duas
+   * disciplinas para o sistema, uma só para ela.
+   *
+   * A deduplicação ignora acento e caixa mas devolve a grafia que ela escreveu
+   * primeiro: normalizar a saída "consertaria" o nome dela sem pedir licença.
+   */
+  async disciplinas(professorId: string): Promise<string[]> {
+    const [cadeiras, planos] = await Promise.all([
+      this.prisma.cadeira.findMany({
+        where: { professorId },
+        select: { disciplina: true },
+        distinct: ['disciplina'],
+      }),
+      this.prisma.planoCurricular.findMany({
+        where: { professorId, disciplina: { not: null } },
+        select: { disciplina: true },
+        distinct: ['disciplina'],
+      }),
+    ]);
+
+    const vistas = new Map<string, string>();
+    for (const nome of [...cadeiras, ...planos].map((x) => x.disciplina?.trim())) {
+      if (!nome) continue;
+      if (!vistas.has(semAcento(nome))) vistas.set(semAcento(nome), nome);
+    }
+
+    return [...vistas.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }
 
   async buscar(professorId: string, id: string) {

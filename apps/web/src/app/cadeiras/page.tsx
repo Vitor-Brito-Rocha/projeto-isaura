@@ -14,9 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
+import { sugerirDisciplinas } from '@/lib/disciplinas';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
-import type { Cadeira, PlanoCurricular } from '@/lib/types';
+import type { Cadeira, PlanoCurricular, Serie } from '@/lib/types';
 import { PainelAlarme } from './painel-alarme';
+import { PainelHorarios } from './painel-horarios';
 
 export default function Cadeiras() {
   const qc = useQueryClient();
@@ -37,6 +39,20 @@ export default function Cadeiras() {
     queryFn: () => apiFetch<PlanoCurricular[]>('/planos'),
   });
 
+  // Uma requisição para todas as cadeiras, e não uma por cartão: com onze
+  // cadeiras seriam onze idas ao servidor para desenhar a mesma tela.
+  const { data: series } = useQuery({
+    queryKey: ['series'],
+    queryFn: () => apiFetch<Serie[]>('/series'),
+  });
+
+  const { data: disciplinas } = useQuery({
+    queryKey: ['disciplinas'],
+    queryFn: () => apiFetch<string[]>('/cadeiras/disciplinas'),
+  });
+
+  const seriesDa = (cadeiraId: string) => (series ?? []).filter((s) => s.cadeiraId === cadeiraId);
+
   const vincular = useMutation({
     mutationFn: ({ id, planoCurricularId }: { id: string; planoCurricularId: string | null }) =>
       apiFetch(`/cadeiras/${id}`, {
@@ -56,8 +72,10 @@ export default function Cadeiras() {
       apiFetch('/cadeiras', { method: 'POST', body: JSON.stringify(dados) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      // A disciplina recém-criada passa a ser sugestão para a próxima.
+      qc.invalidateQueries({ queryKey: ['disciplinas'] });
       setCriando(false);
-      toast.success('Cadeira criada.');
+      toast.success('Cadeira criada. Defina os dias e horários dela.');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível criar.'),
   });
@@ -86,7 +104,11 @@ export default function Cadeiras() {
         )}
 
         {criando && (
-          <FormularioCadeira onEnviar={(d) => criar.mutate(d)} enviando={criar.isPending} />
+          <FormularioCadeira
+            onEnviar={(d) => criar.mutate(d)}
+            enviando={criar.isPending}
+            disciplinas={disciplinas ?? []}
+          />
         )}
 
         {isLoading && (
@@ -135,13 +157,9 @@ export default function Cadeiras() {
                   {c.escola ? ` · ${c.escola.nome}` : ''}
                 </p>
               </div>
-              {c._count && (
-                <Badge variant={c._count.series > 0 ? 'neutro' : 'alarme'}>
-                  {c._count.series > 0
-                    ? `${c._count.series} horário(s)`
-                    : 'sem horário'}
-                </Badge>
-              )}
+              {/* Só o estado que pede ação vira etiqueta: quando há horário, o
+                  painel logo abaixo já diz qual é, e repetir vira ruído. */}
+              {series && seriesDa(c.id).length === 0 && <Badge variant="alarme">sem horário</Badge>}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
@@ -182,6 +200,8 @@ export default function Cadeiras() {
                 )}
               </div>
 
+              <PainelHorarios cadeiraId={c.id} series={seriesDa(c.id)} />
+
               <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
             </CardContent>
           </Card>
@@ -194,9 +214,11 @@ export default function Cadeiras() {
 function FormularioCadeira({
   onEnviar,
   enviando,
+  disciplinas,
 }: {
   onEnviar: (d: { disciplina: string; turma: string; anoLetivo: number }) => void;
   enviando: boolean;
+  disciplinas: string[];
 }) {
   const [disciplina, setDisciplina] = useState('');
   const [turma, setTurma] = useState('');
@@ -212,17 +234,7 @@ function FormularioCadeira({
             onEnviar({ disciplina, turma, anoLetivo });
           }}
         >
-          <div className="space-y-1.5">
-            <Label htmlFor="disciplina">Disciplina</Label>
-            <Input
-              id="disciplina"
-              required
-              autoFocus
-              value={disciplina}
-              onChange={(e) => setDisciplina(e.target.value)}
-              placeholder="Matemática"
-            />
-          </div>
+          <CampoDisciplina valor={disciplina} onChange={setDisciplina} disciplinas={disciplinas} />
           <div className="space-y-1.5">
             <Label htmlFor="turma">Turma</Label>
             <Input
@@ -251,5 +263,63 @@ function FormularioCadeira({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Disciplina com sugestão do que ela já cadastrou.
+ *
+ * Digitar o nome de novo a cada turma é onde nasce "Matemática" ao lado de
+ * "Matematica": duas disciplinas para o sistema, uma só na cabeça dela, e o
+ * histórico partido em dois sem ninguém perceber. As sugestões aparecem também
+ * com o campo vazio — com onze cadeiras e poucas disciplinas, escolher é quase
+ * sempre mais rápido que digitar.
+ */
+function CampoDisciplina({
+  valor,
+  onChange,
+  disciplinas,
+}: {
+  valor: string;
+  onChange: (v: string) => void;
+  disciplinas: string[];
+}) {
+  const [focado, setFocado] = useState(false);
+  const sugestoes = sugerirDisciplinas(disciplinas, valor);
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="disciplina">Disciplina</Label>
+      <Input
+        id="disciplina"
+        required
+        autoFocus
+        autoComplete="off"
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocado(true)}
+        onBlur={() => setFocado(false)}
+        placeholder="Matemática"
+      />
+      {focado && sugestoes.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {sugestoes.map((s) => (
+            <button
+              key={s}
+              type="button"
+              // `onMouseDown` com `preventDefault`: o clique normal chegaria
+              // depois do blur, que já teria escondido a lista.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(s);
+              }}
+              className="rounded-full border bg-card px-2.5 py-1 text-xs hover:bg-accent"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

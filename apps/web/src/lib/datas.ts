@@ -26,9 +26,18 @@ export function dataBR(iso: string | Date): string {
   });
 }
 
-/** "qui" — dia da semana de uma data pura. */
+/**
+ * "qui" — dia da semana de uma data pura.
+ *
+ * O ponto final da abreviação sai fora: o CLDR manda "qui." e nem toda build de
+ * ICU concorda, então a mesma tela apareceria "qui., 20/08" num navegador e
+ * "qui, 20/08" no outro. Fixar aqui é o que torna a saída previsível — e o
+ * ponto colado na vírgula não ajudava ninguém a ler.
+ */
 export function diaDaSemanaBR(iso: string | Date): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' });
+  return new Date(iso)
+    .toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' })
+    .replace(/\.$/, '');
 }
 
 /** "qui, 17/04/2026" — para atalho e sugestão, onde o dia da semana decide. */

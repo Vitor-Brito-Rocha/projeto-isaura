@@ -36,6 +36,26 @@ export interface Cadeira {
   _count?: { series: number };
 }
 
+export interface SerieHorario {
+  id: string;
+  diaSemana: number; // 0 = domingo … 6 = sábado
+  horaInicio: string; // "HH:mm"
+  horaFim: string;
+}
+
+/** A recorrência que gera a grade: "toda terça e quinta, 07:00–07:50". */
+export interface Serie {
+  id: string;
+  cadeiraId: string;
+  frequencia: Frequencia;
+  dataInicio: string;
+  /** null = segue até ela desativar. */
+  dataFim: string | null;
+  ativo: boolean;
+  horarios: SerieHorario[];
+  cadeira: { id: string; disciplina: string; turma: string; corHex: string };
+}
+
 export interface AlarmeResolvido {
   antecedenciaMin: number;
   atrasoMin: number;
@@ -111,7 +131,7 @@ export interface RegistroAula {
   atividadeCasa: string | null;
   dataEntrega: string | null;
   planoProximaAula: string | null;
-  /** A fala original. Existe só até `revisadoEm`; depois o servidor a apaga. */
+  /** A fala original, guardada para sempre — é a auditoria do que a IA leu. */
   transcricaoBruta: string | null;
   /** JSON do último rascunho da IA. Ver `lib/rascunho.ts`. */
   resumoPadronizado: string | null;

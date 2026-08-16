@@ -13,6 +13,15 @@ export class CadeirasController {
     return this.cadeiras.listar(p.id, incluirInativas === 'true');
   }
 
+  /**
+   * ANTES de `:id` de propósito: registrada depois, "disciplinas" entraria como
+   * um id e a rota devolveria 404. É o mesmo tropeço de `/agenda/pendencias`.
+   */
+  @Get('disciplinas')
+  disciplinas(@CurrentProfessor() p: AuthProfessor) {
+    return this.cadeiras.disciplinas(p.id);
+  }
+
   @Post()
   criar(@CurrentProfessor() p: AuthProfessor, @Body() dto: CreateCadeiraDto) {
     return this.cadeiras.criar(p.id, dto);

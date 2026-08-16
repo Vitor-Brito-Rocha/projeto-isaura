@@ -1,4 +1,4 @@
-import { dataBR, diaEDataBR, paraCampoDeData } from './datas';
+import { dataBR, diaDaSemanaBR, diaEDataBR, paraCampoDeData } from './datas';
 
 /**
  * O bug que estes testes travam já esteve em produção: a grade mostrava 14/08
@@ -27,10 +27,18 @@ describe('dataBR', () => {
   });
 });
 
+describe('diaDaSemanaBR', () => {
+  it('não deixa o ponto da abreviação passar', () => {
+    // O CLDR manda "sex."; builds de ICU divergem. Sem cortar, a mesma tela
+    // sairia "sex., 17/04" num navegador e "sex, 17/04" no outro.
+    expect(diaDaSemanaBR('2026-04-17T00:00:00.000Z')).toBe('sex');
+  });
+});
+
 describe('diaEDataBR', () => {
   it('junta dia da semana e data', () => {
     // 2026-04-17 é uma sexta-feira.
-    expect(diaEDataBR('2026-04-17T00:00:00.000Z')).toMatch(/^sex\.?, 17\/04\/2026$/);
+    expect(diaEDataBR('2026-04-17T00:00:00.000Z')).toBe('sex, 17/04/2026');
   });
 });
 
