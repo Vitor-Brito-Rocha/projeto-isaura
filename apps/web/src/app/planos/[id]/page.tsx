@@ -19,6 +19,7 @@ import { Anexos } from '@/components/anexos';
 import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
+import { ImportarPlano } from './importar';
 
 export default function Plano() {
   const { id } = useParams<{ id: string }>();
@@ -137,6 +138,7 @@ export default function Plano() {
               rotuloBotao="Anexar o plano escrito"
               ajuda="Foto ou PDF do plano de curso que você já tem. Até 10 MB por arquivo — dá para mandar uma página por vez."
             />
+            <ImportarPlano planoId={id} onImportou={recarregar} />
           </CardContent>
         </Card>
 

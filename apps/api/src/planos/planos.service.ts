@@ -4,6 +4,7 @@ import {
   CreatePlanoDto,
   CreateTopicoDto,
   CreateUnidadeDto,
+  ImportarUnidadesDto,
   UpdatePlanoDto,
   UpdateTopicoDto,
   UpdateUnidadeDto,
@@ -85,6 +86,35 @@ export class PlanosService {
         dataInicio: data(dto.dataInicio),
         dataFimPrevista: data(dto.dataFimPrevista),
       },
+    });
+  }
+
+  /**
+   * Cria de uma vez as unidades que ela confirmou vindas do documento.
+   *
+   * Numa transação, e **acrescentando ao fim** em vez de substituir: o plano
+   * pode já ter unidade digitada na mão, e importar não é motivo para apagá-la.
+   * Se ela importar duas vezes por engano, sobra unidade repetida — que se
+   * apaga em dois cliques. O contrário perderia trabalho.
+   */
+  async importarUnidades(professorId: string, planoId: string, dto: ImportarUnidadesDto) {
+    await this.garantirPlano(professorId, planoId);
+    let ordem = await this.proximaOrdemUnidade(planoId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const criadas = [];
+      for (const u of dto.unidades) {
+        const unidade = await tx.unidade.create({
+          data: { professorId, planoCurricularId: planoId, titulo: u.titulo, ordem: ordem++ },
+        });
+        if (u.topicos.length) {
+          await tx.topico.createMany({
+            data: u.topicos.map((titulo, i) => ({ unidadeId: unidade.id, ordem: i + 1, titulo })),
+          });
+        }
+        criadas.push(unidade);
+      }
+      return { criadas: criadas.length };
     });
   }
 

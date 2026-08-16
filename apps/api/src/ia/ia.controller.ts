@@ -2,11 +2,15 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthProfessor, CurrentProfessor } from '../auth/current-professor.decorator';
 import { GerarResumoDto } from './dto/resumo.dto';
+import { ImportacaoService } from './importacao.service';
 import { ResumoService } from './resumo.service';
 
 @Controller('ia')
 export class IaController {
-  constructor(private readonly resumo: ResumoService) {}
+  constructor(
+    private readonly resumo: ResumoService,
+    private readonly importacao: ImportacaoService,
+  ) {}
 
   /** A tela pergunta antes de mostrar o botão de ditado. */
   @Get('status')
@@ -29,5 +33,21 @@ export class IaController {
     @Body() dto: GerarResumoDto,
   ) {
     return this.resumo.gerar(p.id, ocorrenciaId, dto.transcricao);
+  }
+
+  /**
+   * Lê o PDF do plano e devolve a estrutura. **Não grava nada** — quem cria as
+   * unidades é ela, confirmando na tela.
+   *
+   * Mesmo teto do resumo: chama serviço de terceiro e lê um arquivo inteiro.
+   */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('plano/:planoId/anexo/:anexoId/extrair')
+  extrairPlano(
+    @CurrentProfessor() p: AuthProfessor,
+    @Param('planoId') planoId: string,
+    @Param('anexoId') anexoId: string,
+  ) {
+    return this.importacao.extrair(p.id, planoId, anexoId);
   }
 }

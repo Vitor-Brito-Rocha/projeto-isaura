@@ -4,6 +4,7 @@ import {
   CreatePlanoDto,
   CreateTopicoDto,
   CreateUnidadeDto,
+  ImportarUnidadesDto,
   UpdatePlanoDto,
   UpdateTopicoDto,
   UpdateUnidadeDto,
@@ -52,6 +53,16 @@ export class PlanosController {
     @Body() dto: CreateUnidadeDto,
   ) {
     return this.planos.criarUnidade(p.id, id, dto);
+  }
+
+  /** As unidades que ela confirmou depois de ler o documento importado. */
+  @Post(':id/unidades/importar')
+  importarUnidades(
+    @CurrentProfessor() p: AuthProfessor,
+    @Param('id') id: string,
+    @Body() dto: ImportarUnidadesDto,
+  ) {
+    return this.planos.importarUnidades(p.id, id, dto);
   }
 
   @Patch(':id/unidades/:unidadeId')

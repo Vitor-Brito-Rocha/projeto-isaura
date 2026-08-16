@@ -521,23 +521,34 @@ colunas.
 procurar o papel na mochila — e quando a leitura automática entrar, o arquivo já está no lugar
 certo, com o mesmo caminho de upload, a mesma URL assinada e o mesmo bucket privado.
 
-A extração automática continua sendo a melhor primeira impressão possível — ela abre o app e o ano
-dela já está lá — e segue **bloqueada até o documento chegar**, porque o formato decide o caminho:
+**A extração também está feita, e verificada** — o formato é PDF (decisão do usuário, 16/08/2026),
+que é o caminho barato: extrai a camada de texto no servidor e manda só texto pelo pipeline que já
+existe. Nenhuma visão, nenhuma troca de provedor.
 
 | Formato real | Caminho | Provedor |
 |---|---|---|
-| Word, PDF digital, planilha | extrai texto no servidor e manda pelo pipeline de texto que já existe | **Groq, grátis, hoje** |
-| Foto do caderno, PDF escaneado | precisa de visão | `gpt-oss-120b` é **texto puro** — exige modelo de visão ou crédito na Anthropic |
+| **PDF digital** | extrai texto e manda pelo pipeline de texto | **Groq, grátis — é o que roda** |
+| PDF escaneado, foto | precisa de visão | recusado com mensagem clara; o arquivo fica guardado |
 
-Por isso *pedir o documento antes de começar* está no plano desde o início: se for digital, esta
-peça é barata e sai na infraestrutura atual; se for foto, ela reabre a conta de custo da fase 4.
+`ImportacaoService` lê o anexo que ela já subiu, `pdf.ts` extrai o texto e `plano.prompt.ts` faz o
+resto — puro e testável, como `resumo.prompt.ts`. A saída é **sempre rascunho**: ela vê as unidades
+na tela, desmarca o que não for, e só o confirmar cria `Unidade` + `Topico`, num POST só.
+**Rascunho nenhum toca o banco**, o que dispensa tabela de rascunho e portanto policy nova. As
+unidades entram no fim da lista em vez de substituir — importar não é motivo para apagar o que ela
+digitou na mão.
 
-Reaproveita o desenho de `resumo.prompt.ts` inteiro — prompt puro e testável, JSON schema com
-`additionalProperties: false`, e a saída **sempre rascunho**. Aqui a regra vale dobrado: um plano
-importado com a unidade 3 errada contamina todo registro que apontar para ela, e o erro só aparece
-meses depois. Ela vê a estrutura extraída na tela, corrige e confirma; só o confirmar cria
-`PlanoCurricular` + `Unidade` + `Topico`, num POST só. **Rascunho nenhum toca o banco** — o que
-dispensa tabela de rascunho, e portanto policy nova.
+**A fronteira que mais importa é digital × escaneado.** Os dois são PDF, têm a mesma cara na tela e
+só o primeiro tem texto. `pareceEscaneado` mede caracteres por página e recusa antes de chamar o
+modelo: camada vazia produziria unidades inventadas a partir do nada — o pior desfecho possível
+para um documento que vira currículo.
+
+Verificado contra o modelo de verdade (16/08/2026): um plano de curso escrito devolveu as 3
+unidades e os 11 tópicos com os títulos exatos em 1,8 s, sem levar junto avaliação, bibliografia,
+carga horária nem assinatura; e um PDF real de 14 páginas que **não** é plano de curso devolveu
+lista vazia, em vez de inventar.
+
+**O teto de texto é medido, não estimado.** `MAX_CARACTERES` são 16 mil porque o plano gratuito da
+Groq dá 8000 tokens por minuto — a primeira versão tinha 40 mil e a verificação levou 429 na cara.
 
 ---
 

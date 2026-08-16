@@ -75,6 +75,25 @@ export class StorageService {
   }
 
   /**
+   * Traz o objeto de volta para o servidor.
+   *
+   * Existe para a importação do plano: o PDF precisa ser lido aqui dentro, e
+   * baixá-lo pela URL assinada seria dar a volta pela internet pública para
+   * buscar um arquivo que a chave de serviço alcança direto.
+   */
+  async baixar(caminho: string): Promise<Buffer> {
+    const { base } = this.credenciais;
+    const r = await fetch(`${base}/object/${BUCKET}/${encodeURI(caminho)}`, {
+      headers: this.cabecalhos(),
+    });
+    if (!r.ok) {
+      this.logger.error(`Falha ao baixar ${caminho}: ${r.status}`);
+      throw new InternalServerErrorException('Não foi possível abrir o arquivo.');
+    }
+    return Buffer.from(await r.arrayBuffer());
+  }
+
+  /**
    * Não lança quando falha: quem chama já apagou (ou vai apagar) a linha do
    * banco, e um objeto órfão no Storage é bem menos ruim do que uma linha
    * fantasma que a tela mostra e ninguém consegue abrir.

@@ -178,6 +178,16 @@ avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior des
 virar prova de trabalho na frente da coordenação. Quem preenche `revisadoEm` é `salvarFechamento`,
 e só ele — gerar um resumo *zera* a marca, porque o que está na tela voltou a ser saída de modelo.
 
+**Um transporte para o modelo, dois usos.** `ModeloService.pedirJson` faz a chamada com schema e
+guarda o retry estrito→frouxo, o timeout e a chave; `ResumoService` (fala da aula) e
+`ImportacaoService` (PDF do plano) só trocam prompt e schema. `MAX_CARACTERES` em `pdf.ts` são 16
+mil porque o plano gratuito da Groq dá **8000 tokens por minuto** — medido, não estimado: 40 mil
+levou 429.
+
+**PDF escaneado é recusado antes de chamar o modelo.** `pareceEscaneado` mede caracteres por
+página; camada de texto vazia produziria unidades inventadas a partir do nada, e plano errado
+contamina todo registro que apontar para ele. O arquivo continua guardado para ela consultar.
+
 **Anexo tem exatamente um dono: uma aula ou um plano de curso.** As duas FKs são anuláveis e o
 CHECK `anexos_um_dono` (em `sql/enable-rls.sql`, porque o Prisma não expressa isso) garante que
 uma e só uma vale. Uma tabela só, e não duas, porque o que tem valor é o caminho de upload —

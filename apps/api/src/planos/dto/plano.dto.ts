@@ -1,4 +1,17 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreatePlanoDto {
   @IsString()
@@ -48,6 +61,35 @@ export class UpdatePlanoDto {
   @Min(1)
   @Max(2)
   semestre?: number | null;
+}
+
+/** Uma unidade vinda do documento, já conferida por ela na tela. */
+export class UnidadeImportadaDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  titulo!: string;
+
+  @IsArray()
+  @ArrayMaxSize(60)
+  @IsString({ each: true })
+  @MinLength(1, { each: true })
+  @MaxLength(200, { each: true })
+  topicos!: string[];
+}
+
+/**
+ * O que ela confirmou da importação. Os tetos repetem os de `plano.prompt.ts`:
+ * lá evitam mandar lixo ao banco, aqui evitam confiar no que chega do cliente —
+ * o rascunho passa pelo navegador, então o servidor valida de novo.
+ */
+export class ImportarUnidadesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(40)
+  @ValidateNested({ each: true })
+  @Type(() => UnidadeImportadaDto)
+  unidades!: UnidadeImportadaDto[];
 }
 
 export class CreateUnidadeDto {
