@@ -15,6 +15,13 @@ export class CreatePlanoDto {
   @Min(2000)
   @Max(2100)
   anoLetivo!: number;
+
+  /** 1 ou 2. Omitido = ano letivo inteiro. Ver `Cadeira.semestre`. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  semestre?: number;
 }
 
 export class UpdatePlanoDto {
@@ -34,6 +41,13 @@ export class UpdatePlanoDto {
   @Min(2000)
   @Max(2100)
   anoLetivo?: number;
+
+  /** 1, 2 ou `null` para voltar ao ano inteiro. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  semestre?: number | null;
 }
 
 export class CreateUnidadeDto {

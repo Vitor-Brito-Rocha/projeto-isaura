@@ -84,12 +84,31 @@ const PLANO = {
  * sugestão "no 8º A você deu X" aparecer na abertura do 8º B, que é a peça mais
  * difícil de testar sem dado plausível.
  */
-const CADEIRAS = [
+const CADEIRAS: {
+  sufixo: string;
+  disciplina: string;
+  turma: string;
+  cor: string;
+  comPlano: boolean;
+  /** 1 ou 2; ausente = ano letivo inteiro. */
+  semestre?: number;
+}[] = [
   { sufixo: 'mat8a', disciplina: 'Matemática', turma: '8º A', cor: '#2F4A9C', comPlano: true },
   { sufixo: 'mat8b', disciplina: 'Matemática', turma: '8º B', cor: '#1F6F5C', comPlano: true },
   { sufixo: 'mat9a', disciplina: 'Matemática', turma: '9º A', cor: '#8A3B7A', comPlano: false },
   { sufixo: 'cie7b', disciplina: 'Ciências', turma: '7º B', cor: '#B25A1F', comPlano: false },
   { sufixo: 'mat7a', disciplina: 'Matemática', turma: '7º A', cor: '#4A6B23', comPlano: false },
+  // A de faculdade: aula à noite e período com semestre, para a tela mostrar
+  // "2026.1" ao lado das que só têm ano. Sem ela, o campo novo nunca aparece no
+  // dado de teste — e campo que ninguém vê é campo que ninguém confere.
+  {
+    sufixo: 'cal1',
+    disciplina: 'Cálculo I',
+    turma: 'Engenharia A',
+    cor: '#7A3B3B',
+    comPlano: false,
+    semestre: 1,
+  },
 ];
 
 /** Grade semanal: [diaSemana (0=dom), horaInicio, horaFim] por cadeira. */
@@ -112,6 +131,7 @@ const GRADE: Record<string, [number, string, string][]> = {
     [5, '13:30', '14:20'],
   ],
   mat7a: [[3, '13:30', '14:20']],
+  cal1: [[2, '19:00', '20:40']],
 };
 
 /** Conteúdo plausível para o histórico, em ordem — vira o encadeamento. */
@@ -219,6 +239,7 @@ async function main() {
         disciplina: c.disciplina,
         turma: c.turma,
         anoLetivo: ANO,
+        semestre: c.semestre ?? null,
         corHex: c.cor,
         planoCurricularId: c.comPlano ? planoId : null,
       },

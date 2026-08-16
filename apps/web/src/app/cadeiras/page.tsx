@@ -14,7 +14,9 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
+import { CampoPeriodo } from '@/components/campo-periodo';
 import { sugerirDisciplinas } from '@/lib/disciplinas';
+import { periodoLetivo, semestreDoCampo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { Cadeira, PlanoCurricular, Serie } from '@/lib/types';
 import { PainelAlarme } from './painel-alarme';
@@ -68,8 +70,12 @@ export default function Cadeiras() {
   });
 
   const criar = useMutation({
-    mutationFn: (dados: { disciplina: string; turma: string; anoLetivo: number }) =>
-      apiFetch('/cadeiras', { method: 'POST', body: JSON.stringify(dados) }),
+    mutationFn: (dados: {
+      disciplina: string;
+      turma: string;
+      anoLetivo: number;
+      semestre?: number;
+    }) => apiFetch('/cadeiras', { method: 'POST', body: JSON.stringify(dados) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cadeiras'] });
       // A disciplina recém-criada passa a ser sugestão para a próxima.
@@ -153,7 +159,7 @@ export default function Cadeiras() {
                   {c.disciplina} · {c.turma}
                 </CardTitle>
                 <p className="truncate text-xs text-muted-foreground">
-                  {c.anoLetivo}
+                  {periodoLetivo(c.anoLetivo, c.semestre)}
                   {c.escola ? ` · ${c.escola.nome}` : ''}
                 </p>
               </div>
@@ -216,13 +222,19 @@ function FormularioCadeira({
   enviando,
   disciplinas,
 }: {
-  onEnviar: (d: { disciplina: string; turma: string; anoLetivo: number }) => void;
+  onEnviar: (d: {
+    disciplina: string;
+    turma: string;
+    anoLetivo: number;
+    semestre?: number;
+  }) => void;
   enviando: boolean;
   disciplinas: string[];
 }) {
   const [disciplina, setDisciplina] = useState('');
   const [turma, setTurma] = useState('');
   const [anoLetivo, setAnoLetivo] = useState(new Date().getFullYear());
+  const [semestre, setSemestre] = useState('');
 
   return (
     <Card>
@@ -231,7 +243,7 @@ function FormularioCadeira({
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
-            onEnviar({ disciplina, turma, anoLetivo });
+            onEnviar({ disciplina, turma, anoLetivo, semestre: semestreDoCampo(semestre) });
           }}
         >
           <CampoDisciplina valor={disciplina} onChange={setDisciplina} disciplinas={disciplinas} />
@@ -255,7 +267,8 @@ function FormularioCadeira({
               onChange={(e) => setAnoLetivo(Number(e.target.value))}
             />
           </div>
-          <div className="flex items-end">
+          <CampoPeriodo id="periodo-cadeira" valor={semestre} onChange={setSemestre} ano={anoLetivo} />
+          <div className="flex items-end sm:col-span-2">
             <Button type="submit" loading={enviando} className="w-full">
               Criar cadeira
             </Button>
@@ -265,6 +278,7 @@ function FormularioCadeira({
     </Card>
   );
 }
+
 
 /**
  * Disciplina com sugestão do que ela já cadastrou.

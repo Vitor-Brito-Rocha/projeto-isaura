@@ -28,6 +28,8 @@ export interface Cadeira {
   disciplina: string;
   turma: string;
   anoLetivo: number;
+  /** 1, 2 ou null (ano inteiro). Formatado por `lib/periodo.ts`. */
+  semestre: number | null;
   corHex: string;
   ativo: boolean;
   escola?: { id: string; nome: string } | null;
@@ -104,6 +106,7 @@ export interface PlanoCurricular {
   nome: string;
   disciplina: string | null;
   anoLetivo: number;
+  semestre: number | null;
   _count?: { unidades: number; cadeiras: number };
 }
 

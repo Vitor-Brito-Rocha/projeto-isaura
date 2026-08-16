@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
 
@@ -80,7 +81,7 @@ export default function Plano() {
   return (
     <AppShell
       titulo={plano.nome}
-      descricao={`${plano.anoLetivo}${plano.disciplina ? ` · ${plano.disciplina}` : ''}`}
+      descricao={`${periodoLetivo(plano.anoLetivo, plano.semestre)}${plano.disciplina ? ` · ${plano.disciplina}` : ''}`}
       acao={
         <Button asChild size="sm" variant="outline">
           <Link href="/planos">

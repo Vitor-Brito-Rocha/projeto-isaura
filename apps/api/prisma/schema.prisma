@@ -121,6 +121,16 @@ model Cadeira {
   disciplina  String // "Matemática"
   turma       String // "8º A"
   anoLetivo   Int     @map("ano_letivo")
+
+  /// 1 ou 2, ou null para quem trabalha o ano letivo inteiro.
+  ///
+  /// Na faculdade a disciplina é dividida por semestre: a cadeira de 2026.1 não
+  /// é a de 2026.2 — outra turma, outro plano, outro histórico. Acrescentado ao
+  /// lado do ano em vez de substituí-lo porque na escola básica o ano É a
+  /// unidade, e um "1º ou 2º semestre?" obrigatório seria pergunta sem resposta.
+  /// Quem escreve "2026.1" na tela é `periodoLetivo`, no front.
+  semestre Int? @map("semestre")
+
   corHex      String  @default("#2F4A9C") @map("cor_hex") // identificação visual rápida na grade
   ativo       Boolean @default(true)
 
@@ -159,6 +169,8 @@ model PlanoCurricular {
   nome        String // "Matemática 8º ano — 2026"
   disciplina  String? // livre; serve para agrupar e sugerir, não para identificar
   anoLetivo   Int     @map("ano_letivo")
+  /// Mesma regra da `Cadeira.semestre`: o plano de 2026.1 não é o de 2026.2.
+  semestre    Int?    @map("semestre")
 
   criadoEm     DateTime  @default(now()) @map("criado_em")
   atualizadoEm DateTime? @updatedAt @map("atualizado_em")

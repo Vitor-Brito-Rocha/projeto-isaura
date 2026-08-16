@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CampoPeriodo } from '@/components/campo-periodo';
 import { apiFetch } from '@/lib/api';
+import { periodoLetivo, semestreDoCampo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { PlanoCurricular } from '@/lib/types';
 
@@ -34,8 +36,12 @@ export default function Planos() {
   useRedirecionaSeDeslogado(error);
 
   const criar = useMutation({
-    mutationFn: (dados: { nome: string; disciplina?: string; anoLetivo: number }) =>
-      apiFetch('/planos', { method: 'POST', body: JSON.stringify(dados) }),
+    mutationFn: (dados: {
+      nome: string;
+      disciplina?: string;
+      anoLetivo: number;
+      semestre?: number;
+    }) => apiFetch('/planos', { method: 'POST', body: JSON.stringify(dados) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['planos'] });
       setCriando(false);
@@ -95,7 +101,7 @@ export default function Planos() {
                 <div className="min-w-0 flex-1">
                   <CardTitle className="truncate text-base">{p.nome}</CardTitle>
                   <p className="truncate text-xs text-muted-foreground">
-                    {p.anoLetivo}
+                    {periodoLetivo(p.anoLetivo, p.semestre)}
                     {p.disciplina ? ` · ${p.disciplina}` : ''}
                   </p>
                 </div>
@@ -128,12 +134,18 @@ function FormularioPlano({
   onEnviar,
   enviando,
 }: {
-  onEnviar: (d: { nome: string; disciplina?: string; anoLetivo: number }) => void;
+  onEnviar: (d: {
+    nome: string;
+    disciplina?: string;
+    anoLetivo: number;
+    semestre?: number;
+  }) => void;
   enviando: boolean;
 }) {
   const [nome, setNome] = useState('');
   const [disciplina, setDisciplina] = useState('');
   const [anoLetivo, setAnoLetivo] = useState(new Date().getFullYear());
+  const [semestre, setSemestre] = useState('');
 
   return (
     <Card>
@@ -142,7 +154,12 @@ function FormularioPlano({
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
-            onEnviar({ nome, disciplina: disciplina || undefined, anoLetivo });
+            onEnviar({
+              nome,
+              disciplina: disciplina || undefined,
+              anoLetivo,
+              semestre: semestreDoCampo(semestre),
+            });
           }}
         >
           <div className="space-y-1.5 sm:col-span-2">
@@ -179,6 +196,12 @@ function FormularioPlano({
               onChange={(e) => setAnoLetivo(Number(e.target.value))}
             />
           </div>
+          <CampoPeriodo
+            id="periodo-plano"
+            valor={semestre}
+            onChange={setSemestre}
+            ano={anoLetivo}
+          />
           <div className="sm:col-span-2">
             <Button type="submit" loading={enviando} className="w-full">
               Criar plano

@@ -9,7 +9,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 | Fase | Situação |
 |---|---|
-| 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`) |
+| 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`); a **tela** de séries só chegou em `3670473` |
 | 2 — Os dois alarmes + casca PWA | feita (`aa71e52`, `37baa31`, `9c8dfdb`); falta só a verificação em aparelho real |
 | 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
 | 4 — Voz e resumo padronizado | **em andamento** (`HEAD`) — construída, **não verificada: conta Anthropic sem saldo** |
@@ -59,12 +59,25 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 ### Pendências humanas (não são de código)
 
+- **Rodar a migração do `semestre`.** O código está pronto e o banco está uma coluna atrás — a
+  classificação de permissão bloqueou tanto `prisma db push` quanto DDL pelo MCP do Supabase.
+  Enquanto não rodar, **qualquer query de cadeira ou plano quebra** com
+  "The column `cadeiras.semestre` does not exist", e dois testes de integração falham:
+
+  ```bash
+  npm run --workspace apps/api prisma:push
+  ```
+
+  Só acrescenta duas colunas anuláveis (`cadeiras.semestre`, `planos_curriculares.semestre`).
+  Nenhuma tabela nova, então **não precisa de policy nova** e `prisma:rls` não muda.
+
 - ~~Gerar as chaves VAPID~~, ~~colar as strings de conexão~~, ~~colar a chave de serviço do
   Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
 - **Comprar crédito na conta da Anthropic.** A chave está no `.env` e autentica, mas a conta está
   zerada e nenhuma chamada passa. Bloqueia a fase 4 inteira.
 - **Criar a conta da professora e um plano curricular de verdade.** Para *testar*, use
-  `dados:teste` (5 cadeiras, 52 aulas, histórico, duas turmas irmãs e dois alarmes plantados).
+  `dados:teste` (6 cadeiras — uma delas de faculdade, com semestre e aula à noite —, histórico,
+  duas turmas irmãs e dois alarmes plantados).
   Ele exige conta já criada — não cria conta nem senha — e só apaga o que tem id `decafbad-`.
   **Os ids que ele gera são uuid v4 de verdade**: a primeira versão usava `demo-u2` e a tela
   devolvia "unidadeId must be a UUID" no primeiro salvamento.
@@ -138,6 +151,17 @@ meia-noite UTC e o fuso local o recuaria um dia; instante (log de erro) usa o fu
 certo para "quando aconteceu". O ano vai junto: ela registra aula atrasada e consulta semestre
 passado. O `<input type="date">` desenha no formato do SISTEMA e não dá para controlar — por isso a
 tela escreve a data escolhida por extenso ao lado dele.
+
+**Quem define a grade é ela, e por `lib/horarios.ts`.** Frequência e dias da semana vêm do painel
+dentro da cadeira — nada é suposto. `PONTUAL` esconde os botões de dia de propósito: o dia É a data
+escolhida, e perguntar as duas coisas deixa as respostas se contradizerem (a `RecorrenciaService`,
+não achando horário para aquele dia, usa o primeiro da lista e a aula nasce no horário errado).
+
+**Período letivo é `lib/periodo.ts`, nunca `anoLetivo` cru na tela.** Faculdade divide por semestre
+("2026.1"), escola básica não. Por isso `semestre` é anulável **ao lado** do ano em vez de
+substituí-lo: um "1º ou 2º semestre?" obrigatório seria pergunta sem resposta para quem dá aula no
+8º ano. `semestreDoCampo('')` devolve `undefined` e não `0` — `Number('')` é 0, e 0 bateria no
+`@Min(1)` da API como erro de validação em vez de "não informado".
 
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —

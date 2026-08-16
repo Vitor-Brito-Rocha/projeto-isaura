@@ -27,6 +27,13 @@ export class CreateCadeiraDto {
   @Max(2100)
   anoLetivo!: number;
 
+  /** 1 ou 2. Omitido = ano letivo inteiro, que é o caso da escola básica. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  semestre?: number;
+
   @IsOptional()
   @IsUUID()
   escolaId?: string;
@@ -59,6 +66,19 @@ export class UpdateCadeiraDto {
   @Min(2000)
   @Max(2100)
   anoLetivo?: number;
+
+  /**
+   * 1, 2 ou `null` para voltar ao ano inteiro.
+   *
+   * `@IsOptional` deixa `null` passar (ele ignora null e undefined), e é o que
+   * permite LIMPAR o semestre: `null` chega ao Prisma e zera a coluna, enquanto
+   * `undefined` não mexe nela.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  semestre?: number | null;
 
   @IsOptional()
   @IsUUID()
