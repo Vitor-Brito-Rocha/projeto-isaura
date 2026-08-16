@@ -37,6 +37,28 @@ export class AnexosController {
     return this.anexos.enviar(p.id, ocorrenciaId, arquivo);
   }
 
+  /**
+   * O documento de origem do plano de curso — a foto ou o PDF que ela já tem.
+   *
+   * Fora do `PlanosController` de propósito: quem sabe validar arquivo, assinar
+   * URL e falar com o Storage é este módulo, e espalhar isso por dois
+   * controllers é como as duas cópias começam a divergir.
+   */
+  @Get('planos/:planoId/anexos')
+  listarDoPlano(@CurrentProfessor() p: AuthProfessor, @Param('planoId') planoId: string) {
+    return this.anexos.listarDoPlano(p.id, planoId);
+  }
+
+  @Post('planos/:planoId/anexos')
+  @UseInterceptors(FileInterceptor('arquivo', { limits: { fileSize: TAMANHO_MAXIMO } }))
+  enviarParaPlano(
+    @CurrentProfessor() p: AuthProfessor,
+    @Param('planoId') planoId: string,
+    @UploadedFile() arquivo: ArquivoRecebido,
+  ) {
+    return this.anexos.enviarParaPlano(p.id, planoId, arquivo);
+  }
+
   @Delete('anexos/:id')
   remover(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
     return this.anexos.remover(p.id, id);

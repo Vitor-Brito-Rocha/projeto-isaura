@@ -515,8 +515,14 @@ colunas.
 
 ### 5e — Importação do plano de curso
 
-A melhor primeira impressão possível: ela abre o app e o ano dela já está lá. **Bloqueada até o
-documento chegar** — e o formato decide o caminho:
+**Já feito, e é o que destrava enquanto a leitura por IA não existe: o documento tem onde morar.**
+`Anexo` passou a pendurar numa aula **ou** num plano de curso, e a tela do plano tem a seção
+"Documento do plano". Ela fotografa as folhas e digita as unidades olhando para elas, em vez de
+procurar o papel na mochila — e quando a leitura automática entrar, o arquivo já está no lugar
+certo, com o mesmo caminho de upload, a mesma URL assinada e o mesmo bucket privado.
+
+A extração automática continua sendo a melhor primeira impressão possível — ela abre o app e o ano
+dela já está lá — e segue **bloqueada até o documento chegar**, porque o formato decide o caminho:
 
 | Formato real | Caminho | Provedor |
 |---|---|---|

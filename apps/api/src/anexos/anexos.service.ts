@@ -51,62 +51,52 @@ export class AnexosService {
     const registro = await this.registroDaOcorrencia(professorId, ocorrenciaId);
     if (!registro) return [];
 
-    const anexos = await this.prisma.anexo.findMany({
-      where: { registroId: registro.id, professorId },
-      orderBy: { criadoEm: 'asc' },
-    });
+    return this.listarDe({ registroId: registro.id, professorId });
+  }
 
-    // A URL é assinada na leitura, e não guardada: ela expira, e uma URL
-    // vencida no banco seria um link quebrado que ninguém sabe consertar.
-    return Promise.all(
-      anexos.map(async (a) => ({
-        id: a.id,
-        tipo: a.tipo,
-        nomeArquivo: a.nomeArquivo,
-        tamanhoBytes: a.tamanhoBytes,
-        criadoEm: a.criadoEm,
-        url: this.storage.ativo ? await this.storage.urlAssinada(a.storagePath) : null,
-      })),
-    );
+  /**
+   * Os documentos de origem do plano de curso.
+   *
+   * Ela já tem o plano escrito em papel ou em PDF. Enquanto não houver leitura
+   * por visão, guardar o documento é o que substitui a importação: ela abre a
+   * foto ao lado e digita as unidades olhando para ela, em vez de procurar o
+   * papel na mochila toda vez.
+   */
+  async listarDoPlano(professorId: string, planoCurricularId: string) {
+    await this.garantirPlano(professorId, planoCurricularId);
+    return this.listarDe({ planoCurricularId, professorId });
   }
 
   async enviar(professorId: string, ocorrenciaId: string, arquivo: ArquivoRecebido) {
-    if (!this.storage.ativo) {
-      throw new ServiceUnavailableException(
-        'Anexos indisponíveis: falta configurar a chave de serviço do Storage.',
-      );
-    }
-    if (!arquivo?.buffer?.length) throw new BadRequestException('Arquivo vazio.');
-    if (arquivo.size > TAMANHO_MAXIMO) {
-      throw new BadRequestException('Arquivo maior que 10 MB.');
-    }
-
-    const tipo = TIPOS_PERMITIDOS[arquivo.mimetype];
-    if (!tipo) throw new BadRequestException('Tipo de arquivo não aceito (use foto ou PDF).');
+    const tipo = this.validar(arquivo);
 
     // O registro pode não existir ainda: ela pode fotografar o quadro antes de
     // escrever qualquer coisa. Criar aqui mantém a tela sem ordem obrigatória.
     const registro = await this.garantirRegistro(professorId, ocorrenciaId);
 
-    const nome = nomeSeguro(arquivo.originalname);
-    const caminho = `${professorId}/${registro.id}/${randomUUID()}-${nome}`;
-
-    await this.storage.enviar(caminho, arquivo.buffer, arquivo.mimetype);
-
-    // Só grava a linha DEPOIS que o objeto está no Storage: o contrário
-    // produziria anexo que a tela lista e ninguém consegue abrir.
-    return this.prisma.anexo.create({
-      data: {
-        professorId,
-        registroId: registro.id,
-        tipo,
-        nomeArquivo: nome,
-        storagePath: caminho,
-        tamanhoBytes: arquivo.size,
-        enviadoEm: new Date(),
-      },
-      select: { id: true, tipo: true, nomeArquivo: true, tamanhoBytes: true, criadoEm: true },
+    return this.subir(professorId, arquivo, tipo, `${professorId}/${registro.id}`, {
+      registroId: registro.id,
     });
+  }
+
+  async enviarParaPlano(
+    professorId: string,
+    planoCurricularId: string,
+    arquivo: ArquivoRecebido,
+  ) {
+    const tipo = this.validar(arquivo);
+    await this.garantirPlano(professorId, planoCurricularId);
+
+    // `planos/` no meio do caminho separa os dois acervos dentro da pasta do
+    // professor. Não há risco de colisão com o ramo de registro: ambos os ids
+    // são uuid, e nenhum é a palavra "planos".
+    return this.subir(
+      professorId,
+      arquivo,
+      tipo,
+      `${professorId}/planos/${planoCurricularId}`,
+      { planoCurricularId },
+    );
   }
 
   async remover(professorId: string, anexoId: string) {
@@ -145,6 +135,83 @@ export class AnexosService {
     }
     await this.prisma.anexo.deleteMany({ where: { id: { in: audios.map((a) => a.id) } } });
     return audios.length;
+  }
+
+  /**
+   * A URL é assinada na leitura, e não guardada: ela expira, e uma URL vencida
+   * no banco seria um link quebrado que ninguém sabe consertar.
+   */
+  private async listarDe(onde: { professorId: string } & Record<string, string>) {
+    const anexos = await this.prisma.anexo.findMany({
+      where: onde,
+      orderBy: { criadoEm: 'asc' },
+    });
+
+    return Promise.all(
+      anexos.map(async (a) => ({
+        id: a.id,
+        tipo: a.tipo,
+        nomeArquivo: a.nomeArquivo,
+        tamanhoBytes: a.tamanhoBytes,
+        criadoEm: a.criadoEm,
+        url: this.storage.ativo ? await this.storage.urlAssinada(a.storagePath) : null,
+      })),
+    );
+  }
+
+  /** Recusa antes de gastar rede. Vale para aula e para plano igualmente. */
+  private validar(arquivo: ArquivoRecebido): TipoAnexo {
+    if (!this.storage.ativo) {
+      throw new ServiceUnavailableException(
+        'Anexos indisponíveis: falta configurar a chave de serviço do Storage.',
+      );
+    }
+    if (!arquivo?.buffer?.length) throw new BadRequestException('Arquivo vazio.');
+    if (arquivo.size > TAMANHO_MAXIMO) {
+      throw new BadRequestException('Arquivo maior que 10 MB.');
+    }
+
+    const tipo = TIPOS_PERMITIDOS[arquivo.mimetype];
+    if (!tipo) throw new BadRequestException('Tipo de arquivo não aceito (use foto ou PDF).');
+    return tipo;
+  }
+
+  private async subir(
+    professorId: string,
+    arquivo: ArquivoRecebido,
+    tipo: TipoAnexo,
+    pasta: string,
+    dono: { registroId: string } | { planoCurricularId: string },
+  ) {
+    const nome = nomeSeguro(arquivo.originalname);
+    const caminho = `${pasta}/${randomUUID()}-${nome}`;
+
+    await this.storage.enviar(caminho, arquivo.buffer, arquivo.mimetype);
+
+    // Só grava a linha DEPOIS que o objeto está no Storage: o contrário
+    // produziria anexo que a tela lista e ninguém consegue abrir.
+    return this.prisma.anexo.create({
+      data: {
+        professorId,
+        ...dono,
+        tipo,
+        nomeArquivo: nome,
+        storagePath: caminho,
+        tamanhoBytes: arquivo.size,
+        enviadoEm: new Date(),
+      },
+      select: { id: true, tipo: true, nomeArquivo: true, tamanhoBytes: true, criadoEm: true },
+    });
+  }
+
+  /** Mesmo motivo do `validarPlano` das cadeiras: a FK confere existência, não dono. */
+  private async garantirPlano(professorId: string, planoCurricularId: string) {
+    const plano = await this.prisma.planoCurricular.findFirst({
+      where: { id: planoCurricularId, professorId },
+      select: { id: true },
+    });
+    if (!plano) throw new NotFoundException('Plano de curso não encontrado.');
+    return plano;
   }
 
   private async registroDaOcorrencia(professorId: string, ocorrenciaId: string) {

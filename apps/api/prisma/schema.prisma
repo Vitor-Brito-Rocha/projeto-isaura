@@ -178,6 +178,8 @@ model PlanoCurricular {
   professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
   unidades  Unidade[]
   cadeiras  Cadeira[]
+  /// O documento de origem — a foto ou o PDF do plano escrito dela.
+  anexos    Anexo[]
 
   @@index([professorId, anoLetivo])
   @@map("planos_curriculares")
@@ -389,13 +391,32 @@ model ConfigAlarme {
   @@map("configs_alarme")
 }
 
+/// Arquivo guardado no Storage, pendurado numa aula OU num plano de curso.
+///
+/// Os dois donos são anuláveis e **exatamente um** vale por linha — o CHECK que
+/// garante isso está em `prisma/sql/enable-rls.sql`, porque o Prisma não sabe
+/// expressar essa restrição. Uma tabela só, e não duas, porque o que tem valor
+/// aqui é o caminho de upload: sanitização de nome, teto de 10 MB, URL assinada
+/// na leitura e descarte de áudio. Duplicar isso é como as duas cópias divergem.
+///
+/// Nenhuma policy nova: `anexos` já tem RLS por `professor_id`, e a coluna nova
+/// não muda o dono da linha.
 model Anexo {
   id          String    @id @default(uuid())
   professorId String    @map("professor_id")
-  registroId  String    @map("registro_id")
+
+  /// Anexo de uma aula: foto do quadro, PDF do material.
+  registroId  String?   @map("registro_id")
+
+  /// Anexo do plano de curso: a foto ou o PDF do documento que ela já tem
+  /// escrito. Não pendura numa aula porque não é de nenhuma — cobre o período
+  /// inteiro, e é o que ela olha na tela enquanto digita as unidades.
+  planoCurricularId String? @map("plano_curricular_id")
+
   tipo        TipoAnexo
   nomeArquivo String    @map("nome_arquivo")
-  /// Particionado por professor: {professorId}/{registroId}/{arquivo}
+  /// Particionado por professor: {professorId}/{registroId}/{arquivo}, ou
+  /// {professorId}/planos/{planoId}/{arquivo}.
   storagePath String    @map("storage_path")
   tamanhoBytes Int?     @map("tamanho_bytes")
   /// null = ainda na fila offline, não subiu para o Storage.
@@ -403,11 +424,13 @@ model Anexo {
 
   criadoEm DateTime @default(now()) @map("criado_em")
 
-  professor Professor    @relation(fields: [professorId], references: [id], onDelete: Cascade)
-  registro  RegistroAula @relation(fields: [registroId], references: [id], onDelete: Cascade)
+  professor Professor        @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  registro  RegistroAula?    @relation(fields: [registroId], references: [id], onDelete: Cascade)
+  plano     PlanoCurricular? @relation(fields: [planoCurricularId], references: [id], onDelete: Cascade)
 
   @@index([professorId])
   @@index([registroId])
+  @@index([planoCurricularId])
   @@map("anexos")
 }
 

@@ -60,17 +60,23 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 ### Pendências humanas (não são de código)
 
-- **Rodar a migração do `semestre`.** O código está pronto e o banco está uma coluna atrás — a
-  classificação de permissão bloqueou tanto `prisma db push` quanto DDL pelo MCP do Supabase.
-  Enquanto não rodar, **qualquer query de cadeira ou plano quebra** com
-  "The column `cadeiras.semestre` does not exist", e dois testes de integração falham:
+- **Rodar a migração do anexo de plano.** O código está pronto e o banco está uma coluna atrás
+  (`anexos.plano_curricular_id`). A classificação de permissão bloqueia `prisma db push` e DDL pelo
+  MCP do Supabase para o agente, então **este passo é seu**. São dois comandos, e o segundo não é
+  opcional:
 
   ```bash
-  npm run --workspace apps/api prisma:push
+  npm run --workspace apps/api prisma:push && npm run --workspace apps/api prisma:rls
   ```
 
-  Só acrescenta duas colunas anuláveis (`cadeiras.semestre`, `planos_curriculares.semestre`).
-  Nenhuma tabela nova, então **não precisa de policy nova** e `prisma:rls` não muda.
+  `push` torna `anexos.registro_id` anulável e cria `plano_curricular_id`; `rls` cria o CHECK
+  `anexos_um_dono`, que é o que impede anexo órfão. **Tabela nenhuma é nova, então não há policy
+  nova** — `anexos` já tinha RLS por `professor_id`.
+
+  Enquanto não rodar, anexar arquivo quebra com "The column `plano_curricular_id` does not exist",
+  e 4 testes de integração falham. Um quinto (`o CHECK do banco recusa anexo sem dono`) passa
+  **pelo motivo errado** — hoje ele estoura na coluna ausente, não no CHECK; só depois da migração
+  ele testa o que diz.
 
 - ~~Gerar as chaves VAPID~~, ~~colar as strings de conexão~~, ~~colar a chave de serviço do
   Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
@@ -171,6 +177,13 @@ avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior des
 **Saída da IA é sempre rascunho.** `revisadoEm` nulo = não conta como registro. O histórico pode
 virar prova de trabalho na frente da coordenação. Quem preenche `revisadoEm` é `salvarFechamento`,
 e só ele — gerar um resumo *zera* a marca, porque o que está na tela voltou a ser saída de modelo.
+
+**Anexo tem exatamente um dono: uma aula ou um plano de curso.** As duas FKs são anuláveis e o
+CHECK `anexos_um_dono` (em `sql/enable-rls.sql`, porque o Prisma não expressa isso) garante que
+uma e só uma vale. Uma tabela só, e não duas, porque o que tem valor é o caminho de upload —
+sanitização de nome, teto de 10 MB, URL assinada na leitura, descarte de áudio; duplicar isso é
+como as duas cópias divergem. O documento do plano **não pendura numa aula**: cobre o período
+inteiro, e é o que ela olha na tela enquanto digita as unidades.
 
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela

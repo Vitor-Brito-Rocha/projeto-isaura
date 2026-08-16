@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { Anexos } from '@/components/anexos';
 import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
@@ -113,6 +114,29 @@ export default function Plano() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/*
+          O documento de origem, guardado inteiro.
+
+          Enquanto não houver leitura por visão, a importação automática não
+          existe — mas o papel dela existe. Guardar aqui troca "procurar a folha
+          na mochila" por abrir a foto ao lado enquanto digita as unidades. E
+          quando a leitura por IA entrar, o arquivo já vai estar no lugar certo.
+        */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Documento do plano</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Anexos
+              rota={`/planos/${id}/anexos`}
+              chave={['anexos', 'plano', id]}
+              titulo="Arquivos"
+              rotuloBotao="Anexar o plano escrito"
+              ajuda="Foto ou PDF do plano de curso que você já tem. Até 10 MB por arquivo — dá para mandar uma página por vez."
+            />
           </CardContent>
         </Card>
 

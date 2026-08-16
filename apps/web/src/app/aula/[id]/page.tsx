@@ -25,7 +25,7 @@ import {
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
-import { Anexos } from './anexos';
+import { Anexos } from '@/components/anexos';
 import { Ditado } from './ditado';
 
 type Momento = 'abertura' | 'fechamento';
@@ -474,7 +474,10 @@ function FormFechamento({
           </div>
         </div>
 
-        <Anexos ocorrenciaId={ocorrenciaId} />
+        <Anexos
+          rota={`/registros/ocorrencia/${ocorrenciaId}/anexos`}
+          chave={['anexos', 'aula', ocorrenciaId]}
+        />
 
         <div className="space-y-1.5">
           <Label htmlFor="proxima">Plano da próxima aula</Label>

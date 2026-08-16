@@ -26,17 +26,33 @@ function tamanho(bytes: number | null) {
  *
  * Diferente do texto, anexo NÃO entra na fila offline: exige rede na hora, e a
  * tela diz isso quando falha em vez de fingir que guardou.
+ *
+ * Serve dois acervos — os da aula e o documento do plano de curso. O que muda é
+ * a rota e o texto; validação, URL assinada e remoção são o mesmo caminho no
+ * servidor, e por isso são o mesmo componente aqui.
  */
-export function Anexos({ ocorrenciaId }: { ocorrenciaId: string }) {
+export function Anexos({
+  rota,
+  chave,
+  titulo = 'Anexos',
+  rotuloBotao = 'Anexar foto ou PDF',
+  ajuda = 'Fotos do quadro e do material, não dos alunos. Até 10 MB.',
+}: {
+  /** Caminho da coleção na API, sem barra final. */
+  rota: string;
+  /** Chave de cache — precisa distinguir uma aula de outra, e do plano. */
+  chave: readonly unknown[];
+  titulo?: string;
+  rotuloBotao?: string;
+  ajuda?: string;
+}) {
   const qc = useQueryClient();
   const campo = useRef<HTMLInputElement>(null);
 
   const { data: anexos, isLoading } = useQuery({
-    queryKey: ['anexos', ocorrenciaId],
+    queryKey: chave,
     queryFn: async () => {
-      const r = await fetch(`${BASE}/registros/ocorrencia/${ocorrenciaId}/anexos`, {
-        credentials: 'include',
-      });
+      const r = await fetch(`${BASE}${rota}`, { credentials: 'include' });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível listar os anexos.');
       return (await r.json()) as Anexo[];
     },
@@ -48,7 +64,7 @@ export function Anexos({ ocorrenciaId }: { ocorrenciaId: string }) {
       // do multipart, e defini-lo à mão quebra o parse no servidor.
       const corpo = new FormData();
       corpo.append('arquivo', arquivo);
-      const r = await fetch(`${BASE}/registros/ocorrencia/${ocorrenciaId}/anexos`, {
+      const r = await fetch(`${BASE}${rota}`, {
         method: 'POST',
         credentials: 'include',
         body: corpo,
@@ -60,12 +76,12 @@ export function Anexos({ ocorrenciaId }: { ocorrenciaId: string }) {
       return r.json();
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['anexos', ocorrenciaId] });
+      qc.invalidateQueries({ queryKey: chave });
       toast.success('Anexo enviado.');
     },
     onError: (e) =>
       toast.error(e instanceof Error ? e.message : 'Não foi possível enviar o anexo.', {
-        description: 'Anexo precisa de rede. O texto da aula continua sendo salvo mesmo sem.',
+        description: 'Anexo precisa de rede — nada aqui entra na fila offline.',
       }),
   });
 
@@ -74,13 +90,13 @@ export function Anexos({ ocorrenciaId }: { ocorrenciaId: string }) {
       const r = await fetch(`${BASE}/anexos/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível remover.');
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['anexos', ocorrenciaId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: chave }),
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível remover.'),
   });
 
   return (
     <div className="space-y-2">
-      <Label>Anexos</Label>
+      <Label>{titulo}</Label>
 
       {!isLoading && (anexos?.length ?? 0) > 0 && (
         <ul className="space-y-1">
@@ -140,12 +156,10 @@ export function Anexos({ ocorrenciaId }: { ocorrenciaId: string }) {
         onClick={() => campo.current?.click()}
       >
         <Paperclip />
-        {enviar.isPending ? 'Enviando…' : 'Anexar foto ou PDF'}
+        {enviar.isPending ? 'Enviando…' : rotuloBotao}
       </Button>
 
-      <p className="text-xs text-muted-foreground">
-        Fotos do quadro e do material, não dos alunos. Até 10 MB.
-      </p>
+      <p className="text-xs text-muted-foreground">{ajuda}</p>
     </div>
   );
 }

@@ -108,3 +108,22 @@ CREATE POLICY registros_topicos_proprio ON registros_topicos
     SELECT 1 FROM registros_aula r
     WHERE r.id = registros_topicos.registro_id AND r.professor_id = auth.uid()::text
   ));
+
+-- ---------------------------------------------------------------------------
+-- anexos: exatamente um dono por linha.
+--
+-- Um anexo pendura numa aula OU num plano de curso, nunca nos dois e nunca em
+-- nenhum. O Prisma não sabe expressar isso, então a garantia é do banco: sem
+-- ela, um bug produziria anexo órfão — invisível nas duas telas, ocupando
+-- espaço no bucket, e sem ninguém para notar.
+--
+-- Idempotente como o resto do arquivo: este script roda a cada mudança de
+-- schema, então dropar antes de criar é o que o torna re-executável.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE anexos DROP CONSTRAINT IF EXISTS anexos_um_dono;
+ALTER TABLE anexos ADD CONSTRAINT anexos_um_dono CHECK (
+  (registro_id IS NOT NULL AND plano_curricular_id IS NULL)
+  OR
+  (registro_id IS NULL AND plano_curricular_id IS NOT NULL)
+);
