@@ -10,6 +10,13 @@ import { ConfigService } from '@nestjs/config';
 import { ErrosService } from '../common/erros.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  escolherProvedor,
+  GROQ_BASE,
+  MODELO_ANTHROPIC,
+  MODELO_GROQ,
+  type Provedor,
+} from './provedor';
+import {
   aplicarResumo,
   ESQUEMA,
   montarPrompt,
@@ -18,53 +25,60 @@ import {
   type UnidadeContexto,
 } from './resumo.prompt';
 
-/**
- * O modelo pequeno basta porque o schema já garante os campos e a saída passa
- * por revisão humana antes de virar registro.
- *
- * O critério de upgrade está no PLANO e é medido, não preventivo: se em 5 falas
- * reais dela o resumo errar a resolução de referência ou a associação com a
- * unidade, subir para `claude-sonnet-5`. É trocar esta string.
- */
-const MODELO = 'claude-haiku-4-5';
-
 /** A saída são seis campos curtos. Teto generoso para isso, e nada além. */
 const MAX_TOKENS = 2048;
 
 /**
- * Ela está na sala, no celular, entre uma aula e outra. O padrão do SDK é 10
- * minutos de espera — desistir rápido e deixá-la digitar é melhor desfecho que
- * uma tela girando até o intervalo acabar.
+ * Ela está na sala, no celular, entre uma aula e outra. O padrão do SDK da
+ * Anthropic é 10 minutos de espera — desistir rápido e deixá-la digitar é
+ * melhor desfecho que uma tela girando até o intervalo acabar.
  */
 const TIMEOUT_MS = 45_000;
 
 @Injectable()
 export class ResumoService {
   private readonly logger = new Logger(ResumoService.name);
-  private readonly cliente: Anthropic | null;
+  private readonly provedor: Provedor | null;
+  private readonly anthropic: Anthropic | null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly erros: ErrosService,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
+    this.provedor = escolherProvedor({
+      IA_PROVEDOR: config.get<string>('IA_PROVEDOR'),
+      ANTHROPIC_API_KEY: config.get<string>('ANTHROPIC_API_KEY'),
+      GROQ_API_KEY: config.get<string>('GROQ_API_KEY'),
+    });
+
     // A chave fica só aqui, como a de serviço do Storage: é o motivo de a
-    // normalização rodar no NestJS em vez de o front chamar a Anthropic.
-    const chave = config.get<string>('ANTHROPIC_API_KEY');
-    this.cliente = chave
-      ? new Anthropic({ apiKey: chave, timeout: TIMEOUT_MS, maxRetries: 1 })
-      : null;
+    // normalização rodar no NestJS em vez de o front chamar o provedor.
+    this.anthropic =
+      this.provedor === 'anthropic'
+        ? new Anthropic({
+            apiKey: config.get<string>('ANTHROPIC_API_KEY')!,
+            timeout: TIMEOUT_MS,
+            maxRetries: 1,
+          })
+        : null;
+
+    if (this.provedor) this.logger.log(`Resumo por voz ativo via ${this.provedor}.`);
   }
 
-  /** Sem chave configurada o recurso fica inativo, em vez de derrubar o boot. */
+  /** Sem provedor configurado o recurso fica inativo, sem derrubar o boot. */
   get ativo(): boolean {
-    return this.cliente !== null;
+    return this.provedor !== null;
+  }
+
+  get provedorAtual(): Provedor | null {
+    return this.provedor;
   }
 
   async gerar(professorId: string, ocorrenciaId: string, transcricao: string) {
-    if (!this.cliente) {
+    if (!this.provedor) {
       throw new ServiceUnavailableException(
-        'Resumo por voz indisponível: falta configurar a chave da Anthropic.',
+        'Resumo por voz indisponível: nenhum provedor de IA configurado.',
       );
     }
 
@@ -132,7 +146,7 @@ export class ResumoService {
       select: { id: true },
     });
 
-    return { rascunho, transcricao };
+    return { rascunho, transcricao, provedor: this.provedor };
   }
 
   private async chamar(
@@ -141,36 +155,16 @@ export class ResumoService {
     prompt: string,
   ): Promise<ResumoBruto> {
     try {
-      // Sem `thinking` (neste modelo omitir já desliga) e sem `effort`, que
-      // `claude-haiku-4-5` recusa: isto é extração com schema, não raciocínio.
-      const resposta = await this.cliente!.messages.create({
-        model: MODELO,
-        max_tokens: MAX_TOKENS,
-        system: SISTEMA,
-        messages: [{ role: 'user', content: prompt }],
-        output_config: { format: { type: 'json_schema', schema: ESQUEMA } },
-      });
-
-      if (resposta.stop_reason === 'refusal') {
-        throw new BadGatewayException('O modelo recusou esta fala. Registre no texto, por favor.');
-      }
-      if (resposta.stop_reason === 'max_tokens') {
-        throw new BadGatewayException('A fala ficou longa demais para resumir. Tente em partes.');
-      }
-
-      const texto = resposta.content.find(
-        (b): b is Anthropic.TextBlock => b.type === 'text',
-      )?.text;
-      if (!texto) throw new BadGatewayException('O modelo não devolveu resumo.');
-
-      return JSON.parse(texto) as ResumoBruto;
+      const json =
+        this.provedor === 'groq' ? await this.viaGroq(prompt) : await this.viaAnthropic(prompt);
+      return JSON.parse(json) as ResumoBruto;
     } catch (e) {
       if (e instanceof BadGatewayException) throw e;
 
       const mensagem = e instanceof Error ? e.message : String(e);
       this.logger.error(`Resumo falhou para ocorrência ${ocorrenciaId}: ${mensagem}`);
       await this.erros.registrar(
-        'ResumoService',
+        `ResumoService:${this.provedor}`,
         'POST',
         `/ia/ocorrencia/${ocorrenciaId}/resumo`,
         professorId,
@@ -179,5 +173,78 @@ export class ResumoService {
       );
       throw new BadGatewayException('Não foi possível gerar o resumo agora. O texto continua seu.');
     }
+  }
+
+  private async viaAnthropic(prompt: string): Promise<string> {
+    // Sem `thinking` (neste modelo omitir já desliga) e sem `effort`, que
+    // `claude-haiku-4-5` recusa: isto é extração com schema, não raciocínio.
+    const resposta = await this.anthropic!.messages.create({
+      model: MODELO_ANTHROPIC,
+      max_tokens: MAX_TOKENS,
+      system: SISTEMA,
+      messages: [{ role: 'user', content: prompt }],
+      output_config: { format: { type: 'json_schema', schema: ESQUEMA } },
+    });
+
+    if (resposta.stop_reason === 'refusal') {
+      throw new BadGatewayException('O modelo recusou esta fala. Registre no texto, por favor.');
+    }
+    if (resposta.stop_reason === 'max_tokens') {
+      throw new BadGatewayException('A fala ficou longa demais para resumir. Tente em partes.');
+    }
+
+    const texto = resposta.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text;
+    if (!texto) throw new BadGatewayException('O modelo não devolveu resumo.');
+    return texto;
+  }
+
+  /**
+   * Groq via REST, sem SDK — mesmo critério do StorageService e do AuthService:
+   * é uma chamada só, e a API é compatível com a da OpenAI.
+   *
+   * `strict: true` é o que faz valer a pena: o mesmo `ESQUEMA` que a Anthropic
+   * recebe vira decodificação restrita aqui, então campo faltando não existe.
+   * Ele já nasceu compatível (todo campo obrigatório, `additionalProperties`
+   * falso), que são exatamente as exigências do modo estrito.
+   */
+  private async viaGroq(prompt: string): Promise<string> {
+    const chave = this.config.get<string>('GROQ_API_KEY');
+    const r = await fetch(`${GROQ_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODELO_GROQ,
+        messages: [
+          { role: 'system', content: SISTEMA },
+          { role: 'user', content: prompt },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: 'resumo_da_aula', strict: true, schema: ESQUEMA },
+        },
+        max_completion_tokens: MAX_TOKENS,
+        // Extração não quer criatividade: a mesma fala tem de dar o mesmo
+        // registro se ela ditar de novo.
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+
+    if (!r.ok) {
+      const corpo = await r.text().catch(() => '');
+      throw new Error(`Groq respondeu ${r.status}: ${corpo.slice(0, 300)}`);
+    }
+
+    const dados = (await r.json()) as {
+      choices?: { finish_reason?: string; message?: { content?: string } }[];
+    };
+    const escolha = dados.choices?.[0];
+
+    if (escolha?.finish_reason === 'length') {
+      throw new BadGatewayException('A fala ficou longa demais para resumir. Tente em partes.');
+    }
+    const texto = escolha?.message?.content;
+    if (!texto) throw new BadGatewayException('O modelo não devolveu resumo.');
+    return texto;
   }
 }

@@ -256,6 +256,31 @@ vaga (*"continuei o que eu tinha planejado"* → o conteúdo real, puxando do `p
 resolução de referência ou a associação com a `Unidade`, subir para `claude-sonnet-5`. É troca de
 uma string. Não subir preventivamente — medir primeiro.
 
+### Provedor de IA — Groq como plano gratuito do MVP
+
+A conta da Anthropic está sem saldo, então o pipeline ganhou um segundo caminho. `IA_PROVEDOR`
+escolhe; o prompt, o schema e a tradução dos números são os mesmos nos dois.
+
+| | Anthropic (alvo) | **Groq (MVP grátis)** | Gemini free tier |
+|---|---|---|---|
+| Modelo | `claude-haiku-4-5` | `openai/gpt-oss-120b` | `gemini-*-flash` |
+| Custo | ~US$ 0,33/mês | grátis, com limite de req/min | grátis |
+| Schema garantido | sim | sim (`strict: true`) | sim (`responseSchema`) |
+| **Treina com o que você manda** | **não** | **não, em nenhum plano** | **sim, no free tier** |
+
+**O critério que decidiu não foi preço nem qualidade: foi a última linha.** O free tier do Gemini
+usa prompts e respostas para melhorar os produtos do Google, e só o tier pago desliga isso. O que
+trafega aqui é a **fala da professora**, que pode ter nome de aluno — e a decisão de LGPD deste
+projeto é que esse texto exista só para ela. Mandá-lo para um plano que treina com ele contradiz a
+decisão inteira. A Groq não treina com dado de API em nenhum plano: é provedor de inferência, não
+de modelo fundacional.
+
+`gpt-oss-120b` e não `20b`: a diferença aparece justamente em resolver referência vaga em português,
+que é o único ponto onde este pipeline precisa de cabeça.
+
+**Quando comprar crédito na Anthropic, é trocar `IA_PROVEDOR` para `anthropic`.** Vale medir os dois
+com as mesmas 5 falas antes de decidir — pode ser que o gratuito baste.
+
 *Nota: `claude-haiku-4-5` não aceita o parâmetro `effort` (erro) e usa a forma antiga de thinking;
 como thinking fica desligado aqui, nenhum dos dois é problema.*
 

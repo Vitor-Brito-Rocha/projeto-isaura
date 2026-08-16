@@ -11,7 +11,9 @@ export class IaController {
   /** A tela pergunta antes de mostrar o botão de ditado. */
   @Get('status')
   status() {
-    return { resumo: this.resumo.ativo };
+    // O provedor vai junto porque a resposta muda de qualidade com ele, e
+    // descobrir qual está ativo não pode depender de ler log de servidor.
+    return { resumo: this.resumo.ativo, provedor: this.resumo.provedorAtual };
   }
 
   /**

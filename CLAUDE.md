@@ -32,13 +32,24 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
   PLANO): a dúvida sobre um registro aparece meses depois, e é aí que a auditoria serve. **Áudio,
   não** — `descartarAudios` continua rodando na revisão, porque voz é biométrico e de menor.
 
+- **Dois provedores, um pipeline.** `IA_PROVEDOR` escolhe entre `anthropic` (`claude-haiku-4-5`) e
+  `groq` (`openai/gpt-oss-120b`, gratuito). O prompt, o `ESQUEMA` e `aplicarResumo` são os mesmos —
+  só o transporte muda. O schema já nasceu compatível com o modo estrito da Groq (todo campo
+  obrigatório, `additionalProperties: false`). Groq e não o free tier do Gemini **porque o Gemini
+  grátis treina com o que você manda e a Groq não treina em nenhum plano** — e o que trafega é a
+  fala da professora, que pode ter nome de aluno. Ver "Provedor de IA" em `docs/PLANO.md`.
+
 ### O que falta na fase 4
 
-- **Saldo na conta da Anthropic.** A chave autentica (chega na org e no workspace certos), mas toda
-  chamada volta `400 invalid_request_error` de crédito. **A cobrança é checada antes da validação
-  de parâmetros** — testei com um modelo inexistente e o erro é o mesmo —, então o schema, o
-  `output_config.format` e a ausência de `effort` **ainda não foram aceitos por ninguém**. Não
-  tratar como funcionando até uma chamada real passar.
+- **Uma chamada real que passe.** Nenhum dos dois caminhos foi exercitado ponta a ponta:
+  - **Anthropic** — a chave autentica (chega na org e no workspace certos), mas toda chamada volta
+    `400` de crédito. **A cobrança é checada antes da validação de parâmetros** — testei com um
+    modelo inexistente e o erro é o mesmo —, então o schema, o `output_config.format` e a ausência
+    de `effort` **ainda não foram aceitos por ninguém**.
+  - **Groq** — falta a chave (`GROQ_API_KEY` em `apps/api/.env`, grátis em console.groq.com) e
+    `IA_PROVEDOR="groq"`. O `response_format`/`strict` também não foi validado por ninguém ainda.
+
+  Não tratar nenhum dos dois como funcionando até uma chamada real passar.
 - **Comparar com 5 falas reais dela**, que é o critério de aceite da fase (PLANO, "Verificação").
 
 ### O que falta na fase 3
