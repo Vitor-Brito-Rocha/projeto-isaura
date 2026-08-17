@@ -760,7 +760,29 @@ ela nunca acha. Se a fase 6 entrar antes, a exportação precisa passar por `@ca
 WhatsApp e o email, que é como ela vai mandar para a coordenação de verdade.
 
 **Consequência de ordem:** fazer a fase 7 pensando só no navegador produz um botão que não funciona
-no aparelho dela. Ou a 7 vem antes da 6, ou já nasce com o caminho nativo.
+no aparelho dela.
+
+**Mas a dependência entre as duas fases é menor do que parece, e isso resolve a ordem.** Compartilhar
+arquivo **já funciona no navegador do celular hoje**: `navigator.share({ files })` (Web Share API
+nível 2) é suportado no Chrome do Android e no Safari do iOS, com `navigator.canShare({ files })`
+como teste de capacidade. Ou seja, o gesto certo não depende do Capacitor — ele só *melhora* dentro
+dele.
+
+Então a fase 7 não espera a 6. O que ela precisa é seguir o padrão que o projeto já tem em
+`lib/capacidade.ts`: **detectar o que o aparelho entrega e degradar dizendo a verdade.**
+
+| Onde | Como sai | Gesto |
+|---|---|---|
+| Celular (navegador ou wrapper) | `navigator.share({ files })` | folha de compartilhamento → WhatsApp, email |
+| Wrapper, se a Web Share falhar | `@capacitor/filesystem` + `@capacitor/share` | idem, por plugin |
+| Desktop | `<a download>`, como hoje | arquivo na pasta de downloads |
+
+`canShare` antes de `share`, e **nunca** um botão "Compartilhar" que cai em download silencioso: é
+a mesma regra de `avisoDeDegradacao` — o rótulo promete o que vai acontecer, ou muda de rótulo.
+
+Isso também **desarma a armadilha do `<a download>` inerte** sem precisar do wrapper pronto: se o
+caminho principal é `share` e o `download` é só o ramo de desktop, a WebView nunca chega no ramo
+que não funciona.
 
 ### Formato
 
