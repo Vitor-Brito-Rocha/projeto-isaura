@@ -597,11 +597,72 @@ já entrega.
   atualização instantânea, mas o app pararia de abrir sem rede — jogando fora o local-first da
   fase 3. Empacotar o web e deixar só a API remota preserva o offline.
 
+### As duas surpresas, e nenhuma é o alarme
+
+Levantadas lendo o código em 17/08/2026, antes de escrever uma linha de Capacitor. As duas nascem
+do mesmo fato: **dentro do wrapper não existe servidor Next.** O app são arquivos estáticos servidos
+de `https://localhost`, e tudo que o Next fazia em tempo de requisição desaparece.
+
+**1. O proxy do `next.config.js` é o que sustenta o login.** O comentário lá já diz por quê: o
+cookie de sessão é `SameSite=Lax`, então com front e API em domínios diferentes o navegador
+**não manda o cookie** — e o login não persiste, sem erro visível na tela. Hoje o `rewrites()`
+torna tudo mesma origem. No wrapper não há `rewrites()`, e a chamada vira cross-site.
+
+**Três saídas, e a decisão não é obviamente do Bearer.** Levantadas depois de o usuário
+contestar, com razão, que sair do cookie abre porta para roubo de token por XSS:
+
+| Saída | httpOnly | CSRF | Custo |
+|---|---|---|---|
+| **`SameSite=None` para todos** | mantém | **volta a superfície** — `Lax` era a defesa | precisa de checagem de origem ou token anti-CSRF |
+| **`SameSite=None` só para o app** (login decide pelo cliente) | mantém | intacto no navegador | ramo por cliente no auth + WebView |
+| **Bearer só no app**, cookie `Lax` no navegador | perde no app | não existe | login em modo nativo + guarda no aparelho |
+
+As duas primeiras exigem, além do atributo, **ligar cookie de terceiro na WebView**:
+`setAcceptThirdPartyCookies` é `false` por padrão no Android, então cookie cross-site é descartado
+em silêncio — o modo de falhar é o pior possível, o login "funciona" e não persiste.
+
+Contra o Bearer pesa o XSS. A favor, medido em 17/08/2026: **o app não tem um único
+`dangerouslySetInnerHTML`, `innerHTML` ou `eval`**, e a WebView carrega apenas arquivos empacotados —
+sem CDN, sem script de terceiro. A superfície real é comprometimento de dependência, que rouba o
+token com ou sem httpOnly (basta chamar a API de dentro da página).
+
+**Recomendação: a segunda linha.** `SameSite=None` emitido só quando o cliente é o app mantém
+httpOnly onde ele protege, **não mexe em nada no caminho do navegador** — que é onde está a maior
+parte do uso — e concentra a mudança num ramo do login. A terceira fica como plano B se a WebView
+der trabalho com cookie de terceiro.
+
+**Nada disso precisa ser decidido agora:** só importa quando a fase 6 começar, e o teste de relógio
+vem antes.
+
+**2. Três rotas dinâmicas não sobrevivem a `output: 'export'`.** `/aula/[id]`, `/planos/[id]` e
+`/progresso/[cadeiraId]` exigiriam `generateStaticParams`, e id de aula não dá para enumerar. A pior
+parte: `/aula/[id]` é **justamente a tela que o alarme abre**. Ou elas viram parâmetro de busca
+(`/aula?id=…`), ou o app aponta para a web publicada com `server.url` — o que reintroduz dependência
+de rede e joga fora o local-first da fase 3.
+
+### Quatro frentes, e só uma é o alarme
+
+| Frente | O que é | Tamanho |
+|---|---|---|
+| **A. Build na nuvem** | GitHub Actions com JDK 17 + Android SDK, `cap sync`, `gradlew`, APK como artefato. Keystore em secrets. Grátis no repo. | pequena |
+| **B. Empacotar a web** | `output: 'export'` só no build do wrapper, as três rotas dinâmicas viram query, e a base da API passa a ser URL absoluta. | média |
+| **C. Auth cross-origin** | `SameSite=None` só para o app (ver acima), ou Bearer como plano B. | média, e delicada |
+| **D. O alarme de verdade** | O plugin nativo descrito acima, mais o pedido de permissão de tela cheia e o fluxo de exceção de bateria. | grande |
+
+Notar que **A é a menor**, e é a única que o usuário mencionou como restrição. Fazer build na nuvem
+não é o problema desta fase; é o detalhe mais fácil dela.
+
 ### Pré-requisito
 
 Fazer o **teste de relógio da fase 2 no aparelho dela antes de começar a fase 6.** Ele responde a
 única pergunta que dimensiona esta fase: o push chega a tempo na escola dela? Se chegar, a fase 6
-é conforto; se não chegar, ela é o produto.
+é conforto — e B + C são muito trabalho para conforto. Se não chegar, ela é o produto.
+
+**E há uma interação com a decisão de hospedagem que muda a conta.** Servidor gratuito que dorme
+(Render Free, Vercel Hobby) torna a camada 2 pouco confiável por construção: sem processo acordado,
+o cron por minuto não roda. Isso **aumenta** o valor da fase 6, porque a camada 1 não depende de
+servidor nenhum — o alarme é agendado no próprio aparelho. Se a hospedagem vai ser gratuita, a fase
+6 deixa de ser conforto mesmo que o push funcione hoje.
 
 ---
 
