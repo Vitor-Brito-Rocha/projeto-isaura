@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Download, Paperclip, Printer, Search } from 'lucide-react';
+import { Paperclip, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -13,10 +13,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
-import { baixarCsv, historicoParaCsv } from '@/lib/csv';
 import { dataBR, diaEDataBR } from '@/lib/datas';
+import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { Cadeira, LinhaDoHistorico, Pagina } from '@/lib/types';
+import { Exportar } from './exportar';
+import { FiltroDeTurmas } from './filtro-turmas';
 
 const POR_PAGINA = 20;
 
@@ -34,7 +36,7 @@ const TUDO = 500;
  * isto vira documento.
  */
 export default function Historico() {
-  const [cadeiraId, setCadeiraId] = useState('');
+  const [cadeiraIds, setCadeiraIds] = useState<string[]>([]);
   const [busca, setBusca] = useState('');
   const [de, setDe] = useState('');
   const [ate, setAte] = useState('');
@@ -42,7 +44,10 @@ export default function Historico() {
 
   const filtros = (tamanho: number, p = pagina) =>
     new URLSearchParams({
-      ...(cadeiraId ? { cadeiraId } : {}),
+      // Uma chave separada por vírgula, e não a chave repetida: este mesmo
+      // texto vai parar no link do relatório de impressão, e onze repetições
+      // deixariam a URL ilegível.
+      ...(cadeiraIds.length ? { cadeiraIds: cadeiraIds.join(',') } : {}),
       ...(busca.trim() ? { busca: busca.trim() } : {}),
       ...(de ? { de } : {}),
       ...(ate ? { ate } : {}),
@@ -56,7 +61,7 @@ export default function Historico() {
   });
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['historico', cadeiraId, busca.trim(), de, ate, pagina],
+    queryKey: ['historico', cadeiraIds.join(','), busca.trim(), de, ate, pagina],
     queryFn: () => apiFetch<Pagina<LinhaDoHistorico>>(`/historico?${filtros(POR_PAGINA)}`),
     placeholderData: (anterior) => anterior,
   });
@@ -64,43 +69,26 @@ export default function Historico() {
 
   const paginas = data ? Math.max(1, Math.ceil(data.total / data.tamanho)) : 1;
 
-  const exportar = async () => {
-    try {
-      // Busca tudo de novo em vez de exportar a página na tela: ninguém quer um
-      // relatório com 20 das 137 aulas e nenhum aviso de que faltaram 117.
-      const todos = await apiFetch<Pagina<LinhaDoHistorico>>(`/historico?${filtros(TUDO, 1)}`);
-      if (todos.itens.length === 0) return toast.warning('Nada para exportar com estes filtros.');
-
-      baixarCsv(`historico-${new Date().toISOString().slice(0, 10)}.csv`, historicoParaCsv(todos.itens));
-      toast.success(`${todos.itens.length} aula(s) exportada(s).`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Não foi possível exportar.');
-    }
-  };
-
   const zerarPagina = <T,>(setter: (v: T) => void) => (v: T) => {
     setter(v);
     setPagina(1);
   };
 
+  /**
+   * O período que vai no nome do arquivo.
+   *
+   * Sai das turmas escolhidas, e só quando elas concordam: exportar 8ºA de
+   * 2026.1 junto com uma turma de 2026.2 não tem um período que descreva as
+   * duas, e escrever um dos dois no nome seria rotular o arquivo errado.
+   */
+  const escolhidas = (cadeiras ?? []).filter((c) => cadeiraIds.includes(c.id));
+  const periodos = new Set(escolhidas.map((c) => periodoLetivo(c.anoLetivo, c.semestre)));
+  const periodo = periodos.size === 1 ? [...periodos][0] : undefined;
+
   return (
     <AppShell
       titulo="Histórico"
       descricao={data ? `${data.total} aula(s) registrada(s)` : undefined}
-      acao={
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="outline" onClick={exportar}>
-            <Download />
-            CSV
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/historico/relatorio?${filtros(TUDO, 1)}`}>
-              <Printer />
-              <span className="hidden sm:inline">Imprimir</span>
-            </Link>
-          </Button>
-        </div>
-      }
     >
       <div className="space-y-3">
         <Card>
@@ -127,21 +115,12 @@ export default function Historico() {
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="cadeira">Turma</Label>
-              <select
-                id="cadeira"
-                value={cadeiraId}
-                onChange={(e) => zerarPagina(setCadeiraId)(e.target.value)}
-                className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
-              >
-                <option value="">Todas</option>
-                {cadeiras?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.disciplina} · {c.turma}
-                  </option>
-                ))}
-              </select>
+            <div className="sm:col-span-2">
+              <FiltroDeTurmas
+                cadeiras={cadeiras ?? []}
+                escolhidas={cadeiraIds}
+                onMudar={zerarPagina(setCadeiraIds)}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -173,6 +152,13 @@ export default function Historico() {
           </CardContent>
         </Card>
 
+        <Exportar
+          consulta={(tamanho) => filtros(tamanho, 1)}
+          cadeiras={cadeiras ?? []}
+          cadeiraIds={cadeiraIds}
+          periodo={periodo}
+        />
+
         <div className="h-0.5" aria-hidden>
           {isFetching && !isLoading && (
             <div className="h-0.5 animate-pulse rounded-full bg-primary/40" />
@@ -186,7 +172,7 @@ export default function Historico() {
           <Vazio
             titulo="Nenhuma aula registrada aqui"
             descricao={
-              busca.trim() || cadeiraId || de || ate
+              busca.trim() || cadeiraIds.length || de || ate
                 ? 'Nenhum registro com esses filtros. Tente afrouxar a busca ou o período.'
                 : 'Assim que você fechar a primeira aula, ela aparece nesta lista.'
             }

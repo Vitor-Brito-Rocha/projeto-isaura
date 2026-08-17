@@ -19,7 +19,7 @@ export class AgendaController {
   /** Antes de `:id` de propósito: o parâmetro engoliria esta rota. */
   @Get('pendencias')
   pendencias(@CurrentProfessor() p: AuthProfessor, @Query() q: ListarPendenciasDto) {
-    return this.agenda.pendencias(p.id, q.dias ?? 45);
+    return this.agenda.pendencias(p.id, q.dias ?? 45, q, q.limite);
   }
 
   @Get(':id')

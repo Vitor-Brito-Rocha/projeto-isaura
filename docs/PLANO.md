@@ -706,7 +706,7 @@ continua sendo o que dimensiona a fase.
 
 ---
 
-## Fase 7 — detalhamento (planejada 17/08/2026, não começada)
+## Fase 7 — detalhamento (entregue 17/08/2026)
 
 **O que ela pediu:** exportar resumos e pendências, com filtro por data, disciplina e turma, para
 ela começar a guardar — e para mandar para a coordenação quando pedirem.

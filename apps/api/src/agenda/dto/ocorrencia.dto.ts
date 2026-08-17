@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { FiltroExportacaoDto } from '../../common/filtro-exportacao.dto';
 import {
   IsBoolean,
   IsDateString,
@@ -25,10 +26,20 @@ export class ListarAgendaDto {
   cadeiraId?: string;
 }
 
-export class ListarPendenciasDto {
+/**
+ * Pendências herdam o mesmo recorte do histórico.
+ *
+ * Ela pensa num recorte só — "o segundo semestre do 8º ano" — e faz as duas
+ * perguntas com ele: o que eu dei, e o que falta registrar. Duas listas de
+ * filtro divergiriam no primeiro campo novo.
+ */
+export class ListarPendenciasDto extends FiltroExportacaoDto {
   /**
    * Janela para trás, em dias. O teto de um ano é o do ano letivo: mais que
    * isso não é "lembrei depois", é outra tela (histórico, fase 5).
+   *
+   * Convive com `de`/`ate` do filtro: `dias` é o padrão da tela, e o intervalo
+   * explícito é o que ela usa quando exporta um bimestre fechado.
    */
   @IsOptional()
   @Type(() => Number)
@@ -36,6 +47,18 @@ export class ListarPendenciasDto {
   @Min(1)
   @Max(365)
   dias?: number;
+
+  /**
+   * A tela mostra as 60 mais recentes; a exportação precisa de todas do
+   * recorte. Sem isto, o arquivo sairia truncado sem dizer que truncou — que é
+   * o mesmo erro que o CSV do histórico já evita rebuscando tudo.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  limite?: number;
 }
 
 export class UpdateOcorrenciaDto {

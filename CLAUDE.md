@@ -15,7 +15,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita; faltam A (build na nuvem), C (auth cross-origin) e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
-| 7 — Exportação com filtros | planejada, não começada — ver "Fase 7 — detalhamento" em `docs/PLANO.md` |
+| 7 — Exportação com filtros | **feita** (`HEAD`); falta ela exportar um bimestre real e mandar |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
 `@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
@@ -121,7 +121,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 132 testes de API (63 de integração, pulados sem TEST_DATABASE_URL) + 83 de web
+npm test              # 166 testes de API (63 de integração, pulados sem TEST_DATABASE_URL) + 116 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -227,6 +227,25 @@ e não `Dialog` — o alerta obriga uma escolha e não fecha ao clicar fora, e f
 gesto que produziria o acidente. Nunca `window.confirm`: ele não deixa dizer o que exatamente some
 e, no celular, aparece com o endereço do site na frente, parecendo golpe. A descrição diz a
 consequência concreta, não "esta ação não pode ser desfeita".
+
+**Exportar são DOIS artefatos, e nunca um.** O resumo das aulas é o que ela entrega; as pendências
+são a lista das aulas que ela não registrou — documento contra ela mesma se sair junto por engano.
+Botões separados, com o público dito **antes** do clique. O recorte é um só (`FiltroExportacaoDto`,
+`ondeDaOcorrencia`) para "o que eu dei" e "o que falta" nunca responderem sobre conjuntos
+diferentes. `cadeiraIds: { in: [] }` casa **zero** no Prisma: o vazio não aplica o filtro, e quem
+barra o envio sem turma é a tela.
+
+**O arquivo sai por `lib/entrega.ts`, não por `<a download>`.** `navigator.share({ files })` já
+funciona no Chrome do Android e no Safari do iOS — não depende do Capacitor, ele só melhora dentro
+dele. Duas perguntas e não uma (`temShare` **e** `aceitaArquivo`): há navegador que compartilha
+texto e recusa arquivo, e aí a folha do sistema abre e a entrega falha *depois* do clique. O rótulo
+do botão promete o gesto — mesma regra de `avisoDeDegradacao`. `AbortError` é **desistência**, não
+falha: nada de toast vermelho nem download automático depois de ela fechar a folha.
+
+**Identificação vai no NOME do arquivo, não em cabeçalho dentro do CSV.** Linhas de preâmbulo
+quebram justamente o que o CSV serve para fazer — quem abrir vê lixo antes da tabela e todo
+importador tropeça. O documento para ler com olho humano é `/historico/relatorio`, e lá a
+identificação aparece escrita, com as turmas sempre por extenso.
 
 **A fala não sai pela exportação, e isso é estrutural.** O `select` do `HistoricoService` não busca
 `transcricaoBruta` nem `resumoPadronizado` — não é omissão na tela. O histórico alimenta a lista, a

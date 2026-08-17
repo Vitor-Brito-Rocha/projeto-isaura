@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { ondeDoRegistro } from '../common/filtro-exportacao';
 import { isoDeDataUTC } from '../common/tz';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsultaHistoricoDto } from './dto/historico.dto';
@@ -164,30 +165,16 @@ export class HistoricoService {
     }
   }
 
+  /**
+   * O recorte mora em `common/filtro-exportacao.ts`, testado sem banco.
+   *
+   * Saiu daqui porque as pendências precisam exatamente do mesmo — e duas
+   * cópias do filtro é como uma delas passa a mandar o que a outra barra.
+   */
   private montarFiltro(
     professorId: string,
-    { cadeiraId, de, ate }: ConsultaHistoricoDto,
+    consulta: ConsultaHistoricoDto,
   ): Prisma.RegistroAulaWhereInput {
-    // Um objeto só para a ocorrência: turma e período são filtros irmãos, e
-    // montá-los em dois espalhamentos faria o segundo apagar o primeiro.
-    const daOcorrencia: Prisma.OcorrenciaWhereInput = {
-      ...(cadeiraId ? { cadeiraId } : {}),
-      ...(de || ate
-        ? {
-            data: {
-              ...(de ? { gte: new Date(`${de}T00:00:00.000Z`) } : {}),
-              ...(ate ? { lte: new Date(`${ate}T00:00:00.000Z`) } : {}),
-            },
-          }
-        : {}),
-    };
-
-    return {
-      professorId,
-      // Só o que ela revisou e salvou. Rascunho de IA não é registro de aula —
-      // mesma regra do progresso, e aqui pesa mais: isto vira documento.
-      revisadoEm: { not: null },
-      ...(Object.keys(daOcorrencia).length ? { ocorrencia: daOcorrencia } : {}),
-    };
+    return ondeDoRegistro(professorId, consulta);
   }
 }

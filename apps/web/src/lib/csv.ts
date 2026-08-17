@@ -1,5 +1,6 @@
 import { dataBR } from './datas';
-import type { LinhaDoHistorico } from './types';
+import { entregarArquivo, type DesfechoDaEntrega } from './entrega';
+import type { LinhaDoHistorico, Ocorrencia } from './types';
 
 /**
  * O histórico virando planilha.
@@ -65,17 +66,49 @@ export function historicoParaCsv(linhas: LinhaDoHistorico[]): string {
   return [COLUNAS.join(','), ...corpo].join('\r\n');
 }
 
+const COLUNAS_PENDENCIA = ['Data', 'Início', 'Fim', 'Disciplina', 'Turma', 'Estava planejado'] as const;
+
+/**
+ * O que ficou sem registro.
+ *
+ * Colunas de propósito diferentes das do histórico: aqui não há conteúdo dado —
+ * é justamente a ausência dele que põe a linha na lista. O que ajuda é a data,
+ * a turma e o que ela tinha planejado, que é a deixa para lembrar da aula.
+ *
+ * **Este arquivo é ferramenta dela, não peça para a coordenação.** Uma lista
+ * das aulas que ela não registrou, entregue a quem a avalia, é documento contra
+ * ela mesma. A tela separa os dois botões por isso.
+ */
+export function pendenciasParaCsv(ocorrencias: Ocorrencia[]): string {
+  const corpo = ocorrencias.map((o) =>
+    [
+      dataBR(o.data),
+      o.horaInicio,
+      o.horaFim,
+      o.cadeira.disciplina,
+      o.cadeira.turma,
+      o.registro?.planoPrevisto ?? '',
+    ]
+      .map(campoCsv)
+      .join(','),
+  );
+
+  return [COLUNAS_PENDENCIA.join(','), ...corpo].join('\r\n');
+}
+
 /**
  * O BOM não é enfeite: sem ele o Excel no Windows lê o arquivo como ANSI e
  * "Matemática" vira "MatemÃ¡tica". É o bug mais reportado de exportação em
  * português, e custa três bytes.
+ *
+ * Fica aqui, e não em `entrega.ts`, porque é problema de CSV e não de como o
+ * arquivo sai do aparelho — `entregarArquivo` não deve saber o que é BOM.
  */
-export function baixarCsv(nome: string, csv: string): void {
-  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nome;
-  a.click();
-  URL.revokeObjectURL(url);
+export function comBom(csv: string): string {
+  return `﻿${csv}`;
+}
+
+/** O CSV saindo pelo gesto que este aparelho faz de verdade. Ver `lib/entrega.ts`. */
+export function entregarCsv(nome: string, csv: string): Promise<DesfechoDaEntrega> {
+  return entregarArquivo(nome, comBom(csv));
 }

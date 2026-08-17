@@ -1,11 +1,8 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { FiltroExportacaoDto } from '../../common/filtro-exportacao.dto';
 
-export class ConsultaHistoricoDto {
-  @IsOptional()
-  @IsUUID()
-  cadeiraId?: string;
-
+export class ConsultaHistoricoDto extends FiltroExportacaoDto {
   /**
    * Termo livre. O teto não é sobre banco: `contains` com uma string enorme
    * varre 500 registros do mesmo jeito — é para o parâmetro não virar carona
@@ -15,14 +12,6 @@ export class ConsultaHistoricoDto {
   @IsString()
   @MaxLength(200)
   busca?: string;
-
-  @IsOptional()
-  @IsDateString()
-  de?: string;
-
-  @IsOptional()
-  @IsDateString()
-  ate?: string;
 
   @IsOptional()
   @Type(() => Number)

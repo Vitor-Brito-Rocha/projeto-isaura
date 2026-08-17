@@ -89,8 +89,21 @@ function Conteudo() {
           {de || ate
             ? `Período: ${de ? dataBR(de) : 'início'} a ${ate ? dataBR(ate) : 'hoje'}`
             : 'Período: todo o histórico'}
-          {turmas.length === 1 && ` · ${turmas[0]}`}
         </p>
+        {/*
+          As turmas vão SEMPRE, e por extenso.
+
+          Antes só apareciam quando havia uma — e com a seleção múltipla da fase
+          7 esse caso deixou de ser o comum. Um documento entregue à coordenação
+          sem dizer de que turmas ele fala é um documento que não se sustenta
+          sozinho, que é justamente para o que ele existe.
+        */}
+        {turmas.length > 0 && (
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {turmas.length === 1 ? 'Turma: ' : `Turmas (${turmas.length}): `}
+            {turmas.join(' · ')}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           {itens.length} aula(s) · emitido em {dataHoraBR(new Date())}
         </p>

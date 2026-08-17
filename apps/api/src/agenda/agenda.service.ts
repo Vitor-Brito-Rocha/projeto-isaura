@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { StatusOcorrencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ondeDaOcorrencia } from '../common/filtro-exportacao';
+import { FiltroExportacaoDto } from '../common/filtro-exportacao.dto';
 import { dataUTC } from '../common/tz';
 import { UpdateOcorrenciaDto } from './dto/ocorrencia.dto';
 
@@ -43,12 +45,28 @@ export class AgendaService {
    * Filtra por `fimEm`, e não por `data`: é instante absoluto, então a conta de
    * "já terminou" acerta para professor em qualquer fuso.
    */
-  pendencias(professorId: string, dias: number) {
+  pendencias(professorId: string, dias: number, filtro: FiltroExportacaoDto = {}, limite = 60) {
     const agora = new Date();
+    // O mesmo recorte do histórico, para "o que eu dei" e "o que falta" nunca
+    // responderem sobre conjuntos diferentes.
+    const { data: _ignorado, ...recorte } = ondeDaOcorrencia(filtro);
+
     return this.prisma.ocorrencia.findMany({
       where: {
         professorId,
-        fimEm: { lte: agora, gte: new Date(agora.getTime() - dias * 86_400_000) },
+        ...recorte,
+        /**
+         * `fimEm` e não `data`: é instante absoluto, então "já terminou" acerta
+         * em qualquer fuso. Quando ela dá um intervalo explícito, ele manda —
+         * é o caso do bimestre fechado que vai para a coordenação; sem ele,
+         * vale a janela de `dias`, que é o padrão da tela.
+         */
+        fimEm: {
+          lte: filtro.ate ? new Date(`${filtro.ate}T23:59:59.999Z`) : agora,
+          gte: filtro.de
+            ? new Date(`${filtro.de}T00:00:00.000Z`)
+            : new Date(agora.getTime() - dias * 86_400_000),
+        },
         // Aula cancelada e feriado não são pendência — não houve o que dar.
         status: { notIn: [StatusOcorrencia.CANCELADA, StatusOcorrencia.FERIADO] },
         OR: [
@@ -59,7 +77,7 @@ export class AgendaService {
       },
       // Mais recente primeiro: é a que ela ainda lembra.
       orderBy: { inicioEm: 'desc' },
-      take: 60,
+      take: limite,
       include: {
         cadeira: { select: { id: true, disciplina: true, turma: true, corHex: true } },
         registro: { select: { id: true, planoPrevisto: true, conteudoDado: true } },
