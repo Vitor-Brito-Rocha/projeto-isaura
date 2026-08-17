@@ -60,23 +60,12 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 ### Pendências humanas (não são de código)
 
-- **Rodar a migração do anexo de plano.** O código está pronto e o banco está uma coluna atrás
-  (`anexos.plano_curricular_id`). A classificação de permissão bloqueia `prisma db push` e DDL pelo
-  MCP do Supabase para o agente, então **este passo é seu**. São dois comandos, e o segundo não é
-  opcional:
+- ~~Rodar as migrações de `semestre` e do anexo de plano~~ — **feito** (16/08/2026). O CHECK
+  `anexos_um_dono` foi conferido: recusar anexo sem dono vem dele, não de coluna ausente.
 
-  ```bash
-  npm run --workspace apps/api prisma:push && npm run --workspace apps/api prisma:rls
-  ```
-
-  `push` torna `anexos.registro_id` anulável e cria `plano_curricular_id`; `rls` cria o CHECK
-  `anexos_um_dono`, que é o que impede anexo órfão. **Tabela nenhuma é nova, então não há policy
-  nova** — `anexos` já tinha RLS por `professor_id`.
-
-  Enquanto não rodar, anexar arquivo quebra com "The column `plano_curricular_id` does not exist",
-  e 4 testes de integração falham. Um quinto (`o CHECK do banco recusa anexo sem dono`) passa
-  **pelo motivo errado** — hoje ele estoura na coluna ausente, não no CHECK; só depois da migração
-  ele testa o que diz.
+  **Migração continua sendo passo seu, não meu:** a classificação de permissão bloqueia
+  `prisma db push` e DDL pelo MCP do Supabase para o agente. Depois de mexer no `schema.prisma`,
+  espere o pedido — e lembre que `prisma:rls` **não** é opcional quando o arquivo de SQL muda.
 
 - ~~Gerar as chaves VAPID~~, ~~colar as strings de conexão~~, ~~colar a chave de serviço do
   Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
@@ -123,7 +112,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 97 testes de API + 37 de web
+npm test              # 132 testes de API (63 de integração, pulados sem TEST_DATABASE_URL) + 83 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
