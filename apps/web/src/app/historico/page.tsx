@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Paperclip, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,9 +20,6 @@ import { Exportar } from './exportar';
 import { FiltroDeTurmas } from './filtro-turmas';
 
 const POR_PAGINA = 20;
-
-/** Tudo o que a exportação leva de uma vez. O serviço recorta em 500. */
-const TUDO = 500;
 
 /**
  * O que foi dado, em ordem, com busca e exportação.
