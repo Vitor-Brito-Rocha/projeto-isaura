@@ -46,6 +46,25 @@ export function diaEDataBR(iso: string | Date): string {
 }
 
 /**
+ * "15/08/2026" — a partir de um INSTANTE, no fuso de quem lê.
+ *
+ * A armadilha é o espelho da de cima, e mordeu o painel de admin: um registro
+ * salvo às 21:30 em Brasília é 00:30 do dia seguinte em UTC. Formatado como dia
+ * puro, aparecia como **amanhã**. `atualizadoEm`, `criadoEm` e qualquer
+ * `timestamptz` passam por aqui; `Ocorrencia.data` e `dataEntrega`, por
+ * `dataBR`.
+ *
+ * A regra em uma linha: **se tem hora dentro, o fuso é o local.**
+ */
+export function dataDoInstanteBR(iso: string | Date): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+/**
  * "15/08/2026 20:09" — para INSTANTE, não para dia puro.
  *
  * Aqui o fuso local está certo: um erro registrado às 20:09 aconteceu às 20:09

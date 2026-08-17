@@ -1,12 +1,13 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
+import { addDays, addMonths, format, isSameDay, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell, Vazio } from '@/components/app-shell';
+import { LinhaAula } from '@/components/linha-aula';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,21 +16,57 @@ import { apiFetch } from '@/lib/api';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { Ocorrencia } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Calendario } from './calendario';
 import { Pendencias } from './pendencias';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
 
+type Modo = 'lista' | 'calendario';
+const CHAVE_MODO = 'isaura:modo-grade';
+
+/**
+ * A grade, em lista ou em calendário.
+ *
+ * A lista responde "o que eu tenho hoje" e é o padrão porque é a pergunta de
+ * toda manhã. O calendário responde "como está o meu mês" e, sobretudo, "que
+ * dia eu deixei de registrar" — com onze turmas, essa segunda pergunta não cabe
+ * numa semana por vez.
+ *
+ * A escolha fica guardada no aparelho: quem prefere o mês não deveria ter de
+ * dizer isso toda vez que abre o app.
+ */
 export default function Semana() {
+  const [modo, setModo] = useState<Modo>('lista');
   const [offset, setOffset] = useState(0);
 
+  // Só no cliente: `localStorage` não existe no SSR, e ler no `useState` faria
+  // a marcação do servidor divergir da do navegador.
+  useEffect(() => {
+    if (localStorage.getItem(CHAVE_MODO) === 'calendario') setModo('calendario');
+  }, []);
+
+  const trocarModo = (m: Modo) => {
+    setModo(m);
+    setOffset(0);
+    localStorage.setItem(CHAVE_MODO, m);
+  };
+
+  const calendario = modo === 'calendario';
+  const mes = addMonths(new Date(), offset);
   const base = addDays(startOfWeek(new Date(), { weekStartsOn: 0 }), offset * 7);
-  const de = iso(base);
-  const ate = iso(addDays(base, 6));
+
+  // O calendário precisa das semanas que "vazam" do mês para as bordas da
+  // grade: sem elas, os dias de outro mês na primeira e na última linha
+  // apareceriam sempre vazios, como se ela não tivesse aula neles.
+  const de = calendario ? iso(startOfWeek(startOfMonth(mes), { weekStartsOn: 0 })) : iso(base);
+  const ate = calendario
+    ? iso(addDays(startOfWeek(startOfMonth(mes), { weekStartsOn: 0 }), 41))
+    : iso(addDays(base, 6));
 
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['agenda', de, ate],
     queryFn: () => apiFetch<Ocorrencia[]>(`/agenda?de=${de}&ate=${ate}`),
-    // Mantém a semana anterior na tela durante a troca em vez de piscar o
+    // Mantém o período anterior na tela durante a troca em vez de piscar o
     // esqueleto a cada seta — a navegação fica contínua.
     placeholderData: (anterior) => anterior,
   });
@@ -43,27 +80,70 @@ export default function Semana() {
   }
 
   const dias = Array.from({ length: 7 }, (_, i) => addDays(base, i));
-  const temAula = dias.some((d) => (porDia.get(iso(d)) ?? []).length > 0);
+  const temAula = calendario
+    ? (data?.length ?? 0) > 0
+    : dias.some((d) => (porDia.get(iso(d)) ?? []).length > 0);
+
+  const titulo = calendario
+    ? format(mes, 'MMMM', { locale: ptBR })
+    : offset === 0
+      ? 'Esta semana'
+      : format(base, "d 'de' MMMM", { locale: ptBR });
+
+  const descricao = calendario
+    ? format(mes, 'yyyy')
+    : `${format(base, "d 'de' MMM", { locale: ptBR })} – ${format(addDays(base, 6), "d 'de' MMM", { locale: ptBR })}`;
 
   return (
     <AppShell
-      titulo={offset === 0 ? 'Esta semana' : format(base, "d 'de' MMMM", { locale: ptBR })}
-      descricao={`${format(base, "d 'de' MMM", { locale: ptBR })} – ${format(addDays(base, 6), "d 'de' MMM", { locale: ptBR })}`}
+      titulo={titulo}
+      descricao={descricao}
       acao={
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={() => setOffset((o) => o - 1)} aria-label="Semana anterior">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setOffset((o) => o - 1)}
+            aria-label={calendario ? 'Mês anterior' : 'Semana anterior'}
+          >
             <ChevronLeft />
           </Button>
           <Button variant="outline" size="sm" onClick={() => setOffset(0)} disabled={offset === 0}>
             Hoje
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setOffset((o) => o + 1)} aria-label="Próxima semana">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setOffset((o) => o + 1)}
+            aria-label={calendario ? 'Próximo mês' : 'Próxima semana'}
+          >
             <ChevronRight />
           </Button>
         </div>
       }
     >
-      {/* Barra fina de atividade — mostra que a troca de semana está em curso
+      <div className="mb-3 flex items-center gap-1">
+        <Button
+          variant={calendario ? 'ghost' : 'default'}
+          size="sm"
+          aria-pressed={!calendario}
+          onClick={() => trocarModo('lista')}
+        >
+          <List />
+          Lista
+        </Button>
+        <Button
+          variant={calendario ? 'default' : 'ghost'}
+          size="sm"
+          aria-pressed={calendario}
+          onClick={() => trocarModo('calendario')}
+        >
+          <CalendarDays />
+          Calendário
+        </Button>
+      </div>
+
+      {/* Barra fina de atividade — mostra que a troca de período está em curso
           sem trocar o conteúdo por esqueleto. */}
       <div className="h-0.5" aria-hidden>
         {isFetching && !isLoading && <div className="h-0.5 animate-pulse rounded-full bg-primary/40" />}
@@ -75,6 +155,8 @@ export default function Semana() {
 
       {isLoading ? (
         <EsqueletoSemana />
+      ) : calendario ? (
+        <Calendario mes={mes} ocorrencias={data ?? []} />
       ) : !temAula ? (
         <Vazio
           titulo="Nenhuma aula nesta semana"
@@ -118,46 +200,6 @@ export default function Semana() {
       )}
     </AppShell>
   );
-}
-
-function LinhaAula({ ocorrencia: oc }: { ocorrencia: Ocorrencia }) {
-  const cancelada = oc.status === 'CANCELADA' || oc.status === 'FERIADO';
-
-  return (
-    <Card
-      className={cn(
-        'flex items-center gap-3 p-3 transition-colors hover:bg-accent/40',
-        cancelada && 'opacity-60',
-      )}
-    >
-      <span
-        className="h-11 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: oc.cadeira.corHex }}
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1">
-        <p className={cn('truncate font-medium', cancelada && 'line-through')}>
-          {oc.cadeira.disciplina} · {oc.cadeira.turma}
-        </p>
-        <p className="tabular text-sm text-muted-foreground">
-          {oc.horaInicio} – {oc.horaFim}
-        </p>
-      </div>
-      <EtiquetaEstado ocorrencia={oc} />
-    </Card>
-  );
-}
-
-/** O estado da aula em uma palavra — é o que ela precisa ver de relance. */
-function EtiquetaEstado({ ocorrencia: oc }: { ocorrencia: Ocorrencia }) {
-  if (oc.status === 'CANCELADA') return <Badge variant="neutro">Cancelada</Badge>;
-  if (oc.status === 'FERIADO') return <Badge variant="neutro">Feriado</Badge>;
-  if (oc.registro?.conteudoDado) return <Badge variant="sucesso">Registrada</Badge>;
-  if (oc.registro?.planoPrevisto) return <Badge>Planejada</Badge>;
-  // Aula que já passou sem registro é exatamente o que o produto existe para
-  // evitar — por isso ganha a cor de alarme.
-  if (new Date(oc.fimEm) < new Date()) return <Badge variant="alarme">Sem registro</Badge>;
-  return null;
 }
 
 function EsqueletoSemana() {

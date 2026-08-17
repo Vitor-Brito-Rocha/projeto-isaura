@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Confirmar } from '@/components/confirmar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,16 +151,29 @@ export function PainelHorarios({
                 >
                   <Pencil className="size-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground hover:text-destructive"
-                  aria-label="Remover horário"
-                  loading={remover.isPending && remover.variables === s.id}
-                  onClick={() => remover.mutate(s.id)}
+                <Confirmar
+                  titulo="Remover este horário?"
+                  perigo
+                  rotuloAcao="Remover"
+                  carregando={remover.isPending}
+                  onConfirmar={() => remover.mutate(s.id)}
+                  descricao={
+                    <>
+                      As aulas futuras desta série somem da grade e param de tocar alarme. As que
+                      já aconteceram <strong>continuam no histórico</strong>, com tudo o que você
+                      registrou nelas.
+                    </>
+                  }
                 >
-                  <Trash2 className="size-4" />
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    aria-label="Remover horário"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </Confirmar>
               </div>
             </li>
           ),

@@ -87,7 +87,7 @@ export class AgendaService {
    * série, a professora teria de desfazer a exceção depois.
    */
   async atualizar(professorId: string, id: string, dto: UpdateOcorrenciaDto) {
-    await this.buscar(professorId, id);
+    const atual = await this.buscar(professorId, id);
 
     const cancelada =
       dto.status === StatusOcorrencia.CANCELADA || dto.status === StatusOcorrencia.FERIADO;
@@ -97,7 +97,7 @@ export class AgendaService {
     // tela mostra tudo certo e só o alarme não vem.
     const reativada = dto.status === StatusOcorrencia.AGENDADA;
 
-    return this.prisma.ocorrencia.update({
+    const ocorrencia = await this.prisma.ocorrencia.update({
       where: { id },
       data: {
         status: dto.status,
@@ -111,5 +111,61 @@ export class AgendaService {
         ...(reativada ? { aberturaNotificadaEm: null, fechamentoNotificadoEm: null } : {}),
       },
     });
+
+    const transferencia =
+      cancelada && dto.transferirPlano
+        ? await this.passarPlanoAdiante(professorId, atual)
+        : null;
+
+    return { ...ocorrencia, transferencia };
+  }
+
+  /**
+   * Leva o plano da aula cancelada para a próxima da mesma turma.
+   *
+   * A aula caiu; o conteúdo não. Se ela planejou "soma de frações" para terça e
+   * a terça virou reunião, quinta é onde isso vai acontecer — e reescrever à
+   * mão o que já estava escrito é o retrabalho que torna onze cadeiras
+   * insustentáveis.
+   *
+   * **Não apaga o plano da aula cancelada.** Ele fica como registro do que
+   * estava previsto: a aula não aconteceu, mas o planejamento existiu, e é isso
+   * que ela mostra se perguntarem por que a turma atrasou.
+   *
+   * Devolve o que conseguiu fazer, com o motivo quando não deu — a tela precisa
+   * dizer a verdade sobre o que aconteceu, e "a próxima aula" nem sempre existe.
+   */
+  private async passarPlanoAdiante(
+    professorId: string,
+    cancelada: { id: string; cadeiraId: string; data: Date; registro: { planoPrevisto: string | null } | null },
+  ) {
+    const plano = cancelada.registro?.planoPrevisto?.trim();
+    if (!plano) return { ok: false as const, motivo: 'sem-plano' as const };
+
+    const proxima = await this.prisma.ocorrencia.findFirst({
+      where: {
+        professorId,
+        cadeiraId: cancelada.cadeiraId,
+        data: { gt: cancelada.data },
+        // Não adianta empurrar para outra aula que também não vai acontecer.
+        status: { notIn: [StatusOcorrencia.CANCELADA, StatusOcorrencia.FERIADO] },
+      },
+      orderBy: [{ data: 'asc' }, { horaInicio: 'asc' }],
+      select: { id: true, data: true, registro: { select: { planoPrevisto: true } } },
+    });
+    if (!proxima) return { ok: false as const, motivo: 'sem-proxima' as const };
+
+    // Chegou aqui com plano na próxima significa que a tela avisou e ela
+    // confirmou mesmo assim — a decisão é dela, e o aviso é o que a torna
+    // informada. Sobrescrever em silêncio é que seria inaceitável.
+    const substituiu = Boolean(proxima.registro?.planoPrevisto?.trim());
+
+    await this.prisma.registroAula.upsert({
+      where: { ocorrenciaId: proxima.id },
+      create: { professorId, ocorrenciaId: proxima.id, planoPrevisto: plano },
+      update: { planoPrevisto: plano },
+    });
+
+    return { ok: true as const, ocorrenciaId: proxima.id, data: proxima.data, substituiu };
   }
 }

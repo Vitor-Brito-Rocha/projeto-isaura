@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -46,4 +47,18 @@ export class UpdateOcorrenciaDto {
   @IsString()
   @MaxLength(2000)
   observacao?: string;
+
+  /**
+   * Ao cancelar: leva o plano desta aula para a próxima da mesma turma.
+   *
+   * A aula caiu, o conteúdo não. Sem isto ela reescreveria na quinta o que já
+   * tinha escrito para a terça — e é justamente o retrabalho que faz onze
+   * cadeiras virarem insustentáveis.
+   *
+   * Só vale com `status` de cancelamento; o servidor devolve o que conseguiu
+   * fazer, porque "a próxima aula" nem sempre existe.
+   */
+  @IsOptional()
+  @IsBoolean()
+  transferirPlano?: boolean;
 }

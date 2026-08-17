@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { Anexos } from '@/components/anexos';
+import { Confirmar } from '@/components/confirmar';
 import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
@@ -264,16 +265,29 @@ function CartaoUnidade({
             aoSalvar={(t) => renomearUnidade.mutate(t)}
           />
         </CardTitle>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-          aria-label={`Remover unidade ${unidade.titulo}`}
-          loading={removerUnidade.isPending}
-          onClick={() => removerUnidade.mutate()}
+        <Confirmar
+          titulo={`Remover a unidade "${unidade.titulo}"?`}
+          perigo
+          rotuloAcao="Remover unidade"
+          carregando={removerUnidade.isPending}
+          onConfirmar={() => removerUnidade.mutate()}
+          descricao={
+            <>
+              Os {unidade.topicos.length} tópico(s) dela vão junto, e as aulas que apontavam para
+              esta unidade <strong>perdem a marcação</strong> — o texto do registro fica, mas elas
+              somem da conta de progresso da turma.
+            </>
+          }
         >
-          <Trash2 />
-        </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+            aria-label={`Remover unidade ${unidade.titulo}`}
+          >
+            <Trash2 />
+          </Button>
+        </Confirmar>
       </CardHeader>
 
       <CardContent className="space-y-3">
@@ -296,15 +310,23 @@ function CartaoUnidade({
                     aoSalvar={(titulo) => renomearTopico.mutate({ id: t.id, titulo })}
                   />
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                  aria-label={`Remover tópico ${t.titulo}`}
-                  onClick={() => removerTopico.mutate(t.id)}
+                <Confirmar
+                  titulo={`Remover o tópico "${t.titulo}"?`}
+                  perigo
+                  rotuloAcao="Remover"
+                  carregando={removerTopico.isPending}
+                  onConfirmar={() => removerTopico.mutate(t.id)}
+                  descricao="As aulas que marcaram este tópico perdem a marcação, e ele sai da conta de progresso da turma."
                 >
-                  <X />
-                </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remover tópico ${t.titulo}`}
+                  >
+                    <X />
+                  </Button>
+                </Confirmar>
               </li>
             ))}
           </ul>

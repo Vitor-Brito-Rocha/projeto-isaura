@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, ImageIcon, Paperclip, X } from 'lucide-react';
 import { useRef } from 'react';
 import { toast } from 'sonner';
+import { Confirmar } from '@/components/confirmar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api';
@@ -122,15 +123,28 @@ export function Anexos({
               <span className="shrink-0 text-xs text-muted-foreground">
                 {tamanho(a.tamanhoBytes)}
               </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                aria-label={`Remover ${a.nomeArquivo}`}
-                onClick={() => remover.mutate(a.id)}
+              <Confirmar
+                titulo="Remover este arquivo?"
+                perigo
+                rotuloAcao="Remover"
+                carregando={remover.isPending}
+                onConfirmar={() => remover.mutate(a.id)}
+                descricao={
+                  <>
+                    <strong>{a.nomeArquivo}</strong> sai do sistema para sempre. Se for a foto do
+                    quadro, é o único material que sobrou daquela aula — não dá para refazer.
+                  </>
+                }
               >
-                <X />
-              </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={`Remover ${a.nomeArquivo}`}
+                >
+                  <X />
+                </Button>
+              </Confirmar>
             </li>
           ))}
         </ul>

@@ -1,4 +1,10 @@
-import { dataBR, diaDaSemanaBR, diaEDataBR, paraCampoDeData } from './datas';
+import {
+  dataBR,
+  dataDoInstanteBR,
+  diaDaSemanaBR,
+  diaEDataBR,
+  paraCampoDeData,
+} from './datas';
 
 /**
  * O bug que estes testes travam já esteve em produção: a grade mostrava 14/08
@@ -24,6 +30,33 @@ describe('dataBR', () => {
     // Ela registra aula atrasada e consulta semestre passado: "17/04" sozinho
     // obriga a adivinhar de qual ano é.
     expect(dataBR('2025-04-17T00:00:00.000Z')).toBe('17/04/2025');
+  });
+});
+
+describe('dataDoInstanteBR', () => {
+  it('usa o fuso de quem lê, não UTC', () => {
+    // 16/08 às 21:30 em Brasília é 17/08 às 00:30 em UTC. O painel de admin
+    // mostrava a data de AMANHÃ para um registro salvo à noite, porque
+    // formatava um instante com a regra de dia puro.
+    const instante = new Date('2026-08-17T00:30:00.000Z');
+    const emBrasilia = instante.toLocaleDateString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    // Roda em qualquer fuso: compara com o que o próprio ambiente diria.
+    expect(dataDoInstanteBR(instante)).toBe(
+      instante.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+    );
+    // E, no fuso do Brasil, isso é 16/08 — não 17/08 como `dataBR` diria.
+    expect(emBrasilia).toBe('16/08/2026');
+    expect(dataBR(instante)).toBe('17/08/2026');
   });
 });
 

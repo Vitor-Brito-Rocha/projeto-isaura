@@ -27,6 +27,7 @@ import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
 import { Anexos } from '@/components/anexos';
 import { Ditado } from './ditado';
+import { EstadoDaAula } from './estado-da-aula';
 
 type Momento = 'abertura' | 'fechamento';
 
@@ -155,6 +156,8 @@ export default function Aula() {
             }}
           />
         )}
+
+        <EstadoDaAula ocorrenciaId={id} contexto={data} />
       </div>
     </AppShell>
   );

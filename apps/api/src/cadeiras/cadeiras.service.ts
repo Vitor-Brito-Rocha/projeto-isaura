@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { resolverAlarme } from '../alarmes/resolver-alarme';
 import { PrismaService } from '../prisma/prisma.service';
+import { proximaCor } from './cores';
 import { CreateCadeiraDto, UpdateCadeiraDto } from './dto/cadeira.dto';
 import { UpsertConfigAlarmeDto } from './dto/config-alarme.dto';
 
@@ -93,7 +94,22 @@ export class CadeirasService {
   async criar(professorId: string, dto: CreateCadeiraDto) {
     await this.validarEscola(professorId, dto.escolaId);
     await this.validarPlano(professorId, dto.planoCurricularId);
-    return this.prisma.cadeira.create({ data: { ...dto, professorId } });
+
+    // Cor escolhida aqui, e não deixada no `@default` do schema: o default dava
+    // a MESMA cor para todas, e no calendário onze pontos azuis idênticos não
+    // identificam turma nenhuma. Ela pode mandar a dela; se não mandar, pega a
+    // primeira livre.
+    const corHex = dto.corHex ?? proximaCor(await this.coresEmUso(professorId));
+
+    return this.prisma.cadeira.create({ data: { ...dto, corHex, professorId } });
+  }
+
+  private async coresEmUso(professorId: string): Promise<string[]> {
+    const cadeiras = await this.prisma.cadeira.findMany({
+      where: { professorId, ativo: true },
+      select: { corHex: true },
+    });
+    return cadeiras.map((c) => c.corHex);
   }
 
   async atualizar(professorId: string, id: string, dto: UpdateCadeiraDto) {

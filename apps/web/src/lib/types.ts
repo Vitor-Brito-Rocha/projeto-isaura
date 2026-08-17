@@ -150,8 +150,12 @@ export interface ContextoAula {
   };
   registro: RegistroAula | null;
   unidades: Unidade[];
-  /** As próximas aulas desta turma — atalhos para a data de entrega. */
-  proximasAulas: { id: string; data: string; horaInicio: string }[];
+  /**
+   * As próximas aulas desta turma — atalhos para a data de entrega, e o destino
+   * do plano quando esta aula é cancelada. `temPlano` é o que permite avisar
+   * antes de substituir o que ela já escreveu.
+   */
+  proximasAulas: { id: string; data: string; horaInicio: string; temPlano: boolean }[];
   sugestoes: {
     daAulaAnterior: { data: string; texto: string } | null;
     daTurmaIrma: {

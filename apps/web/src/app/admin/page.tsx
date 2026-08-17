@@ -9,11 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
-import { dataBR } from '@/lib/datas';
+import { dataDoInstanteBR } from '@/lib/datas';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
 import type { AdminProfessor, AdminResumo } from '@/lib/types';
 
-const ultimo = (iso: string | null) => (iso ? dataBR(iso) : '—');
+/**
+ * `ultimoRegistroEm` é `MAX(atualizadoEm)` — um INSTANTE, não um dia. Formatado
+ * como dia puro (em UTC), um registro salvo às 21:30 em Brasília aparecia com a
+ * data de amanhã. Ver `dataDoInstanteBR`.
+ */
+const ultimo = (iso: string | null) => (iso ? dataDoInstanteBR(iso) : '—');
 
 function Numero({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) {
   return (

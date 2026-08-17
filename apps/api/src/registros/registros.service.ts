@@ -73,7 +73,7 @@ export class RegistrosService {
     professorId: string,
     ocorrencia: { cadeiraId: string; inicioEm: Date },
   ) {
-    return this.prisma.ocorrencia.findMany({
+    const proximas = await this.prisma.ocorrencia.findMany({
       where: {
         professorId,
         cadeiraId: ocorrencia.cadeiraId,
@@ -82,8 +82,16 @@ export class RegistrosService {
       },
       orderBy: { inicioEm: 'asc' },
       take: 4,
-      select: { id: true, data: true, horaInicio: true },
+      select: { id: true, data: true, horaInicio: true, registro: { select: { planoPrevisto: true } } },
     });
+
+    // `temPlano` é o que permite a tela avisar ANTES de cancelar que a
+    // transferência vai substituir um plano já escrito. Só o booleano: o texto
+    // do plano de outra aula não tem o que fazer nesta tela.
+    return proximas.map(({ registro, ...oc }) => ({
+      ...oc,
+      temPlano: Boolean(registro?.planoPrevisto?.trim()),
+    }));
   }
 
   /**
@@ -206,6 +214,18 @@ export class RegistrosService {
           });
         }
       }
+
+      // A aula passa a constar como DADA. `StatusOcorrencia.DADA` existia no
+      // enum desde a fase 1 e ninguém escrevia — a tela deduzia o estado de
+      // `conteudoDado`, e o banco ficava dizendo AGENDADA para aula já dada.
+      //
+      // `AGENDADA` no where, e não um update solto: cancelar a aula e depois
+      // salvar um texto nela não pode ressuscitá-la em silêncio. Quem desfaz
+      // cancelamento é ela, na tela, de propósito.
+      await tx.ocorrencia.updateMany({
+        where: { id: ocorrenciaId, status: StatusOcorrencia.AGENDADA },
+        data: { status: StatusOcorrencia.DADA },
+      });
 
       return tx.registroAula.findUniqueOrThrow({
         where: { id: registro.id },
