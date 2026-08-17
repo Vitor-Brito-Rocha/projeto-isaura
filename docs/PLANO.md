@@ -706,6 +706,104 @@ continua sendo o que dimensiona a fase.
 
 ---
 
+## Fase 7 — detalhamento (planejada 17/08/2026, não começada)
+
+**O que ela pediu:** exportar resumos e pendências, com filtro por data, disciplina e turma, para
+ela começar a guardar — e para mandar para a coordenação quando pedirem.
+
+### O que já existe, e por que não basta
+
+A fase 5 entregou parte disso, e vale ser exato para não reconstruir:
+
+| Já existe | O que falta |
+|---|---|
+| CSV de 12 colunas (`lib/csv.ts`) e relatório de impressão | um arquivo que **se identifique** e que ela consiga guardar do celular |
+| filtro por `cadeiraId` (**uma** só), `de`, `ate`, busca | disciplina, **várias** turmas, período letivo |
+| `revisadoEm: { not: null }` no `montarFiltro` — rascunho não sai | — herdado, não refazer |
+| fala fora por construção (o `select` nem busca) | — herdado, não refazer |
+| pendências como **tela** (`GET /agenda/pendencias`) | pendências como **arquivo** |
+
+### As quatro diferenças que definem a fase
+
+**1. Filtrar por disciplina não é filtrar por cadeira.** Ela dá Matemática para 4 turmas, e
+`cadeiraId` é singular — hoje "exportar Matemática" exige quatro exportações e colar à mão. O
+filtro precisa aceitar **conjunto**: `cadeiraIds[]`, alimentado por uma seleção de disciplina que
+marca as turmas dela. Sem isso o pedido dela literalmente não é atendível.
+
+**2. Período letivo, não só intervalo de datas.** A coordenação pede "o segundo bimestre", não
+"01/05 a 15/07". `lib/periodo.ts` já sabe formatar `2026.1`; falta o inverso — o período virar
+intervalo. Manter as duas entradas: bimestre para o pedido normal, data crua para o caso estranho.
+
+**3. Resumo e pendência têm públicos diferentes, e isso é estrutural.** Este é o ponto de produto
+da fase:
+
+- O **resumo** é o que ela entrega. Prova de trabalho: o que foi dado, quando, em que unidade.
+- A **pendência** é o que falta. Sozinha, é uma lista das aulas que ela não registrou — um
+  documento contra ela mesma se sair por engano na mesma exportação.
+
+Então **não são o mesmo arquivo, e a tela precisa deixar isso óbvio antes do clique.** Mesma
+família de decisão que "a fala não sai pela exportação": o padrão do produto é que o artefato que
+sai da mão dela nunca carregue mais do que ela escolheu mandar. A pendência é ferramenta dela, para
+saber o que consertar antes de exportar o resumo — inclusive porque o melhor uso dela é *virar*
+resumo.
+
+**4. O arquivo precisa dizer o que é.** Um `historico.csv` numa pasta seis meses depois é
+indistinguível de outro. O cabeçalho carrega período, disciplinas, turmas, data de geração e o nome
+dela — é o que faz o arquivo servir como documento e não como despejo de banco.
+
+### Armadilha herdada da fase 6
+
+**Baixar arquivo no celular dela é o caso normal, não a exceção** — e é onde isso quebra. Dentro da
+WebView do Capacitor, `<a download>` e `URL.createObjectURL` são inertes ou caem num diretório que
+ela nunca acha. Se a fase 6 entrar antes, a exportação precisa passar por `@capacitor/filesystem` +
+`@capacitor/share`, que é o gesto certo no celular de qualquer forma: "compartilhar" abre o
+WhatsApp e o email, que é como ela vai mandar para a coordenação de verdade.
+
+**Consequência de ordem:** fazer a fase 7 pensando só no navegador produz um botão que não funciona
+no aparelho dela. Ou a 7 vem antes da 6, ou já nasce com o caminho nativo.
+
+### Formato
+
+| Formato | Para quê | Custo |
+|---|---|---|
+| **CSV** | a coordenação que pede Excel; já existe, só ganha os filtros novos | baixo |
+| **Impressão/PDF** | o que ela assina e entrega; já existe como `/historico/relatorio` | baixo |
+| **PDF de verdade (servidor)** | só se o print do navegador não servir | alto — não fazer antes de medir |
+
+O print do navegador **já gera PDF** em toda plataforma. Não trocar por geração no servidor sem
+antes ela dizer que o resultado não serve.
+
+### Onde mexe
+
+| Arquivo | O quê |
+|---|---|
+| `historico.dto.ts` | `cadeiraIds[]` no lugar de `cadeiraId`; `disciplina`; `periodo` |
+| `historico.service.ts` | `montarFiltro` aceita conjunto — cuidar do `in: []`, que casa **zero** e não "todos" |
+| `agenda/` | pendências ganham os mesmos filtros e viram lista exportável |
+| `lib/periodo.ts` | período letivo → intervalo de datas |
+| `lib/csv.ts` | cabeçalho de identificação |
+| `app/historico/` | painel de filtros com seleção múltipla, e a separação resumo/pendência |
+
+### Verificação
+
+- **Filtro vazio não vira "tudo".** `{ in: [] }` no Prisma casa zero linhas; um filtro montado
+  errado que devolvesse tudo mandaria 11 turmas para a coordenação quando ela pediu uma. Teste.
+- **Rascunho não aparece em nenhum dos dois artefatos** — a regra já está no `montarFiltro`, e o
+  teste existe para ela não se perder quando o filtro for reescrito.
+- **Nome de aluno.** O schema não tem campo de pessoa, mas `atividadeCasa` é texto livre que ela
+  digitou. Não dá para garantir por schema; vale um aviso na tela de exportação, não um filtro
+  automático que apagaria conteúdo legítimo.
+- **O teste que decide:** ela exportar um bimestre real e mandar para a coordenação. Se precisar
+  editar o arquivo antes de enviar, o formato está errado.
+
+### Pergunta aberta
+
+**Em que formato a coordenação pede hoje?** Papel assinado, Word, planilha, formulário do sistema
+da escola? A resposta muda a prioridade entre CSV e impressão — e se for formulário de sistema
+próprio, talvez o que sirva seja a tela de leitura, não arquivo nenhum.
+
+---
+
 ## Verificação
 
 - ~~**Fase 1**~~ — **feito.** Postgres real, schema aplicado, RLS executado (14 policies), API

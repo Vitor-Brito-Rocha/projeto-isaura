@@ -23,7 +23,7 @@ import type { PlanoDetalhe, Unidade } from '@/lib/types';
 import { ImportarPlano } from './importar';
 
 /**
- * O plano vem em `?id=` e não em `/planos/[id]` para sobreviver ao
+ * O plano vem em `?plano=` e não em `/planos/[id]` para sobreviver ao
  * `output: 'export'` do build do wrapper Android, que exige enumerar os
  * parâmetros de toda rota dinâmica. Continua **dentro** de `/planos` de
  * propósito: `estaNaSecao` casa por prefixo, e uma rota irmã no topo apagaria a
@@ -50,7 +50,7 @@ function CarregandoPlano() {
 }
 
 function TelaDoPlano() {
-  const id = useSearchParams().get('id') ?? '';
+  const id = useSearchParams().get('plano') ?? '';
   const qc = useQueryClient();
   const [criandoUnidade, setCriandoUnidade] = useState(false);
 

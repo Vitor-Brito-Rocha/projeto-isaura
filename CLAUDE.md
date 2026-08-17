@@ -15,6 +15,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita; faltam A (build na nuvem), C (auth cross-origin) e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
+| 7 — Exportação com filtros | planejada, não começada — ver "Fase 7 — detalhamento" em `docs/PLANO.md` |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
 `@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
@@ -180,8 +181,10 @@ avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior des
 
 **Nenhuma rota dinâmica em `app/`.** O wrapper Android é `output: 'export'`, que exige enumerar os
 parâmetros de toda rota `[param]` em `generateStaticParams` — e id de ocorrência não dá para
-enumerar. Por isso a aula é `/aula?id=`, o plano é `/planos/detalhe?id=` e a turma é
-`/progresso/cadeira?id=`. Os detalhes ficam **dentro** da seção (e não em rota irmã no topo) porque
+enumerar. Por isso a aula é `/aula?ocorrencia=`, o plano é `/planos/detalhe?plano=` e a turma é
+`/progresso/cadeira?cadeira=`. **O parâmetro nomeia a entidade, nunca `id`**: `/aula?id=` não diz
+que aquilo é uma `Ocorrencia` (não existe entidade "Aula"), e só o código do fetch revelava —
+`/progresso/[cadeiraId]` ao menos dizia. Os detalhes ficam **dentro** da seção (e não em rota irmã no topo) porque
 `estaNaSecao` casa por prefixo: `/plano?id=` apagaria a navegação inteira. Quem consome
 `useSearchParams` precisa de um limite de `<Suspense>`, senão o build reclama e a página vira
 dinâmica de novo. Se criar uma rota `[param]`, o `build:web:nativo` quebra — de propósito.

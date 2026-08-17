@@ -51,7 +51,7 @@ export function Pendencias() {
           {visiveis.map((oc) => (
             <li key={oc.id}>
               <Link
-                href={`/aula?id=${oc.id}&momento=fechamento`}
+                href={`/aula?ocorrencia=${oc.id}&momento=fechamento`}
                 className="flex items-center gap-2 py-2 text-sm hover:opacity-80"
               >
                 <span

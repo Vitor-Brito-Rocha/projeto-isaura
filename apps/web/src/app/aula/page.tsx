@@ -53,15 +53,20 @@ function avisar(desfecho: Desfecho) {
 /**
  * A tela que o alarme abre.
  *
- * O push carrega `/aula?id=…&momento=abertura|fechamento`, então o parâmetro
- * decide qual formulário aparece primeiro — mas os dois ficam alcançáveis: ela
- * pode ter perdido o alarme de abertura e estar registrando tudo no fim.
+ * O push carrega `/aula?ocorrencia=…&momento=abertura|fechamento`, então o
+ * parâmetro decide qual formulário aparece primeiro — mas os dois ficam
+ * alcançáveis: ela pode ter perdido o alarme de abertura e estar registrando
+ * tudo no fim.
  *
- * A aula vem em `?id=` e não em `/aula/[id]` porque o build do wrapper Android
- * é `output: 'export'`, que exige enumerar os parâmetros de toda rota dinâmica
- * em `generateStaticParams` — e id de ocorrência não dá para enumerar. Rota
- * estática + parâmetro de busca é a única forma que sobrevive aos dois builds,
- * e esta é justamente a tela que o alarme abre.
+ * Rota estática + parâmetro de busca, e não `/aula/[id]`, porque o build do
+ * wrapper Android é `output: 'export'`, que exige enumerar os parâmetros de
+ * toda rota dinâmica em `generateStaticParams` — e id de ocorrência não dá para
+ * enumerar. Esta é justamente a tela que o alarme abre.
+ *
+ * O parâmetro se chama `ocorrencia` e não `id` porque é isso que ele é: o id da
+ * `Ocorrencia`, a aula concreta e datada — não existe entidade "Aula". `?id=`
+ * jogava fora a informação que `/aula/[id]` também não dava, e que só o código
+ * do fetch revelava.
  */
 export default function Aula() {
   // `useSearchParams` suspende na renderização estática; sem este limite o
@@ -86,7 +91,7 @@ function CarregandoAula() {
 
 function TelaDaAula() {
   const params = useSearchParams();
-  const id = params.get('id') ?? '';
+  const id = params.get('ocorrencia') ?? '';
   const qc = useQueryClient();
 
   const momentoDoAlarme = params.get('momento') === 'abertura' ? 'abertura' : 'fechamento';
