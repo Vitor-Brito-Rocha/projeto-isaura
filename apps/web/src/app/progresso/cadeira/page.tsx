@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { AppShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,9 +22,22 @@ import type { AulaDaUnidade, ProgressoDetalhe } from '@/lib/types';
  * A lista de tópicos faltando é o ponto: ela responde "o que eu dou na próxima"
  * sem ela ter de cruzar o plano de curso com o histórico de cabeça. É o mesmo
  * dado que alimenta a barra da tela anterior, aberto.
+ *
+ * A cadeira vem em `?id=` e não em `/progresso/[cadeiraId]` para sobreviver ao
+ * `output: 'export'` do build do wrapper Android. Continua dentro de
+ * `/progresso` para a navegação não apagar — `estaNaSecao` casa por prefixo.
  */
 export default function ProgressoDaCadeira() {
-  const { cadeiraId } = useParams<{ cadeiraId: string }>();
+  // `useSearchParams` suspende na renderização estática.
+  return (
+    <Suspense fallback={<AppShell titulo="Progresso">{<Skeleton className="h-40 w-full" />}</AppShell>}>
+      <TelaDoProgresso />
+    </Suspense>
+  );
+}
+
+function TelaDoProgresso() {
+  const cadeiraId = useSearchParams().get('id') ?? '';
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['progresso', cadeiraId],
@@ -79,7 +92,7 @@ export default function ProgressoDaCadeira() {
             {resumo.irmas.map((i, n) => (
               <span key={i.cadeiraId}>
                 {n > 0 && ', '}
-                <Link href={`/progresso/${i.cadeiraId}`} className="underline underline-offset-2">
+                <Link href={`/progresso/cadeira?id=${i.cadeiraId}`} className="underline underline-offset-2">
                   {i.turma}
                 </Link>
               </span>
@@ -115,7 +128,7 @@ export default function ProgressoDaCadeira() {
                 <p className="text-xs text-muted-foreground">
                   Esta unidade não tem tópicos cadastrados —{' '}
                   <Link
-                    href={`/planos/${resumo.plano?.id ?? ''}`}
+                    href={`/planos/detalhe?id=${resumo.plano?.id ?? ''}`}
                     className="underline underline-offset-2"
                   >
                     cadastre no plano
@@ -184,7 +197,7 @@ function AulasDaUnidade({ aulas }: { aulas: AulaDaUnidade[] }) {
           {aulas.map((a) => (
             <li key={`${a.ocorrenciaId}-${a.data}`}>
               <Link
-                href={`/aula/${a.ocorrenciaId}?momento=fechamento`}
+                href={`/aula?id=${a.ocorrenciaId}&momento=fechamento`}
                 className="block rounded-md px-2 py-1.5 hover:bg-accent"
               >
                 <span className="flex items-baseline gap-2">

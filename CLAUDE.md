@@ -14,7 +14,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
-| 6 — Capacitor no Android | **próxima** (deixou de ser condicional) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
+| 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita; faltam A (build na nuvem), C (auth cross-origin) e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
 `@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
@@ -124,8 +124,15 @@ npm test              # 132 testes de API (63 de integração, pulados sem TEST_
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
+npm run build:web         # build do navegador
+npm run build:web:nativo  # build do APK — exige NEXT_PUBLIC_API_URL absoluta
 npm run prisma:push && npm run prisma:rls
 ```
+
+**`next build` exige `NODE_ENV=production`.** Se o ambiente fixar `development` (acontece em
+container de agente), o prerender mistura o runtime de desenvolvimento do React e **todas** as
+páginas falham com `<Html> should not be imported outside of pages/_document` — inclusive as que
+ninguém tocou. O erro aponta para o lugar errado; a causa é a variável.
 
 Depois de mexer no `schema.prisma`: `prisma:generate` → `prisma:push` → `prisma:rls`.
 **Tabela nova exige policy nova** em `apps/api/prisma/sql/enable-rls.sql` — o Prisma não
@@ -170,6 +177,20 @@ substituí-lo: um "1º ou 2º semestre?" obrigatório seria pergunta sem respost
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.
+
+**Nenhuma rota dinâmica em `app/`.** O wrapper Android é `output: 'export'`, que exige enumerar os
+parâmetros de toda rota `[param]` em `generateStaticParams` — e id de ocorrência não dá para
+enumerar. Por isso a aula é `/aula?id=`, o plano é `/planos/detalhe?id=` e a turma é
+`/progresso/cadeira?id=`. Os detalhes ficam **dentro** da seção (e não em rota irmã no topo) porque
+`estaNaSecao` casa por prefixo: `/plano?id=` apagaria a navegação inteira. Quem consome
+`useSearchParams` precisa de um limite de `<Suspense>`, senão o build reclama e a página vira
+dinâmica de novo. Se criar uma rota `[param]`, o `build:web:nativo` quebra — de propósito.
+
+**Dois builds, um código.** `build:web` é o do navegador (o Next serve, faz proxy da API e devolve
+headers); `build:web:nativo` é o do APK (`APP_NATIVO=1` → `output: 'export'`, sem servidor). O
+`next.config.mjs` **recusa** o build nativo se `NEXT_PUBLIC_API_URL` não for absoluta: o padrão
+`/api` resolveria para `https://localhost/api` dentro da WebView, e o app instalaria, abriria e
+falharia em toda chamada com cara de "erro de rede".
 
 **Saída da IA é sempre rascunho.** `revisadoEm` nulo = não conta como registro. O histórico pode
 virar prova de trabalho na frente da coordenação. Quem preenche `revisadoEm` é `salvarFechamento`,

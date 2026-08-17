@@ -203,7 +203,7 @@ export default function Historico() {
                   aria-hidden
                 />
                 <Link
-                  href={`/aula/${l.ocorrenciaId}?momento=fechamento`}
+                  href={`/aula?id=${l.ocorrenciaId}&momento=fechamento`}
                   className="text-sm font-medium hover:underline"
                 >
                   {l.cadeira.disciplina} · {l.cadeira.turma}

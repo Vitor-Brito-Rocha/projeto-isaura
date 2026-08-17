@@ -98,7 +98,7 @@ function Cartao({ c }: { c: ProgressoCadeira }) {
           </div>
           {!semPlano && (
             <Button asChild size="sm" variant="ghost" className="shrink-0">
-              <Link href={`/progresso/${c.cadeiraId}`}>
+              <Link href={`/progresso/cadeira?id=${c.cadeiraId}`}>
                 Detalhe
                 <ChevronRight />
               </Link>

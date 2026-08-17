@@ -133,7 +133,7 @@ export class AlarmesService {
             await this.push.enviarPush(oc.professorId, {
               title: `${cadeira.disciplina} · ${cadeira.turma}`,
               body: `Sua aula das ${hora} está chegando. O que você planeja dar?`,
-              url: `/aula/${oc.id}?momento=abertura`,
+              url: `/aula?id=${oc.id}&momento=abertura`,
               ocorrenciaId: oc.id,
               tag: `abertura-${oc.id}`,
               tipo: TipoNotificacao.ABERTURA_AULA,
@@ -206,7 +206,7 @@ export class AlarmesService {
             await this.push.enviarPush(oc.professorId, {
               title: `${cadeira.disciplina} · ${cadeira.turma}`,
               body: `A aula terminou às ${hora}. O que você deu?`,
-              url: `/aula/${oc.id}?momento=fechamento`,
+              url: `/aula?id=${oc.id}&momento=fechamento`,
               ocorrenciaId: oc.id,
               tag: `fechamento-${oc.id}`,
               tipo: TipoNotificacao.FECHAMENTO_AULA,

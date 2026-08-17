@@ -77,7 +77,7 @@ self.addEventListener('notificationclick', (event) => {
 
   // Precedência: ação rápida > url do payload > rota padrão do tipo > home.
   let url;
-  if (event.action === 'registrar' && d.ocorrenciaId) url = `/aula/${d.ocorrenciaId}`;
+  if (event.action === 'registrar' && d.ocorrenciaId) url = `/aula?id=${d.ocorrenciaId}`;
   else if (d.url) url = d.url;
   else url = ROTA_PADRAO[d.tipo] || '/';
 

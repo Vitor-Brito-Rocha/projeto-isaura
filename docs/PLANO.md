@@ -645,12 +645,41 @@ de rede e joga fora o local-first da fase 3.
 | Frente | O que é | Tamanho |
 |---|---|---|
 | **A. Build na nuvem** | GitHub Actions com JDK 17 + Android SDK, `cap sync`, `gradlew`, APK como artefato. Keystore em secrets. Grátis no repo. | pequena |
-| **B. Empacotar a web** | `output: 'export'` só no build do wrapper, as três rotas dinâmicas viram query, e a base da API passa a ser URL absoluta. | média |
+| **B. Empacotar a web** | ~~`output: 'export'` só no build do wrapper, as três rotas dinâmicas viram query, e a base da API passa a ser URL absoluta.~~ **feita** — ver abaixo. | ~~média~~ |
 | **C. Auth cross-origin** | `SameSite=None` só para o app (ver acima), ou Bearer como plano B. | média, e delicada |
 | **D. O alarme de verdade** | O plugin nativo descrito acima, mais o pedido de permissão de tela cheia e o fluxo de exceção de bateria. | grande |
 
 Notar que **A é a menor**, e é a única que o usuário mencionou como restrição. Fazer build na nuvem
 não é o problema desta fase; é o detalhe mais fácil dela.
+
+### Frente B — feita
+
+`APP_NATIVO=1` (script `build:web:nativo`) troca o mesmo código do build de navegador para
+`output: 'export'` + `trailingSlash`. As três rotas dinâmicas viraram rota estática + parâmetro de
+busca, e ficaram **dentro da seção** de propósito: `estaNaSecao` casa por prefixo, então uma rota
+irmã no topo (`/plano?id=`) apagaria a navegação inteira enquanto ela edita.
+
+| Antes | Agora |
+|---|---|
+| `/aula/[id]?momento=` | `/aula?id=…&momento=` |
+| `/planos/[id]` | `/planos/detalhe?id=` |
+| `/progresso/[cadeiraId]` | `/progresso/cadeira?id=` |
+
+Os dois payloads de push em `alarmes.service.ts` e a ação rápida do `sw.js` acompanharam — o
+`sw.js` monta a URL por conta própria no botão "registrar", então ficar só nos payloads teria
+deixado o atalho do alarme apontando para 404.
+
+Verificado: 15/15 rotas saem como `○ (Static)`, `out/aula/index.html` existe (é a tela que o alarme
+abre) e a URL absoluta da API está embutida no bundle. 102 testes de web passando.
+
+**A trava que importa:** o build nativo **recusa** rodar se `NEXT_PUBLIC_API_URL` não for absoluta.
+O padrão `/api` do `lib/api.ts` resolveria para `https://localhost/api` dentro da WebView — o app
+instalaria, abriria e falharia em toda chamada com cara de "erro de rede", não de configuração
+faltando. Falhar no build é a hora barata; depois é APK publicado.
+
+**O que a frente B não resolve:** o login. O `rewrites()` some no wrapper, a chamada vira
+cross-site e o cookie `SameSite=Lax` não é enviado. É a frente C, e continua valendo a recomendação
+acima — `SameSite=None` só para o app.
 
 ### Pré-requisito
 

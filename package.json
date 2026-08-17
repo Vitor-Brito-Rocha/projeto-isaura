@@ -11,6 +11,7 @@
     "dev:web": "npm run dev --workspace apps/web",
     "build:api": "npm run build --workspace apps/api",
     "build:web": "npm run build --workspace apps/web",
+    "build:web:nativo": "npm run build:nativo --workspace apps/web",
     "test:api": "npm run test --workspace apps/api",
     "test:web": "npm run test --workspace apps/web",
     "test": "npm run test:api && npm run test:web",

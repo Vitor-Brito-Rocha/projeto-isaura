@@ -3,8 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
 import { TextoEditavel } from '@/components/texto-editavel';
@@ -22,8 +22,35 @@ import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
 import { ImportarPlano } from './importar';
 
+/**
+ * O plano vem em `?id=` e não em `/planos/[id]` para sobreviver ao
+ * `output: 'export'` do build do wrapper Android, que exige enumerar os
+ * parâmetros de toda rota dinâmica. Continua **dentro** de `/planos` de
+ * propósito: `estaNaSecao` casa por prefixo, e uma rota irmã no topo apagaria a
+ * navegação inteira enquanto ela edita o plano.
+ */
 export default function Plano() {
-  const { id } = useParams<{ id: string }>();
+  // `useSearchParams` suspende na renderização estática.
+  return (
+    <Suspense fallback={<CarregandoPlano />}>
+      <TelaDoPlano />
+    </Suspense>
+  );
+}
+
+function CarregandoPlano() {
+  return (
+    <AppShell titulo="Plano de curso">
+      <div className="space-y-3">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    </AppShell>
+  );
+}
+
+function TelaDoPlano() {
+  const id = useSearchParams().get('id') ?? '';
   const qc = useQueryClient();
   const [criandoUnidade, setCriandoUnidade] = useState(false);
 

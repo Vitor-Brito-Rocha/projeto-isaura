@@ -3,8 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, Lightbulb, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
@@ -53,13 +53,40 @@ function avisar(desfecho: Desfecho) {
 /**
  * A tela que o alarme abre.
  *
- * O push carrega `/aula/:id?momento=abertura|fechamento`, então o parâmetro
+ * O push carrega `/aula?id=…&momento=abertura|fechamento`, então o parâmetro
  * decide qual formulário aparece primeiro — mas os dois ficam alcançáveis: ela
  * pode ter perdido o alarme de abertura e estar registrando tudo no fim.
+ *
+ * A aula vem em `?id=` e não em `/aula/[id]` porque o build do wrapper Android
+ * é `output: 'export'`, que exige enumerar os parâmetros de toda rota dinâmica
+ * em `generateStaticParams` — e id de ocorrência não dá para enumerar. Rota
+ * estática + parâmetro de busca é a única forma que sobrevive aos dois builds,
+ * e esta é justamente a tela que o alarme abre.
  */
 export default function Aula() {
-  const { id } = useParams<{ id: string }>();
+  // `useSearchParams` suspende na renderização estática; sem este limite o
+  // build reclama e a página inteira vira dinâmica.
+  return (
+    <Suspense fallback={<CarregandoAula />}>
+      <TelaDaAula />
+    </Suspense>
+  );
+}
+
+function CarregandoAula() {
+  return (
+    <AppShell titulo="Aula">
+      <div className="space-y-3">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </AppShell>
+  );
+}
+
+function TelaDaAula() {
   const params = useSearchParams();
+  const id = params.get('id') ?? '';
   const qc = useQueryClient();
 
   const momentoDoAlarme = params.get('momento') === 'abertura' ? 'abertura' : 'fechamento';
@@ -72,16 +99,7 @@ export default function Aula() {
   });
   useRedirecionaEmErro(error);
 
-  if (isLoading) {
-    return (
-      <AppShell titulo="Aula">
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </AppShell>
-    );
-  }
+  if (isLoading) return <CarregandoAula />;
 
   if (isError || !data) {
     return (

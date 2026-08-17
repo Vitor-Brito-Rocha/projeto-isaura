@@ -95,7 +95,7 @@ export default function Planos() {
         )}
 
         {planos?.map((p) => (
-          <Link key={p.id} href={`/planos/${p.id}`} className="block">
+          <Link key={p.id} href={`/planos/detalhe?id=${p.id}`} className="block">
             <Card className="transition-colors hover:bg-accent/50">
               <CardHeader className="flex-row items-center gap-3 space-y-0">
                 <div className="min-w-0 flex-1">

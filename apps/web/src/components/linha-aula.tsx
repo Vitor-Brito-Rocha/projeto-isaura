@@ -20,7 +20,7 @@ export function momentoDe(oc: Ocorrencia): 'abertura' | 'fechamento' {
 }
 
 export function linkDaAula(oc: Ocorrencia): string {
-  return `/aula/${oc.id}?momento=${momentoDe(oc)}`;
+  return `/aula?id=${oc.id}&momento=${momentoDe(oc)}`;
 }
 
 /** Uma aula na grade — em lista ou no dia aberto do calendário. */
