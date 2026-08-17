@@ -658,11 +658,22 @@ Fazer o **teste de relógio da fase 2 no aparelho dela antes de começar a fase 
 única pergunta que dimensiona esta fase: o push chega a tempo na escola dela? Se chegar, a fase 6
 é conforto — e B + C são muito trabalho para conforto. Se não chegar, ela é o produto.
 
-**E há uma interação com a decisão de hospedagem que muda a conta.** Servidor gratuito que dorme
-(Render Free, Vercel Hobby) torna a camada 2 pouco confiável por construção: sem processo acordado,
-o cron por minuto não roda. Isso **aumenta** o valor da fase 6, porque a camada 1 não depende de
-servidor nenhum — o alarme é agendado no próprio aparelho. Se a hospedagem vai ser gratuita, a fase
-6 deixa de ser conforto mesmo que o push funcione hoje.
+### Hospedagem — decidido: VPS própria (17/08/2026)
+
+**Isso fecha uma discussão inteira antes de ela virar trabalho.** Serverless (Vercel) e gratuito que
+dorme (Render Free) esbarravam no mesmo ponto: sem processo acordado, o `@Cron(EVERY_MINUTE)` dos
+dois alarmes não roda, e o alarme por minuto **é** o produto. As saídas eram tirar o agendamento de
+dentro do serviço — `pg_cron` do Supabase batendo em `/jobs/alarme-abertura`, que já existe — ou
+pagar plano sem sleep.
+
+Com VPS, nada disso é necessário: o processo fica vivo, o `@nestjs/schedule` funciona como escrito,
+e a camada 2 volta a ser confiável como o desenho original supunha.
+
+**Consequência para a fase 6:** ela volta a ser sobre a *qualidade* do alarme — furar o silencioso,
+tomar a tela — e não sobre compensar um servidor que dorme. O teste de relógio no aparelho dela
+continua sendo o que dimensiona a fase.
+
+*Não reintroduzir `pg_cron` nem handler serverless em plano futuro sem que essa decisão mude.*
 
 ---
 

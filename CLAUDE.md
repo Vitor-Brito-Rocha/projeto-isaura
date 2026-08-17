@@ -16,6 +16,11 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **próxima** (deixou de ser condicional) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
 
+**Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
+`@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
+`pg_cron` batendo nos endpoints de `/jobs`** — os dois só existiam como contorno para servidor que
+dorme, e a decisão já foi tomada. Ver "Hospedagem" em `docs/PLANO.md`.
+
 > Esta tabela ficou três fases atrasada uma vez, enquanto as Convenções abaixo eram atualizadas a
 > cada commit. É o primeiro que uma sessão lê: **atualize a linha da fase no mesmo commit que a
 > entrega**, senão a próxima sessão começa reconstruindo algo que já existe.
