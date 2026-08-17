@@ -12,6 +12,15 @@ import {
   type UnidadeDoPlano,
 } from './calcular';
 
+/** Uma aula que cobriu esta unidade. Só o suficiente para reconhecê-la e abrir. */
+export interface AulaDaUnidade {
+  ocorrenciaId: string;
+  data: string;
+  conteudoDado: string | null;
+  /** Só os tópicos DESTA unidade — a aula pode ter marcado os de outra também. */
+  topicos: string[];
+}
+
 export interface ResumoDaCadeira {
   cadeiraId: string;
   disciplina: string;
@@ -106,11 +115,21 @@ export class ProgressoService {
     });
   }
 
-  /** Unidade a unidade, com os tópicos que ainda faltam. */
+  /**
+   * Unidade a unidade: o que falta dar, e as aulas que já cobriram o resto.
+   *
+   * As aulas vêm junto porque a pergunta seguinte a "onde eu parei" é sempre
+   * "e o que eu dei nessa unidade" — e a resposta estava a dois cliques e uma
+   * busca por data de distância.
+   */
   async daCadeira(
     professorId: string,
     cadeiraId: string,
-  ): Promise<{ resumo: ResumoDaCadeira; unidades: ProgressoUnidade[] }> {
+  ): Promise<{
+    resumo: ResumoDaCadeira;
+    unidades: ProgressoUnidade[];
+    aulasPorUnidade: Record<string, AulaDaUnidade[]>;
+  }> {
     const cadeira = await this.prisma.cadeira.findFirst({
       where: { id: cadeiraId, professorId },
       include: {
@@ -134,8 +153,70 @@ export class ProgressoService {
 
     const dados = await this.registrosPorCadeira(professorId);
     const cobertos = dados.get(cadeiraId)?.topicos ?? new Set<string>();
+    const doPlano = paraPlano(cadeira.plano?.unidades ?? []);
 
-    return { resumo, unidades: progressoDasUnidades(paraPlano(cadeira.plano?.unidades ?? []), cobertos) };
+    return {
+      resumo,
+      unidades: progressoDasUnidades(doPlano, cobertos),
+      aulasPorUnidade: await this.aulasPorUnidade(professorId, cadeiraId, cadeira.plano?.unidades ?? []),
+    };
+  }
+
+  /**
+   * As aulas revisadas desta turma, agrupadas pela unidade que cobriram.
+   *
+   * Uma aula entra na unidade por dois caminhos, e os dois contam: ela marcou um
+   * tópico daquela unidade, **ou** escolheu a unidade no fechamento sem marcar
+   * tópico nenhum. Ignorar o segundo esconderia justamente as aulas em que ela
+   * escreveu o conteúdo com pressa — que são as que ela mais precisa reler.
+   */
+  private async aulasPorUnidade(
+    professorId: string,
+    cadeiraId: string,
+    unidades: { id: string; topicos: { id: string; titulo: string }[] }[],
+  ): Promise<Record<string, AulaDaUnidade[]>> {
+    const unidadeDoTopico = new Map<string, string>();
+    const tituloDoTopico = new Map<string, string>();
+    for (const u of unidades) {
+      for (const t of u.topicos) {
+        unidadeDoTopico.set(t.id, u.id);
+        tituloDoTopico.set(t.id, t.titulo);
+      }
+    }
+
+    const registros = await this.prisma.registroAula.findMany({
+      where: { professorId, revisadoEm: { not: null }, ocorrencia: { cadeiraId } },
+      orderBy: { ocorrencia: { data: 'asc' } },
+      select: {
+        unidadeId: true,
+        conteudoDado: true,
+        topicos: { select: { topicoId: true } },
+        ocorrencia: { select: { id: true, data: true } },
+      },
+    });
+
+    const saida: Record<string, AulaDaUnidade[]> = {};
+    for (const r of registros) {
+      // Uma aula pode tocar mais de uma unidade se ela marcou tópicos de duas.
+      // Aparecer nas duas é o certo: ela deu as duas coisas naquele dia.
+      const porUnidade = new Map<string, string[]>();
+      for (const { topicoId } of r.topicos) {
+        const u = unidadeDoTopico.get(topicoId);
+        if (!u) continue;
+        porUnidade.set(u, [...(porUnidade.get(u) ?? []), tituloDoTopico.get(topicoId)!]);
+      }
+      if (r.unidadeId && !porUnidade.has(r.unidadeId)) porUnidade.set(r.unidadeId, []);
+
+      for (const [unidadeId, topicos] of porUnidade) {
+        (saida[unidadeId] ??= []).push({
+          ocorrenciaId: r.ocorrencia.id,
+          data: isoDeDataUTC(r.ocorrencia.data),
+          conteudoDado: r.conteudoDado,
+          topicos,
+        });
+      }
+    }
+    return saida;
   }
 
   /**

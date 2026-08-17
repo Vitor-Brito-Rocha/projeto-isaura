@@ -234,10 +234,21 @@ export interface ProgressoUnidade {
   concluida: boolean;
 }
 
+/** Uma aula que cobriu a unidade. Só o suficiente para reconhecê-la e abrir. */
+export interface AulaDaUnidade {
+  ocorrenciaId: string;
+  data: string;
+  conteudoDado: string | null;
+  /** Só os tópicos desta unidade — a aula pode ter marcado os de outra também. */
+  topicos: string[];
+}
+
 /** Resposta de `GET /progresso/:cadeiraId`. */
 export interface ProgressoDetalhe {
   resumo: ProgressoCadeira;
   unidades: ProgressoUnidade[];
+  /** Indexado por `unidade.id`. Unidade sem aula nenhuma simplesmente não entra. */
+  aulasPorUnidade: Record<string, AulaDaUnidade[]>;
 }
 
 // ---- Admin (só para quem passa no AdminGuard da API) ----

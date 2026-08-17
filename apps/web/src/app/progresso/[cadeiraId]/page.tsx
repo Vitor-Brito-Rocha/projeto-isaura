@@ -1,9 +1,10 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import { AppShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { apiFetch } from '@/lib/api';
 import { dataBR } from '@/lib/datas';
 import { periodoLetivo } from '@/lib/periodo';
 import { useRedirecionaSeDeslogado } from '@/lib/sessao';
-import type { ProgressoDetalhe } from '@/lib/types';
+import type { AulaDaUnidade, ProgressoDetalhe } from '@/lib/types';
 
 /**
  * Unidade a unidade, com o que ainda falta dar.
@@ -63,7 +64,7 @@ export default function ProgressoDaCadeira() {
     );
   }
 
-  const { resumo, unidades } = data;
+  const { resumo, unidades, aulasPorUnidade } = data;
 
   return (
     <AppShell
@@ -138,6 +139,8 @@ export default function ProgressoDaCadeira() {
                   </div>
                 )
               )}
+
+              <AulasDaUnidade aulas={aulasPorUnidade[u.id] ?? []} />
             </CardContent>
           </Card>
         ))}
@@ -148,5 +151,60 @@ export default function ProgressoDaCadeira() {
         </p>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * As aulas que cobriram esta unidade.
+ *
+ * Fechada por padrão: a pergunta principal da tela é "o que falta", e abrir
+ * dez aulas em cada uma das três unidades enterraria a resposta. Quem quer o
+ * detalhe pede — e cada linha abre a aula para ver ou corrigir.
+ */
+function AulasDaUnidade({ aulas }: { aulas: AulaDaUnidade[] }) {
+  const [aberto, setAberto] = useState(false);
+
+  if (aulas.length === 0) return null;
+
+  return (
+    <div className="border-t pt-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 h-7 px-2 text-xs"
+        aria-expanded={aberto}
+        onClick={() => setAberto((a) => !a)}
+      >
+        {aberto ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        {aulas.length === 1 ? '1 aula nesta unidade' : `${aulas.length} aulas nesta unidade`}
+      </Button>
+
+      {aberto && (
+        <ul className="mt-1 space-y-1">
+          {aulas.map((a) => (
+            <li key={`${a.ocorrenciaId}-${a.data}`}>
+              <Link
+                href={`/aula/${a.ocorrenciaId}?momento=fechamento`}
+                className="block rounded-md px-2 py-1.5 hover:bg-accent"
+              >
+                <span className="flex items-baseline gap-2">
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {dataBR(a.data)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {a.conteudoDado || <em className="text-muted-foreground">sem texto</em>}
+                  </span>
+                </span>
+                {a.topicos.length > 0 && (
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {a.topicos.join(' · ')}
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
