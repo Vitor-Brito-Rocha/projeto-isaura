@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { AlternarApi } from './api';
 import { avisoDeDegradacao, detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
 import { ativarNotificacoes, desativarNotificacoes, enviarPushTeste, notificacoesAtivas } from '@/lib/push';
 import type { IntensidadeAlarme, Perfil } from '@/lib/types';
@@ -225,6 +226,8 @@ export default function Config() {
             )}
           </CardContent>
         </Card>
+
+        <AlternarApi />
 
         <Button
           variant="outline"

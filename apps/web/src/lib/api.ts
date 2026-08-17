@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+import { baseDaApi } from './base-api';
 
 export class ApiError extends Error {
   constructor(
@@ -21,7 +21,7 @@ export class ApiError extends Error {
 let renovacaoEmCurso: Promise<boolean> | null = null;
 
 function renovarSessao(): Promise<boolean> {
-  renovacaoEmCurso ??= fetch(`${BASE}/auth/refresh`, {
+  renovacaoEmCurso ??= fetch(`${baseDaApi()}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   })
@@ -49,7 +49,7 @@ export async function apiFetch<T = unknown>(
   init: RequestInit = {},
 ): Promise<T> {
   const enviar = () =>
-    fetch(`${BASE}${caminho}`, {
+    fetch(`${baseDaApi()}${caminho}`, {
       ...init,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...init.headers },

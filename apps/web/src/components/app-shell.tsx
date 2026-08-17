@@ -6,13 +6,16 @@ import {
   CalendarDays,
   CloudOff,
   GraduationCap,
+  Plug,
   Settings,
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { baseDaApi, estaAlternada, EVENTO_BASE_API } from '@/lib/base-api';
 import { useFilaOffline } from '@/lib/usar-fila';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +61,29 @@ function estaNaSecao(caminho: string, href: string) {
   return href === '/' ? caminho === '/' : caminho === href || caminho.startsWith(`${href}/`);
 }
 
+function FaixaDaApi() {
+  const [base, setBase] = useState<string | null>(null);
+
+  // Só no cliente: lê localStorage, que não existe no SSR. E reage à troca — o
+  // evento `storage` do navegador não dispara na aba que escreveu, então sem
+  // isto a faixa só apareceria depois de recarregar.
+  useEffect(() => {
+    const ler = () => setBase(estaAlternada() ? baseDaApi() : null);
+    ler();
+    window.addEventListener(EVENTO_BASE_API, ler);
+    return () => window.removeEventListener(EVENTO_BASE_API, ler);
+  }, []);
+
+  if (!base) return null;
+
+  return (
+    <div className="flex items-center justify-center gap-2 bg-alarme/15 px-4 py-1.5 text-xs text-alarme">
+      <Plug className="size-3.5 shrink-0" aria-hidden />
+      <span className="truncate">API alternada: {base}</span>
+    </div>
+  );
+}
+
 export function AppShell({
   titulo,
   descricao,
@@ -91,6 +117,15 @@ export function AppShell({
           </span>
         </div>
       )}
+      {/*
+        Apontando para outra API, isto fica na tela o tempo todo.
+
+        Sem um aviso permanente, o desfecho previsível é conferir uma tela
+        contra o ambiente errado e concluir que há um bug onde não há — ou pior,
+        que não há onde há. O endereço vai escrito porque "alternado" sozinho
+        ainda obriga a abrir os ajustes para saber para onde.
+      */}
+      <FaixaDaApi />
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">

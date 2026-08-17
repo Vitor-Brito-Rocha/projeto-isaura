@@ -8,9 +8,9 @@ import { Confirmar } from '@/components/confirmar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api';
+import { baseDaApi } from '@/lib/base-api';
 import type { Anexo } from '@/lib/types';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 function tamanho(bytes: number | null) {
   if (!bytes) return '';
@@ -53,7 +53,7 @@ export function Anexos({
   const { data: anexos, isLoading } = useQuery({
     queryKey: chave,
     queryFn: async () => {
-      const r = await fetch(`${BASE}${rota}`, { credentials: 'include' });
+      const r = await fetch(`${baseDaApi()}${rota}`, { credentials: 'include' });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível listar os anexos.');
       return (await r.json()) as Anexo[];
     },
@@ -65,7 +65,7 @@ export function Anexos({
       // do multipart, e defini-lo à mão quebra o parse no servidor.
       const corpo = new FormData();
       corpo.append('arquivo', arquivo);
-      const r = await fetch(`${BASE}${rota}`, {
+      const r = await fetch(`${baseDaApi()}${rota}`, {
         method: 'POST',
         credentials: 'include',
         body: corpo,
@@ -88,7 +88,7 @@ export function Anexos({
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`${BASE}/anexos/${id}`, { method: 'DELETE', credentials: 'include' });
+      const r = await fetch(`${baseDaApi()}/anexos/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível remover.');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: chave }),

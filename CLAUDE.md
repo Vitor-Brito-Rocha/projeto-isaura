@@ -257,6 +257,16 @@ consultável.
 zero. Consulta crua só para colher ids; o `findMany` com os `include` segue em Prisma. Sem a
 extensão instalada, degrada para o casamento com acento e loga o comando — nunca 500.
 
+**O endereço da API é decidido em execução, por `lib/base-api.ts`.** `NEXT_PUBLIC_API_URL` é o
+padrão do build; a troca pela tela de Ajustes é o que permite conferir a mesma tela contra a API
+local e a da VPS sem gerar outro build — e no APK evita um arquivo por ambiente. **Só existe com
+`NEXT_PUBLIC_API_ALTERNAVEL=1`**, e o valor guardado é ignorado sem a flag (verificado plantando um
+endereço estranho no localStorage). Nunca aceitar o endereço por parâmetro de URL: viajaria num
+link e levaria a sessão junto. `validarBase` recusa o que não for http(s) ou caminho relativo — é
+o que barra `javascript:` e `data:`, que num campo de endereço são execução de código. Quem troca
+limpa o cache do React Query (ele guarda por chave, não por servidor) e avisa por
+`EVENTO_BASE_API`, porque o evento `storage` do navegador não dispara na aba que escreveu.
+
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
 API em vez de o front falar direto com o serviço.
