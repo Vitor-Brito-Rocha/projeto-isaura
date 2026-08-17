@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { dataDoInstanteBR } from '@/lib/datas';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { AdminProfessor, AdminResumo } from '@/lib/types';
 
 /**
@@ -50,7 +50,7 @@ export default function Admin() {
     enabled: resumo.isSuccess,
   });
 
-  useRedirecionaSeDeslogado(resumo.error);
+  useRedirecionaEmErro(resumo.error);
 
   if (resumo.isError) {
     return (

@@ -18,7 +18,7 @@ import { apiFetch } from '@/lib/api';
 import { Anexos } from '@/components/anexos';
 import { Confirmar } from '@/components/confirmar';
 import { periodoLetivo } from '@/lib/periodo';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { PlanoDetalhe, Unidade } from '@/lib/types';
 import { ImportarPlano } from './importar';
 
@@ -37,7 +37,7 @@ export default function Plano() {
     queryFn: () => apiFetch<PlanoDetalhe>(`/planos/${id}`),
     enabled: Boolean(id),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const criarUnidade = useMutation({
     mutationFn: (titulo: string) =>

@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CampoPeriodo } from '@/components/campo-periodo';
 import { apiFetch } from '@/lib/api';
 import { periodoLetivo, semestreDoCampo } from '@/lib/periodo';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { PlanoCurricular } from '@/lib/types';
 
 /**
@@ -33,7 +33,7 @@ export default function Planos() {
     queryKey: ['planos'],
     queryFn: () => apiFetch<PlanoCurricular[]>('/planos'),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const criar = useMutation({
     mutationFn: (dados: {

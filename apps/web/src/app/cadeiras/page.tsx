@@ -17,7 +17,7 @@ import { detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/cap
 import { CampoPeriodo } from '@/components/campo-periodo';
 import { sugerirDisciplinas } from '@/lib/disciplinas';
 import { periodoLetivo, semestreDoCampo } from '@/lib/periodo';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { Cadeira, PlanoCurricular, Serie } from '@/lib/types';
 import { PainelAlarme } from './painel-alarme';
 import { PainelHorarios } from './painel-horarios';
@@ -34,7 +34,7 @@ export default function Cadeiras() {
     queryKey: ['cadeiras'],
     queryFn: () => apiFetch<Cadeira[]>('/cadeiras'),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const { data: planos } = useQuery({
     queryKey: ['planos'],

@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { dataBR } from '@/lib/datas';
 import { periodoLetivo } from '@/lib/periodo';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { AulaDaUnidade, ProgressoDetalhe } from '@/lib/types';
 
 /**
@@ -31,7 +31,7 @@ export default function ProgressoDaCadeira() {
     queryFn: () => apiFetch<ProgressoDetalhe>(`/progresso/${cadeiraId}`),
     enabled: Boolean(cadeiraId),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const voltar = (
     <Button asChild size="sm" variant="outline">

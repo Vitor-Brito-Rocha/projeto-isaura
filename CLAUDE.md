@@ -184,6 +184,18 @@ sanitização de nome, teto de 10 MB, URL assinada na leitura, descarte de áudi
 como as duas cópias divergem. O documento do plano **não pendura numa aula**: cobre o período
 inteiro, e é o que ela olha na tela enquanto digita as unidades.
 
+**401 e 404 têm dois degraus, e o caminho atual é o estado.** `useRedirecionaEmErro`: fora da home
+manda para a home, já na home manda para o login. O `apiFetch` já tentou renovar a sessão antes de
+o 401 virar erro, mas um endpoint com problema não pode derrubar a sessão inteira — chegar na home
+prova que ela está viva. `replace` e não `push`, senão o botão voltar devolve para a tela quebrada
+e ela redireciona de novo. **403 fica de fora**: é "área restrita", não sessão morta.
+
+**Todo cancelamento, exclusão e edição destrutiva passa por `<Confirmar>`.** `AlertDialog` do Radix
+e não `Dialog` — o alerta obriga uma escolha e não fecha ao clicar fora, e fechar sem responder é o
+gesto que produziria o acidente. Nunca `window.confirm`: ele não deixa dizer o que exatamente some
+e, no celular, aparece com o endereço do site na frente, parecendo golpe. A descrição diz a
+consequência concreta, não "esta ação não pode ser desfeita".
+
 **A fala não sai pela exportação, e isso é estrutural.** O `select` do `HistoricoService` não busca
 `transcricaoBruta` nem `resumoPadronizado` — não é omissão na tela. O histórico alimenta a lista, a
 busca, o CSV e o relatório de impressão, e é o artefato que sai da mão dela para a coordenação. A

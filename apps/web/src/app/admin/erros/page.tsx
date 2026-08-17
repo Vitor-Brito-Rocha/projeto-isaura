@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { dataHoraBR } from '@/lib/datas';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { ErroLog, ErroLogDetalhe, Pagina } from '@/lib/types';
 
 
@@ -38,7 +38,7 @@ export default function Erros() {
     retry: false,
     placeholderData: (anterior) => anterior,
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   // A stack só é buscada quando ela é aberta: é o campo que estoura a resposta
   // da lista, e na maioria das vezes a mensagem já resolve.

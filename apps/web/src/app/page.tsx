@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { Ocorrencia } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Calendario } from './calendario';
@@ -71,7 +71,7 @@ export default function Semana() {
     placeholderData: (anterior) => anterior,
   });
 
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const porDia = new Map<string, Ocorrencia[]>();
   for (const oc of data ?? []) {

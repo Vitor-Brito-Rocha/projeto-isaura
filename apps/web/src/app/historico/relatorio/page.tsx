@@ -8,7 +8,7 @@ import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api';
 import { dataBR, dataHoraBR, diaEDataBR } from '@/lib/datas';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { LinhaDoHistorico, Pagina, Perfil } from '@/lib/types';
 
 /**
@@ -38,7 +38,7 @@ function Conteudo() {
     queryKey: ['historico', 'relatorio', params.toString()],
     queryFn: () => apiFetch<Pagina<LinhaDoHistorico>>(`/historico?${params.toString()}`),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const { data: perfil } = useQuery({
     queryKey: ['perfil'],

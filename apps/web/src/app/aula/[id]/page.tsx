@@ -22,7 +22,7 @@ import {
   valoresIniciais,
   type RascunhoIA,
 } from '@/lib/rascunho';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
 import { Anexos } from '@/components/anexos';
@@ -70,7 +70,7 @@ export default function Aula() {
     queryFn: () => apiFetch<ContextoAula>(`/registros/ocorrencia/${id}`),
     enabled: Boolean(id),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   if (isLoading) {
     return (

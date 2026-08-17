@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { baixarCsv, historicoParaCsv } from '@/lib/csv';
 import { dataBR, diaEDataBR } from '@/lib/datas';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { Cadeira, LinhaDoHistorico, Pagina } from '@/lib/types';
 
 const POR_PAGINA = 20;
@@ -60,7 +60,7 @@ export default function Historico() {
     queryFn: () => apiFetch<Pagina<LinhaDoHistorico>>(`/historico?${filtros(POR_PAGINA)}`),
     placeholderData: (anterior) => anterior,
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const paginas = data ? Math.max(1, Math.ceil(data.total / data.tamanho)) : 1;
 

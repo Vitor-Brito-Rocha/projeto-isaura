@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { dataBR } from '@/lib/datas';
 import { periodoLetivo } from '@/lib/periodo';
-import { useRedirecionaSeDeslogado } from '@/lib/sessao';
+import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { ProgressoCadeira } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ export default function Progresso() {
     queryKey: ['progresso'],
     queryFn: () => apiFetch<ProgressoCadeira[]>('/progresso'),
   });
-  useRedirecionaSeDeslogado(error);
+  useRedirecionaEmErro(error);
 
   const apertadas = (data ?? []).filter((c) => c.ritmo?.apertado).length;
 
