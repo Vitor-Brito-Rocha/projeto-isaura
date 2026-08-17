@@ -18,6 +18,7 @@ import { IaModule } from './ia/ia.module';
 import { JobsModule } from './jobs/jobs.module';
 import { NotificacoesModule } from './notificacoes/notificacoes.module';
 import { PlanosModule } from './planos/planos.module';
+import { ProgressoModule } from './progresso/progresso.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfessoresModule } from './professores/professores.module';
 import { RegistrosModule } from './registros/registros.module';
@@ -37,6 +38,7 @@ import { SeriesModule } from './series/series.module';
     EscolasModule,
     CadeirasModule,
     PlanosModule,
+    ProgressoModule,
     RegistrosModule,
     AnexosModule,
     IaModule,

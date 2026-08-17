@@ -201,6 +201,21 @@ async function main() {
     data: { id: planoId, professorId, nome: PLANO.nome, disciplina: PLANO.disciplina, anoLetivo: ANO },
   });
 
+  // Âncora no dia de PAREDE dela, não em UTC: às 21h de Brasília o UTC já
+  // virou, e a grade inteira nasceria um dia adiantada.
+  const hojeIso = dataIsoNaTz(new Date(), tz);
+  const hoje = dataUTC(hojeIso);
+
+  /**
+   * Prazo de cada unidade, contado a partir de hoje.
+   *
+   * Sem `dataFimPrevista` o aviso de ritmo — "faltam N tópicos e há M aulas até
+   * tal dia" — nunca aparece, e é o número que justifica a tela de progresso.
+   * A primeira fecha em 5 dias de propósito: é a única que já tem tópico
+   * faltando, então é dela que o aviso sai.
+   */
+  const PRAZOS = [5, 50, 100];
+
   const unidadeIds: string[] = [];
   const cadeiraPorSufixo = new Map<string, string>();
   const topicoPorTitulo = new Map<string, string>();
@@ -212,6 +227,8 @@ async function main() {
         planoCurricularId: planoId,
         ordem: iu + 1,
         titulo: u.titulo,
+        dataInicio: iu === 0 ? somarDias(hoje, -28) : somarDias(hoje, PRAZOS[iu - 1]),
+        dataFimPrevista: somarDias(hoje, PRAZOS[iu]),
       },
     });
     unidadeIds.push(unidade.id);
@@ -222,11 +239,6 @@ async function main() {
       topicoPorTitulo.set(titulo, t.id);
     }
   }
-
-  // Âncora no dia de PAREDE dela, não em UTC: às 21h de Brasília o UTC já
-  // virou, e a grade inteira nasceria um dia adiantada.
-  const hojeIso = dataIsoNaTz(new Date(), tz);
-  const hoje = dataUTC(hojeIso);
 
   for (const c of CADEIRAS) {
     const cadeiraId = novoId();

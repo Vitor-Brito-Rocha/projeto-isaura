@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Settings,
   ShieldCheck,
+  TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 const ITENS = [
   { href: '/', rotulo: 'Semana', Icone: CalendarDays },
+  { href: '/progresso', rotulo: 'Progresso', Icone: TrendingUp },
   { href: '/cadeiras', rotulo: 'Cadeiras', Icone: GraduationCap },
   { href: '/planos', rotulo: 'Planos', Icone: BookOpen },
   { href: '/config', rotulo: 'Ajustes', Icone: Settings },
@@ -69,9 +71,9 @@ export function AppShell({
 }) {
   const caminho = usePathname();
   const { pendentes } = useFilaOffline();
-  // Admin entra só no topo: a barra do celular tem quatro dedos de largura, e
-  // um quinto item espremeria a navegação que a professora usa todo dia por uma
-  // que só existe para uma conta.
+  // Admin entra só no topo. A objeção nunca foi ao número de itens: é que a
+  // barra do celular não vale ser gasta com uma tela que existe para UMA conta.
+  // "Progresso" é o oposto — é semanal e é de todo mundo, então entra nas duas.
   const itens = useEhAdmin() ? [...ITENS, ADMIN] : ITENS;
 
   return (

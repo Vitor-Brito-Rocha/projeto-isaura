@@ -163,6 +163,53 @@ export interface ContextoAula {
   };
 }
 
+// ---- Progresso ----
+
+/** Tópicos que faltam contra aulas que sobram. Null quando não há prazo. */
+export interface Ritmo {
+  topicosFaltando: number;
+  aulasAte: number;
+  dataFimPrevista: string;
+  /** Já calculado no servidor: a tela não refaz a conta e não diverge dela. */
+  apertado: boolean;
+}
+
+export interface ProgressoCadeira {
+  cadeiraId: string;
+  disciplina: string;
+  turma: string;
+  corHex: string;
+  anoLetivo: number;
+  semestre: number | null;
+  plano: { id: string; nome: string } | null;
+  total: number;
+  cobertos: number;
+  /** null = cadeira sem plano. A tela convida a vincular, não mostra barra vazia. */
+  percentual: number | null;
+  unidadeAtual: { id: string; titulo: string; cobertos: number; total: number } | null;
+  aulasRegistradas: number;
+  ultimaAulaEm: string | null;
+  ritmo: Ritmo | null;
+  irmas: { cadeiraId: string; turma: string }[];
+}
+
+export interface ProgressoUnidade {
+  id: string;
+  ordem: number;
+  titulo: string;
+  dataFimPrevista: string | null;
+  total: number;
+  cobertos: number;
+  faltando: { id: string; titulo: string }[];
+  concluida: boolean;
+}
+
+/** Resposta de `GET /progresso/:cadeiraId`. */
+export interface ProgressoDetalhe {
+  resumo: ProgressoCadeira;
+  unidades: ProgressoUnidade[];
+}
+
 // ---- Admin (só para quem passa no AdminGuard da API) ----
 
 export interface AdminResumo {

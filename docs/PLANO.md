@@ -457,7 +457,7 @@ progresso — senão o número que ela mostra para a coordenação é, em parte,
 Na prática o filtro é barato: `salvarFechamento` sempre preenche `revisadoEm`, então só rascunho
 pendente fica de fora.
 
-### 5a — Progresso por cadeira e unidade
+### 5a — Progresso por cadeira e unidade — **feito**
 
 O numerador sai de `RegistroTopico` (distinto, porque um tópico revisitado em três aulas conta
 uma vez); o denominador, dos tópicos das unidades do `PlanoCurricular` da cadeira.
@@ -471,9 +471,14 @@ uma vez); o denominador, dos tópicos das unidades do `PlanoCurricular` da cadei
 pendentes com as ocorrências `AGENDADA` até `Unidade.dataFimPrevista`. É o único lugar do sistema
 que transforma registro em aviso, e é o que justifica a fase.
 
-**Turmas irmãs lado a lado** sai quase de graça depois disso: mesmo plano, cadeiras diferentes,
-uma coluna cada. *"8ºA na unidade 2, 8ºB na 3"* é exatamente o que 11 turmas tornam difícil de
-manter na cabeça — e o motivo de o `PlanoCurricular` ter sido separado da cadeira na fase 3.
+**Turmas irmãs lado a lado** saiu quase de graça depois disso: mesmo plano, cadeiras diferentes.
+E o dado de teste mostrou o valor sozinho — 8ºA e 8ºB no mesmo ponto do plano, mas *"3 aulas até
+21/08"* contra *"2 aulas"*. Mesmo progresso, ritmos diferentes; é o que 11 turmas tornam impossível
+de manter na cabeça, e o motivo de o `PlanoCurricular` ter sido separado da cadeira na fase 3.
+
+Cuidado de desempenho que a implementação toma: **três consultas no total, não três por cadeira.**
+Com onze cadeiras, o laço ingênuo seriam trinta e três idas ao banco para desenhar uma tela; o
+agrupamento acontece em memória, onde o volume de uma professora cabe folgado.
 
 Cadeira sem plano vinculado não tem denominador. Mostra as aulas registradas e um convite para
 vincular um plano, nunca uma barra vazia que parece atraso.
