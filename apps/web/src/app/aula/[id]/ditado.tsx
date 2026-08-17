@@ -83,7 +83,10 @@ export function Ditado({
   return (
     <div className="space-y-2 rounded-md border border-dashed bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor="fala">Conte o que você deu</Label>
+        {/* "Do seu jeito" separa este campo do de baixo antes de ela digitar:
+            aqui ela fala solto, ali fica o registro. Sem isso são duas caixas
+            de texto iguais e ela precisa descobrir a diferença tentando. */}
+        <Label htmlFor="fala">Conte a aula do seu jeito</Label>
         {disponivel && (
           <Button
             type="button"
@@ -108,8 +111,9 @@ export function Ditado({
 
       <p className="text-xs text-muted-foreground">
         {disponivel
-          ? 'Fale normalmente. O microfone do teclado também escreve aqui.'
-          : 'Toque no microfone do teclado do seu celular para falar em vez de digitar.'}
+          ? 'Fale normalmente, sem se preocupar com a forma. O microfone do teclado também escreve aqui.'
+          : 'Toque no microfone do teclado do seu celular para falar em vez de digitar.'}{' '}
+        Isto aqui não vira registro sozinho — o botão abaixo é que preenche os campos.
       </p>
 
       <Button

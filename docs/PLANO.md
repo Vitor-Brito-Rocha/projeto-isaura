@@ -483,27 +483,33 @@ agrupamento acontece em memória, onde o volume de uma professora cabe folgado.
 Cadeira sem plano vinculado não tem denominador. Mostra as aulas registradas e um convite para
 vincular um plano, nunca uma barra vazia que parece atraso.
 
-### 5b — Linha do tempo da cadeira
+### 5b — Linha do tempo da cadeira — **feita**
 
 `GET /registros?cadeiraId=&pagina=` — os registros revisados em ordem cronológica, com conteúdo,
 unidade, tópicos e anexos. É a tela que ela abre quando a coordenação pergunta o que foi dado.
 
 Reaproveita a paginação de `AdminService.erros`, que já resolve o mesmo problema.
 
-### 5c — Busca no histórico
+### 5c — Busca no histórico — **feita**
 
-`ILIKE` sem índice, sobre `conteudoDado`, `planoPrevisto` e `atividadeCasa`, filtrado por
-professor.
+Sobre `conteudoDado`, `planoPrevisto`, `atividadeCasa` e `planoProximaAula`, filtrada por professor.
 
-**Deliberadamente burro.** Uma professora gera algo como 500 registros por ano; `tsvector` com
-stemming em português, coluna gerada e migration é engenharia para um problema que ela não tem.
-Se um dia a busca ficar lenta, `pg_trgm` é uma migration de uma linha — e aí já haverá um número
-real para justificar.
+**Deliberadamente burra quanto a desempenho**, e não quanto a acerto. Sem índice: são ~500
+registros por ano e a varredura é instantânea; `tsvector` com stemming seria engenharia para um
+problema que ela não tem.
+
+**Mas `ILIKE` puro não bastava, e isso só apareceu medindo.** Com o `contains` do Prisma, `frações`
+achava 14 registros e **`fracoes` achava zero** — e ela digita no celular, com pressa, entre uma
+aula e outra. A correção é a extensão `unaccent` do Postgres, que o Supabase já oferece, aplicada
+numa consulta crua que só colhe ids; o `findMany` com os `include` continua em Prisma.
+
+Sem a extensão instalada, a busca **degrada para o casamento com acento** em vez de devolver 500, e
+o log diz qual comando rodar. Pior busca é melhor que tela de erro.
 
 Buscar em `transcricaoBruta` **não** entra: é o campo que pode conter nome de aluno, e busca é o
 caminho mais fácil de transformar um campo privado em índice consultável.
 
-### 5d — Exportação
+### 5d — Exportação — **feita**
 
 Dois formatos, nenhuma dependência nova:
 

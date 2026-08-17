@@ -127,3 +127,18 @@ ALTER TABLE anexos ADD CONSTRAINT anexos_um_dono CHECK (
   OR
   (registro_id IS NULL AND plano_curricular_id IS NOT NULL)
 );
+
+-- ---------------------------------------------------------------------------
+-- unaccent: busca no histórico que não exige acento.
+--
+-- Medido antes de instalar: com ILIKE puro, "frações" achava 14 registros e
+-- "fracoes" achava ZERO. Ela digita no celular, com pressa, entre uma aula e
+-- outra — busca que exige o acento certo é busca que não funciona.
+--
+-- Sem índice funcional por enquanto: são ~500 registros por professora e a
+-- varredura é instantânea. Um índice sobre unaccent() exigiria envolvê-la numa
+-- função IMMUTABLE própria, que é dívida a pagar quando houver número que a
+-- justifique.
+-- ---------------------------------------------------------------------------
+
+CREATE EXTENSION IF NOT EXISTS unaccent;

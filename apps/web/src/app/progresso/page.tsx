@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, TriangleAlert } from 'lucide-react';
+import { ChevronRight, History, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,19 @@ export default function Progresso() {
       titulo="Progresso"
       descricao={
         data ? (apertadas > 0 ? `${apertadas} turma(s) apertada(s)` : 'Nenhuma turma atrasada') : undefined
+      }
+      /*
+        Histórico entra aqui e não na barra de navegação: "onde eu parei" e "o
+        que eu dei" são a mesma pergunta por dois ângulos, e um sexto item
+        espremeria a barra do celular sem ganhar nada.
+      */
+      acao={
+        <Button asChild size="sm" variant="outline">
+          <Link href="/historico">
+            <History />
+            Histórico
+          </Link>
+        </Button>
       }
     >
       <div className="space-y-3">

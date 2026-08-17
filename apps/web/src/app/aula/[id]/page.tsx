@@ -344,13 +344,19 @@ function FormFechamento({
           />
         )}
 
-        {/* Sem rótulo visível: o título do card já É a pergunta deste campo, e
-            repetir "Conteúdo dado" logo abaixo de "O que você deu?" faz parecer
-            que são duas coisas diferentes. */}
+        {/*
+          O rótulo já foi `sr-only`, com a justificativa de que o título do card
+          era a pergunta deste campo. Deixou de ser verdade quando o cartão de
+          ditado e a sugestão da turma irmã entraram no meio: sobraram duas
+          caixas de texto parecidas, sem nada dizendo qual delas fica.
+
+          A distinção não é de forma, é de consequência — uma é a fala, que só
+          a IA lê; a outra é o registro, que vira histórico, progresso e
+          relatório. Por isso o rótulo voltou dizendo o que o campo É, e não
+          repetindo a pergunta do título.
+        */}
         <div className="space-y-1.5">
-          <Label htmlFor="conteudo" className="sr-only">
-            O que você deu
-          </Label>
+          <Label htmlFor="conteudo">No registro, fica assim</Label>
           <Textarea
             id="conteudo"
             value={conteudo}
@@ -358,6 +364,9 @@ function FormFechamento({
             placeholder="Ex.: frações equivalentes, exercícios 1 a 8"
             rows={4}
           />
+          <p className="text-xs text-muted-foreground">
+            É este texto que entra no histórico e conta no progresso da turma.
+          </p>
         </div>
 
         {unidades.length > 0 ? (

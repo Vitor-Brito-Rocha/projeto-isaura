@@ -163,6 +163,32 @@ export interface ContextoAula {
   };
 }
 
+// ---- Histórico ----
+
+/**
+ * Uma aula registrada, do jeito que o histórico devolve.
+ *
+ * `transcricaoBruta` e `resumoPadronizado` **não existem aqui de propósito**: o
+ * endpoint não os busca do banco. É o que garante que a exportação — o artefato
+ * que sai da mão dela — nunca carregue a fala, que pode ter nome de aluno.
+ */
+export interface LinhaDoHistorico {
+  registroId: string;
+  ocorrenciaId: string;
+  data: string;
+  horaInicio: string;
+  horaFim: string;
+  cadeira: { id: string; disciplina: string; turma: string; corHex: string };
+  unidade: string | null;
+  topicos: string[];
+  planoPrevisto: string | null;
+  conteudoDado: string | null;
+  atividadeCasa: string | null;
+  dataEntrega: string | null;
+  planoProximaAula: string | null;
+  anexos: number;
+}
+
 // ---- Progresso ----
 
 /** Tópicos que faltam contra aulas que sobram. Null quando não há prazo. */

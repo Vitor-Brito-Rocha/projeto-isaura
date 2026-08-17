@@ -184,6 +184,16 @@ sanitização de nome, teto de 10 MB, URL assinada na leitura, descarte de áudi
 como as duas cópias divergem. O documento do plano **não pendura numa aula**: cobre o período
 inteiro, e é o que ela olha na tela enquanto digita as unidades.
 
+**A fala não sai pela exportação, e isso é estrutural.** O `select` do `HistoricoService` não busca
+`transcricaoBruta` nem `resumoPadronizado` — não é omissão na tela. O histórico alimenta a lista, a
+busca, o CSV e o relatório de impressão, e é o artefato que sai da mão dela para a coordenação. A
+busca também não varre a fala: busca é o jeito mais fácil de transformar campo privado em índice
+consultável.
+
+**Busca ignora acento, por `unaccent`.** Medido: `frações` achava 14 registros e `fracoes` achava
+zero. Consulta crua só para colher ids; o `findMany` com os `include` segue em Prisma. Sem a
+extensão instalada, degrada para o casamento com acento e loga o comando — nunca 500.
+
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
 API em vez de o front falar direto com o serviço.
