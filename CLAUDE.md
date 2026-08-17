@@ -12,9 +12,13 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`); a **tela** de séries só chegou em `3670473` |
 | 2 — Os dois alarmes + casca PWA | feita (`aa71e52`, `37baa31`, `9c8dfdb`); falta só a verificação em aparelho real |
 | 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
-| 4 — Voz e resumo padronizado | **em andamento** (`HEAD`) — construída, **não verificada: conta Anthropic sem saldo** |
-| 5 — Progresso e histórico | não começada |
-| 6 — Capacitor no Android | não começada (deixou de ser condicional) |
+| 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
+| 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
+| 6 — Capacitor no Android | **próxima** (deixou de ser condicional) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
+
+> Esta tabela ficou três fases atrasada uma vez, enquanto as Convenções abaixo eram atualizadas a
+> cada commit. É o primeiro que uma sessão lê: **atualize a linha da fase no mesmo commit que a
+> entrega**, senão a próxima sessão começa reconstruindo algo que já existe.
 
 ### Fase 4 — o que existe
 
@@ -42,16 +46,15 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 
 ### O que falta na fase 4
 
-- **Uma chamada real que passe.** Nenhum dos dois caminhos foi exercitado ponta a ponta:
-  - **Anthropic** — a chave autentica (chega na org e no workspace certos), mas toda chamada volta
-    `400` de crédito. **A cobrança é checada antes da validação de parâmetros** — testei com um
-    modelo inexistente e o erro é o mesmo —, então o schema, o `output_config.format` e a ausência
-    de `effort` **ainda não foram aceitos por ninguém**.
-  - **Groq** — falta a chave (`GROQ_API_KEY` em `apps/api/.env`, grátis em console.groq.com) e
-    `IA_PROVEDOR="groq"`. O `response_format`/`strict` também não foi validado por ninguém ainda.
-
-  Não tratar nenhum dos dois como funcionando até uma chamada real passar.
 - **Comparar com 5 falas reais dela**, que é o critério de aceite da fase (PLANO, "Verificação").
+  O que `fbb7499` mediu foram falas de exemplo, não as dela — a resolução de referência funcionou
+  ("continuei o que eu tinha planejado" → "Terminou frações equivalentes e iniciou a soma"), mas
+  quem decide se o resumo está certo é ela reconhecendo a própria aula.
+- **O caminho Anthropic continua não exercitado.** A chave autentica (chega na org e no workspace
+  certos), mas toda chamada volta `400` de crédito, e **a cobrança é checada antes da validação de
+  parâmetros** — com um modelo inexistente o erro é o mesmo. Então `output_config.format` e a
+  ausência de `effort` ainda não foram aceitos por ninguém. Só importa se um dia trocar de provedor:
+  hoje quem roda é a Groq, verificada.
 
 ### O que falta na fase 3
 

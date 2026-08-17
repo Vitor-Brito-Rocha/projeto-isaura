@@ -438,7 +438,7 @@ mostrar se é necessária.
 
 ---
 
-## Fase 5 — detalhamento (próxima a executar)
+## Fase 5 — detalhamento (entregue em `e5598f2`…`3fd2fd5`)
 
 Toda a fase 5 é **leitura**. Nenhuma tabela nova, nenhuma coluna nova, nenhuma policy nova — o
 schema que a fase 3 deixou já tem tudo: `RegistroTopico` liga registro a tópico, `Unidade.ordem` dá
