@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
@@ -28,7 +29,21 @@ import { SeriesModule } from './series/series.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    /**
+     * O caminho do `.env` é absoluto de propósito.
+     *
+     * O padrão do ConfigModule é `.env` no diretório de EXECUÇÃO, e isso quebra
+     * em silêncio toda vez que alguém sobe a API de outro lugar que não
+     * `apps/api` — a aplicação inicia, nada é carregado, e o primeiro sinal é
+     * "Environment variable not found: DATABASE_URL" com um stack do Prisma que
+     * aponta para o schema, não para o arquivo faltando.
+     *
+     * `__dirname` é `apps/api/dist` depois do build (é `dist/main.js` que roda,
+     * inclusive no `nest start --watch`), então `..` chega em `apps/api` nos
+     * dois modos. O `.env` na RAIZ do repositório continua não sendo lido por
+     * ninguém, de propósito.
+     */
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: join(__dirname, '..', '.env') }),
     // 100 req/min por IP. Rotas de auth apertam isso com @Throttle no controller.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
