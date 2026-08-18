@@ -11,14 +11,42 @@ export interface SupabaseSession {
   user: { id: string; email?: string };
 }
 
+/**
+ * O front está em OUTRO site que não a API?
+ *
+ * No caminho normal do navegador, não: as chamadas vão para a origem do Next,
+ * que repassa, e tudo é same-origin. Mas em dois casos o front fala direto com a
+ * API, e aí `SameSite=Lax` descarta o cookie na ida — o navegador guarda e
+ * simplesmente não manda. O sintoma é cruel: o login parece dar certo e a tela
+ * seguinte já está deslogada, sem erro nenhum.
+ *
+ * 1. Front publicado (Vercel) apontando para a API por um túnel (ngrok) ou pelo
+ *    endereço da VPS — que é como se testa a mesma tela contra ambientes
+ *    diferentes sem gerar build novo.
+ * 2. O wrapper Capacitor, que não tem o proxy do Next.
+ *
+ * Fica atrás de variável porque afrouxa uma defesa de verdade: `Lax` é o que
+ * impede um site qualquer de disparar requisição autenticada em nome dela. Com
+ * `None`, quem barra passa a ser só o CORS (`WEB_ORIGIN`) — então ligar isto
+ * obriga a manter aquela lista curta e certa.
+ */
+function crossSite(config: ConfigService): boolean {
+  return config.get<string>('COOKIE_CROSS_SITE') === '1';
+}
+
 function opcoes(config: ConfigService, maxAgeMs: number) {
   const producao = config.get<string>('NODE_ENV') === 'production';
+  const entreSites = crossSite(config);
   return {
     httpOnly: true,
     // `secure` só em produção: em localhost o navegador recusa cookie secure
     // sobre http, e o login simplesmente não persistiria em dev.
-    secure: producao,
-    sameSite: 'lax' as const,
+    //
+    // Com `SameSite=None` deixa de ser escolha: o navegador DESCARTA o cookie
+    // sem `Secure`. Por isso os dois andam juntos — e por isso o outro lado do
+    // túnel precisa ser https (ngrok já é; `localhost:3333` cru não serve).
+    secure: entreSites || producao,
+    sameSite: entreSites ? ('none' as const) : ('lax' as const),
     path: '/',
     maxAge: maxAgeMs,
   };

@@ -14,7 +14,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
-| 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita; faltam A (build na nuvem), C (auth cross-origin) e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
+| 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita e o lado de API da frente C também (`COOKIE_CROSS_SITE`); faltam A (build na nuvem), o lado wrapper de C e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
 | 7 — Exportação com filtros | **feita** (`HEAD`); falta ela exportar um bimestre real e mandar |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
@@ -274,6 +274,17 @@ porque o Next inlina `NEXT_PUBLIC_*` no bundle: salvar a variável no painel da 
 nada até sair um build novo (aconteceu num deploy do Vercel — subiu inteiro, sem erro, e só faltava
 o botão). Quando a troca some da tela, suspeite da variável ausente antes do código;
 `components/trocar-api.spec.ts` trava os dois lados, porque a falha é muda nos dois.
+
+**O cookie de sessão é `SameSite=Lax`, e `COOKIE_CROSS_SITE=1` é a exceção consciente.** No
+caminho normal o front pede `/api` da própria origem e o Next repassa — tudo same-origin, `Lax`
+vale e não há preflight. Quando o front fala DIRETO com a API (front publicado apontando para um
+túnel ou para a VPS, e o wrapper), `Lax` faz o navegador **guardar o cookie e não mandá-lo**: o
+login parece dar certo e a tela seguinte já está deslogada, sem erro em lugar nenhum. A variável
+troca para `None` e **força `Secure` junto** — sem ele o navegador descarta calado, então os dois
+lados precisam ser https. Ligar isso afrouxa uma defesa de verdade (`Lax` é o que impede site
+qualquer de disparar chamada autenticada em nome dela) e deixa o `WEB_ORIGIN` como único porteiro:
+mantenha aquela lista curta. `clearSessionCookies` repete os mesmos atributos de propósito — cookie
+apagado com `SameSite` diferente é outro cookie, e o antigo sobreviveria ao logout.
 
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
