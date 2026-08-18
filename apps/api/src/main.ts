@@ -53,7 +53,30 @@ async function bootstrap() {
 
   const port = config.get<number>('API_PORT') ?? 3333;
   await app.listen(port);
+
+  /**
+   * Diz em voz alta como o cookie vai sair.
+   *
+   * A combinação errada não dá erro em lugar nenhum: o login responde 200, o
+   * navegador descarta o cookie calado e TODA chamada seguinte volta "Token de
+   * autenticação ausente". Sem esta linha, o único jeito de saber se a variável
+   * pegou era abrir o DevTools e ler o `set-cookie` — e o palpite mais provável
+   * ("o código quebrou") é justamente o errado.
+   */
+  const entreSites = config.get<string>('COOKIE_CROSS_SITE') === '1';
+  const externas = webOrigin.split(',').filter((o) => !/localhost|127\.0\.0\.1/.test(o));
+
   console.log(`API ouvindo em http://localhost:${port}/api`);
+  console.log(
+    `Cookie de sessão: SameSite=${entreSites ? 'None; Secure' : 'Lax'} · WEB_ORIGIN: ${webOrigin}`,
+  );
+  if (externas.length && !entreSites) {
+    console.warn(
+      `⚠  ${externas.join(', ')} está no WEB_ORIGIN, mas o cookie é SameSite=Lax: o navegador ` +
+        'NÃO vai mandá-lo de outro site, e toda chamada volta 401 depois de um login que deu 200. ' +
+        'Ligue COOKIE_CROSS_SITE=1 em apps/api/.env (e reinicie) se o front fala direto com a API.',
+    );
+  }
 }
 
 bootstrap().catch((e) => {
