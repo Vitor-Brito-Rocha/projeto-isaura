@@ -1,23 +1,14 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { Check, Info, Plug } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  avisoDeBase,
-  BASE_PADRAO,
-  baseDaApi,
-  definirBaseDaApi,
-  PODE_ALTERNAR,
-  validarBase,
-} from '@/lib/base-api';
+import { useTrocaDeApi } from '@/components/trocar-api';
+import { BASE_PADRAO, PODE_ALTERNAR } from '@/lib/base-api';
 
 /**
  * Trocar para qual API o app fala, sem build novo.
@@ -31,50 +22,16 @@ import {
  * que pode ser trocado para o lugar errado.
  */
 export function AlternarApi() {
-  const qc = useQueryClient();
-  const [atual, setAtual] = useState(BASE_PADRAO);
-  const [campo, setCampo] = useState('');
-
-  // Só no cliente: `baseDaApi` lê localStorage, que não existe no SSR.
-  useEffect(() => {
-    const base = baseDaApi();
-    setAtual(base);
-    setCampo(base);
-  }, []);
+  const t = useTrocaDeApi();
 
   if (!PODE_ALTERNAR) return null;
-
-  const erro = campo === atual ? null : validarBase(campo);
-  const aviso = campo === atual ? null : avisoDeBase(campo);
-  const alternada = atual !== BASE_PADRAO;
-
-  function aplicar(destino: string | null) {
-    definirBaseDaApi(destino);
-    const base = baseDaApi();
-    setAtual(base);
-    setCampo(base);
-
-    /**
-     * Limpar o cache não é zelo — é correção.
-     *
-     * O React Query guarda por chave de consulta, não por servidor. Sem isto, a
-     * agenda do ambiente antigo continuaria na tela depois da troca, e a
-     * conferência entre ambientes compararia dado velho com dado novo.
-     */
-    qc.clear();
-
-    toast.success(`Agora falando com ${base}`, {
-      description: 'A sessão é por endereço — talvez precise entrar de novo.',
-      duration: 7000,
-    });
-  }
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-base">Endereço da API</CardTitle>
-          {alternada && <Badge variant="alarme">alternado</Badge>}
+          {t.alternada && <Badge variant="alarme">alternado</Badge>}
         </div>
         <CardDescription>
           Para testar a mesma tela contra ambientes diferentes sem gerar outro build.
@@ -86,28 +43,28 @@ export function AlternarApi() {
           <Label htmlFor="base-api">Endereço</Label>
           <Input
             id="base-api"
-            value={campo}
-            onChange={(e) => setCampo(e.target.value)}
+            value={t.campo}
+            onChange={(e) => t.setCampo(e.target.value)}
             placeholder="http://localhost:3333/api"
             autoComplete="off"
             spellCheck={false}
             inputMode="url"
           />
           <p className="text-xs text-muted-foreground">
-            Em uso: <strong className="text-foreground">{atual}</strong>
-            {alternada && ` · padrão deste build: ${BASE_PADRAO}`}
+            Em uso: <strong className="text-foreground">{t.atual}</strong>
+            {t.alternada && ` · padrão deste build: ${BASE_PADRAO}`}
           </p>
-          {erro && <p className="text-xs text-destructive">{erro}</p>}
-          {!erro && aviso && <p className="text-xs text-muted-foreground">{aviso}</p>}
+          {t.erro && <p className="text-xs text-destructive">{t.erro}</p>}
+          {!t.erro && t.aviso && <p className="text-xs text-muted-foreground">{t.aviso}</p>}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={Boolean(erro) || campo === atual} onClick={() => aplicar(campo)}>
+          <Button size="sm" disabled={Boolean(t.erro) || !t.mudou} onClick={() => t.aplicar(t.campo)}>
             <Check />
             Usar este
           </Button>
-          {alternada && (
-            <Button size="sm" variant="outline" onClick={() => aplicar(null)}>
+          {t.alternada && (
+            <Button size="sm" variant="outline" onClick={() => t.aplicar(null)}>
               <Plug />
               Voltar ao padrão
             </Button>

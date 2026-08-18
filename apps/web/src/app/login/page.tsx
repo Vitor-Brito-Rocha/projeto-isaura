@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TrocarApiCompacto } from '@/components/trocar-api';
 import { apiFetch } from '@/lib/api';
 
 export default function Login() {
@@ -64,6 +65,8 @@ export default function Login() {
           Entrar
         </Button>
       </form>
+
+      <TrocarApiCompacto />
 
       <p className="text-center text-sm text-muted-foreground">
         Ainda não tem conta?{' '}
