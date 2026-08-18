@@ -139,6 +139,36 @@ Depois de mexer no `schema.prisma`: `prisma:generate` → `prisma:push` → `pri
 **Tabela nova exige policy nova** em `apps/api/prisma/sql/enable-rls.sql` — o Prisma não
 gera RLS, e uma tabela sem policy vaza entre contas sem erro nenhum.
 
+### Subir a API na VPS
+
+`docker-compose.yml` na raiz + `apps/api/Dockerfile`. No EasyPanel: Build Path `.` (a RAIZ — o
+`package-lock.json` mora lá e `npm ci` sem ele instala versões diferentes das testadas),
+Dockerfile Path `apps/api/Dockerfile`, domínio apontando para a porta de `API_PORT`.
+
+**Um serviço só, e nenhum Postgres no compose:** o banco é o Supabase e o front vai para a Vercel.
+Subir um segundo banco ao lado seria dois lugares onde o dado dela pode estar.
+
+**A porta em `expose` é interna do Docker e não briga com o host.** Cada container tem o próprio
+espaço de rede, então `3334` aqui dentro convive com qualquer coisa na `3334` da máquina. Só
+`ports:` publica de verdade — e publicar deixaria a API em HTTP puro por fora do proxy, com o
+cookie `Secure` do outro lado.
+
+**As variáveis obrigatórias usam `${VAR:?}`, que derruba o deploy quando faltam.** É de propósito:
+sem `DATABASE_URL` a API sobe, responde 500 em tudo e o health fica vermelho — barulho que custa
+meia hora para virar "faltou a variável". As de push entram na mesma lista porque a falha delas é
+pior: a API sobe inteira, o app deixa ativar as notificações e nenhum alarme sai.
+
+**O `docker-entrypoint.sh` roda `db push` e o `enable-rls.sql` a cada boot, e é fail-closed.** Os
+dois são idempotentes (todo `CREATE POLICY` vem depois de um `DROP POLICY IF EXISTS`), então
+repetir é no-op. O RLS vai junto porque tabela nova sem policy vaza entre contas sem erro nenhum —
+com ele no boot, é impossível a API subir sem as policies. O `db execute` vai pela `DIRECT_URL`:
+DDL pelo pooler em modo transaction falha de formas confusas. Se qualquer passo falhar, o container
+não chega a escutar e o EasyPanel mantém o anterior servindo.
+
+**`NODE_OPTIONS=--max-old-space-size` fica abaixo do limite do container** para o V8 coletar lixo
+antes de o kernel matar o processo. Sem isso o Node olha a RAM da máquina inteira, enche à vontade
+e leva OOM kill — que aparece como "a API reiniciou sozinha", sem nada no log.
+
 ## Convenções
 
 **Domínio em português.** `Ocorrencia`, `Cadeira`, `RegistroAula`, `alarmeAbertura` — a professora

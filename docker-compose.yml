@@ -1,0 +1,104 @@
+# A API na VPS. O front vai para a Vercel e o banco é o Supabase — por isso
+# aqui tem UM serviço só, e nenhum Postgres: subir um segundo banco ao lado
+# seria dois lugares onde o dado dela pode estar.
+#
+# No EasyPanel, do jeito que o projeto-professor subiu:
+#   Tipo do serviço: Compose (ou App com Build Path "." e Dockerfile
+#   "apps/api/Dockerfile" — o Dockerfile é o mesmo nos dois casos)
+#   Domínio → porta 3333, com HTTPS ligado.
+#   As variáveis abaixo vão no painel de Environment do serviço.
+#
+# Local: `docker compose up --build`, com um `.env` nesta pasta (não é o mesmo
+# de `apps/api/.env`; este aqui só alimenta a interpolação abaixo).
+
+services:
+  api:
+    build:
+      # Raiz do monorepo: o package-lock está aqui, e `npm ci` precisa dele.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+
+    # `expose` e não `ports`: quem termina o HTTPS é o proxy do EasyPanel.
+    # Publicar a porta no host deixaria a API acessível em HTTP puro por fora
+    # do proxy — e o cookie de sessão é `Secure`, então esse caminho não serve
+    # para nada além de vazar tráfego.
+    #
+    # Com `expose`, a porta é INTERNA da rede do Docker e não briga com nada
+    # que já esteja rodando na VPS: cada container tem o próprio espaço de
+    # rede, então 3333 aqui dentro e 3333 no host são portas diferentes. Só
+    # descomentar `ports` cria conflito de verdade — e aí `API_PORT` resolve.
+    expose:
+      - '${API_PORT:-3334}'
+    # ports:
+    #   - '${API_PORT:-3334}:${API_PORT:-3334}'
+
+    environment:
+      # ---- Banco (Supabase) ----
+      # `:?` faz o deploy FALHAR na hora se a variável não existir. É de
+      # propósito: sem banco a API sobe, responde 500 em tudo e o health fica
+      # vermelho — barulho que custa meia hora para virar "ah, faltou a
+      # variável". Melhor não subir.
+      DATABASE_URL: '${DATABASE_URL:?defina a URL do pooler (6543, pgbouncer=true)}'
+      DIRECT_URL: '${DIRECT_URL:?defina a conexão direta (5432) — o entrypoint usa ela para DDL}'
+
+      # ---- Supabase Auth ----
+      SUPABASE_URL: '${SUPABASE_URL:?sem isto nenhum JWT é validado e ninguém entra}'
+      SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY:?}'
+
+      # ---- Web Push ----
+      # Obrigatórias, e não opcionais com aviso: sem elas a API sobe inteira,
+      # o app deixa ativar as notificações e NENHUM alarme sai. O produto todo
+      # é o alarme; falhar calado nisto é o pior desfecho possível.
+      VAPID_PUBLIC_KEY: '${VAPID_PUBLIC_KEY:?gere com `npx web-push generate-vapid-keys`}'
+      VAPID_PRIVATE_KEY: '${VAPID_PRIVATE_KEY:?}'
+      VAPID_SUBJECT: '${VAPID_SUBJECT:?um mailto:, exigido pelo padrão VAPID}'
+
+      # ---- API ----
+      # A porta que o Nest escuta DENTRO do container — é ela que vai no campo
+      # de porta do EasyPanel ao apontar o domínio. O healthcheck do Dockerfile
+      # lê esta mesma variável, então mudar aqui basta.
+      API_PORT: '${API_PORT:-3334}'
+      NODE_ENV: production
+      # Quem pode chamar pelo navegador. Lista separada por vírgula, e mantenha
+      # curta: com COOKIE_CROSS_SITE ligado, é o único porteiro que sobra.
+      WEB_ORIGIN: '${WEB_ORIGIN:?ex.: https://projeto-isaura.vercel.app}'
+
+      # Só ligue (=1) se o front falar DIRETO com esta API. Com o proxy do Next
+      # (API_INTERNAL_URL na Vercel) tudo é mesma origem e isto deve ficar
+      # vazio — ligado à toa, só afrouxa o SameSite sem dar nada em troca.
+      COOKIE_CROSS_SITE: '${COOKIE_CROSS_SITE:-}'
+
+      # ---- Opcionais: sem elas a API sobe e o resto funciona ----
+      # Sem a chave de serviço, anexo não sobe nem abre.
+      SUPABASE_SERVICE_ROLE_KEY: '${SUPABASE_SERVICE_ROLE_KEY:-}'
+      # Vazio = 5xx só vai para erros_log, sem avisar ninguém no celular.
+      ADMIN_EMAIL: '${ADMIN_EMAIL:-}'
+      SIGNUP_ABERTO: '${SIGNUP_ABERTO:-false}'
+      # Sem chave de IA, o resumo por voz não gera rascunho; o registro por
+      # texto continua inteiro.
+      IA_PROVEDOR: '${IA_PROVEDOR:-groq}'
+      GROQ_API_KEY: '${GROQ_API_KEY:-}'
+      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY:-}'
+
+      # Teto de heap ABAIXO do limite do container: assim o V8 coleta lixo em
+      # vez de o kernel matar o processo. Sem isto o Node só olha a RAM da
+      # máquina inteira, enche à vontade e leva um OOM kill — que aparece como
+      # "a API reiniciou sozinha", sem nada no log.
+      NODE_OPTIONS: --max-old-space-size=320
+
+    deploy:
+      resources:
+        limits:
+          # Folga sobre o uso real (~110-150 MB com o engine do Prisma junto).
+          # O pico previsível é a importação de PDF do plano de curso, que lê o
+          # arquivo inteiro em memória — teto de 10 MB por upload.
+          memory: 512M
+
+    logging:
+      # Sem isto o log cresce até acabar o disco da VPS, e o sintoma é o banco
+      # parando, não o log.
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

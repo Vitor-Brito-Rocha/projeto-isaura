@@ -1,0 +1,20 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+*.tsbuildinfo
+.git
+.github
+.env
+.env.local
+**/.env
+**/.env.local
+.claude
+docs
+# O front vai para a Vercel, não para este container — e é a maior parte do
+# contexto de build.
+apps/web
