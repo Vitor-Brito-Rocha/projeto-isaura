@@ -8,7 +8,7 @@ import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api';
 import { dataBR, dataHoraBR, diaEDataBR } from '@/lib/datas';
-import { useRedirecionaEmErro } from '@/lib/sessao';
+import { useExigeSessao, useRedirecionaEmErro } from '@/lib/sessao';
 import type { LinhaDoHistorico, Pagina, Perfil } from '@/lib/types';
 
 /**
@@ -33,6 +33,11 @@ export default function Relatorio() {
 
 function Conteudo() {
   const params = useSearchParams();
+  // Esta é a única tela autenticada que não passa pela `AppShell` — o layout de
+  // impressão não tem casca —, então a trava de sessão entra à mão. Sem ela,
+  // deslogada, a professora veria um relatório com zero aulas e cabeçalho
+  // completo: um documento em branco que parece dizer que ela não deu aula.
+  const sessao = useExigeSessao();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['historico', 'relatorio', params.toString()],
@@ -53,6 +58,8 @@ function Conteudo() {
   const de = params.get('de');
   const ate = params.get('ate');
   const turmas = [...new Set(itens.map((l) => `${l.cadeira.disciplina} · ${l.cadeira.turma}`))];
+
+  if (sessao === 'ausente') return null;
 
   return (
     <div className="mx-auto max-w-3xl bg-background px-6 py-8 text-foreground">

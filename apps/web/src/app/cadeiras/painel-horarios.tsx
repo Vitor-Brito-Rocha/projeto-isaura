@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarClock, CopyPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Confirmar } from '@/components/confirmar';
@@ -25,9 +25,12 @@ import {
   diaSemanaDe,
   faixaInvalida,
   horariosDoRascunho,
+  juntarDias,
   notaFrequencia,
+  ofertaDeRepeticao,
   rascunhoSerieDe,
   rascunhoSerieNovo,
+  repetirFaixa,
   resumoHorarios,
   rotuloFrequencia,
   type RascunhoSerie,
@@ -221,12 +224,21 @@ export function Editor({
   onCancelar: () => void;
 }) {
   const [r, setR] = useState<RascunhoSerie>(inicial);
+  /**
+   * Os dias cujo horário ELA digitou — não os que herdaram.
+   *
+   * É o que separa "ainda não mexi nos outros" de "cada dia tem a sua hora", e
+   * decide se a oferta de repetir aparece. Ver `ofertaDeRepeticao`.
+   */
+  const [tocados, setTocados] = useState<number[]>([]);
   const pontual = r.frequencia === 'PONTUAL';
 
   const selecionados = Object.keys(r.dias).map(Number).sort((a, b) => a - b);
   const faixaPontual = Object.values(r.dias)[0] ?? FAIXA_PADRAO;
 
-  const alternarDia = (n: number) =>
+  const alternarDia = (n: number) => {
+    // Desmarcar apaga a marca de "mexido": a hora dele saiu da tela junto.
+    setTocados((t) => t.filter((x) => x !== n));
     setR((atual) => {
       const dias = { ...atual.dias };
       if (dias[n]) {
@@ -240,14 +252,27 @@ export function Editor({
       dias[n] = { ...ultimo };
       return { ...atual, dias };
     });
+  };
 
-  const mudarFaixa = (n: number, campo: 'horaInicio' | 'horaFim', valor: string) =>
+  const mudarFaixa = (n: number, campo: 'horaInicio' | 'horaFim', valor: string) => {
+    setTocados((t) => (t.includes(n) ? t : [...t, n]));
     setR((atual) => ({
       ...atual,
       // `slice(0, 5)`: com `step` menor que 60 o campo devolve "HH:mm:ss", que a
       // API recusa pelo formato.
       dias: { ...atual.dias, [n]: { ...atual.dias[n], [campo]: valor.slice(0, 5) } },
     }));
+  };
+
+  const oferta = pontual ? null : ofertaDeRepeticao(r.dias, tocados);
+
+  const repetirEmTodos = () => {
+    if (!oferta) return;
+    setR((atual) => ({ ...atual, dias: repetirFaixa(atual.dias, oferta.faixa) }));
+    // Zera a marca: os dias voltaram a estar iguais, e a próxima correção dela
+    // é um gesto novo que merece a mesma oferta.
+    setTocados([]);
+  };
 
   const horarios = horariosDoRascunho(r);
   const invalidos = horarios.filter((h) => faixaInvalida(h.horaInicio, h.horaFim));
@@ -338,6 +363,25 @@ export function Editor({
             onChange={(campo, v) => mudarFaixa(n, campo, v)}
           />
         ))
+      )}
+
+      {/*
+        Oferta, não automatismo: mudar sozinho o horário de dias que ela não
+        tocou é exatamente o tipo de ajuda que faz perder a confiança no
+        sistema. O botão diz a hora e diz quais dias mudam, então o que vai
+        acontecer está escrito antes do toque.
+      */}
+      {oferta && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2">
+          <span className="min-w-0 flex-1 text-xs text-muted-foreground">
+            Os outros dias ainda estão em outro horário.
+          </span>
+          <Button type="button" size="sm" variant="outline" onClick={repetirEmTodos}>
+            <CopyPlus />
+            Usar {oferta.faixa.horaInicio}–{oferta.faixa.horaFim} {'em '}
+            {juntarDias(oferta.dias)}
+          </Button>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">

@@ -4,9 +4,34 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /**
+     * Não há sessão nenhuma — não é "este endpoint recusou".
+     *
+     * Só é verdade quando a renovação já foi tentada e falhou. É a diferença
+     * entre os dois desfechos que a tela precisa dar: 401 de um endpoint com
+     * problema não pode derrubar a sessão inteira, mas 401 com refresh morto
+     * não tem segunda leitura — ela não está logada, e mandá-la para a home
+     * para descobrir isso de novo é um degrau que não serve para nada.
+     */
+    readonly sessaoMorta = false,
   ) {
     super(message);
   }
+}
+
+/**
+ * Vale tentar renovar a sessão depois de um 401 aqui?
+ *
+ * Não nas rotas que ESTABELECEM sessão: 401 em `/auth/login` é senha errada, e
+ * renovar ali viraria laço. Mas `/auth/eu` é rota autenticada comum — barrar a
+ * renovação nela (o que uma regra por prefixo `/auth/` fazia) jogava para o
+ * login quem só estava com o access token vencido, tendo refresh válido no
+ * cookie. É o caso NORMAL depois de uma hora com o app aberto.
+ */
+export function podeRenovar(caminho: string): boolean {
+  return !['/auth/login', '/auth/signup', '/auth/refresh', '/auth/logout'].some((r) =>
+    caminho.startsWith(r),
+  );
 }
 
 /**
@@ -58,10 +83,12 @@ export async function apiFetch<T = unknown>(
 
   let resposta = await enviar();
 
-  // As próprias rotas de auth ficam de fora: um 401 em /auth/login é senha
-  // errada, e tentar renovar ali viraria laço.
-  if (resposta.status === 401 && !caminho.startsWith('/auth/')) {
+  let sessaoMorta = false;
+  if (resposta.status === 401 && podeRenovar(caminho)) {
     if (await renovarSessao()) resposta = await enviar();
+    // A renovação falhou: o cookie de refresh não existe ou já venceu. Daqui
+    // para a frente não há sessão a salvar, e a tela pode dizer isso direto.
+    else sessaoMorta = true;
   }
 
   if (!resposta.ok) {
@@ -69,7 +96,11 @@ export async function apiFetch<T = unknown>(
     // A API devolve `message` como string ou array (validação do class-validator).
     const bruta = (corpo as { message?: string | string[] }).message;
     const mensagem = Array.isArray(bruta) ? bruta.join('. ') : bruta;
-    throw new ApiError(resposta.status, mensagem ?? 'Não foi possível completar a ação.');
+    throw new ApiError(
+      resposta.status,
+      mensagem ?? 'Não foi possível completar a ação.',
+      sessaoMorta && resposta.status === 401,
+    );
   }
 
   if (resposta.status === 204) return undefined as T;

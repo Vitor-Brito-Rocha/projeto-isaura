@@ -16,6 +16,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { baseDaApi, estaAlternada, EVENTO_BASE_API } from '@/lib/base-api';
+import { useExigeSessao } from '@/lib/sessao';
 import { useFilaOffline } from '@/lib/usar-fila';
 import { cn } from '@/lib/utils';
 
@@ -97,6 +98,15 @@ export function AppShell({
 }) {
   const caminho = usePathname();
   const { pendentes } = useFilaOffline();
+  /**
+   * A casca É a fronteira de autenticação.
+   *
+   * Toda tela que exige login passa por aqui, e só o login e o cadastro ficam
+   * de fora — então a checagem mora num lugar só, em vez de depender de cada
+   * página lembrar. Não dá para ser middleware: o build do wrapper Android é
+   * `output: 'export'`, que não tem servidor para rodar middleware nenhum.
+   */
+  const sessao = useExigeSessao();
   // Admin entra só no topo. A objeção nunca foi ao número de itens: é que a
   // barra do celular não vale ser gasta com uma tela que existe para UMA conta.
   // "Progresso" é o oposto — é semanal e é de todo mundo, então entra nas duas.
@@ -122,6 +132,23 @@ export function AppShell({
   useEffect(() => {
     rolagem.current?.scrollTo({ top: 0 });
   }, [caminho]);
+
+  /**
+   * Sem sessão, nada do app aparece — nem por um quadro.
+   *
+   * O `useExigeSessao` já mandou para o login; isto é o que ela vê no caminho.
+   * Deixar `children` renderizar aqui era o defeito: as consultas da página
+   * respondiam 401, o React Query devolvia `undefined`, e a tela desenhava o
+   * estado VAZIO — "Nenhum plano de curso ainda" para quem só está deslogada.
+   */
+  if (sessao === 'ausente') {
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-2 bg-background px-6 text-center">
+        <p className="font-medium">Sua sessão terminou</p>
+        <p className="text-sm text-muted-foreground">Levando você para a tela de entrada…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background">

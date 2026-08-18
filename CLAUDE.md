@@ -78,6 +78,10 @@ dorme, e a decisão já foi tomada. Ver "Hospedagem" em `docs/PLANO.md`.
 
 - ~~Gerar as chaves VAPID~~, ~~colar as strings de conexão~~, ~~colar a chave de serviço do
   Storage~~ e ~~colar a chave da Anthropic~~ — **feito**.
+- **Colar os dois templates de email no Supabase** (`docs/emails/`, com o passo a passo no
+  `README.md` de lá) e conferir a **Site URL** e as **Redirect URLs** do projeto. Enquanto o
+  template de fábrica estiver lá, o link de confirmação cai na raiz do site com os tokens no
+  fragmento da URL — que nenhuma tela lê — e o de recuperação aponta para uma tela que não existe.
 - **Comprar crédito na conta da Anthropic.** A chave está no `.env` e autentica, mas a conta está
   zerada e nenhuma chamada passa. Bloqueia a fase 4 inteira.
 - **Criar a conta da professora e um plano curricular de verdade.** Para *testar*, use
@@ -121,7 +125,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 166 testes de API (63 de integração, pulados sem TEST_DATABASE_URL) + 116 de web
+npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 195 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -385,6 +389,65 @@ apagado com `SameSite` diferente é outro cookie, e o antigo sobreviveria ao log
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
 API em vez de o front falar direto com o serviço.
+
+**Cartão tem um respiro só, sem degrau por tamanho de tela.** O `cn` resolve conflito do Tailwind
+pelo MODIFICADOR, então um `sm:pt-0` no primitivo sobrevive a um `py-3` vindo de fora — e como
+media query sai depois no CSS, ela ganha. Medido: acima de 640px, todo `<CardContent
+className="py-3">` ficava com **zero** de padding em cima e 20 embaixo (pendências, progresso,
+filtro e cada linha do histórico, com o texto encostado na borda). No celular estava certo, e é por
+isso que passou tanto tempo. A regra que sobra: **`components/ui/*` não põe classe com `sm:` no que
+o `className` pode querer sobrescrever**.
+
+**`Label` ao lado de botão precisa de `block`.** `<label>` é inline e `Button` é inline-flex: os
+dois caem na mesma linha e o `space-y` do pai não separa nada — margem entre irmãos não vale para
+caixas na mesma linha. Era o que punha "Anexos" grudado em "Anexar foto ou PDF". Só aparece onde o
+irmão do rótulo não é um `<input>` de bloco.
+
+**A `AppShell` É a fronteira de autenticação.** `useExigeSessao` pergunta `/auth/eu` uma vez por
+carregamento e, sem sessão, a casca nem renderiza os filhos — vai para o login. Não dá para ser
+middleware: o build do wrapper é `output: 'export'` e não tem servidor. Antes, cada tela descobria
+o 401 pela própria consulta, e quem esquecesse o `useRedirecionaEmErro` (os Ajustes) ficava
+carregando para sempre; pior, **o modo de falhar era mostrar a tela VAZIA** — "Nenhum plano de curso
+ainda" para quem só está deslogada. `/historico/relatorio` chama o hook à mão, porque é a única tela
+autenticada sem casca. **Só 401 conta como deslogada**: rede caída vira `TypeError` e não pode
+expulsar do app justo quem está offline com registro na fila.
+
+**`ApiError.sessaoMorta` é o que separa os dois 401.** Só é verdade quando o `apiFetch` já tentou
+renovar e falhou — aí não há sessão, e `destinoDoErro` pula o degrau da home. O degrau continua
+existindo para o 401 que sobrevive a uma renovação bem-sucedida: aí quem recusou foi o endpoint, e
+um endpoint com problema não pode derrubar a sessão inteira. `podeRenovar` lista as rotas que
+ESTABELECEM sessão (`/auth/login`, `signup`, `refresh`, `logout`) em vez de barrar o prefixo
+`/auth/` inteiro — a regra antiga barrava `/auth/eu` e jogava para o login quem só estava com o
+access token de uma hora vencido.
+
+**Cancelar aula sai da tela, e a volta é medida pelo `history.length`** (`lib/navegacao.ts`).
+Cancelada, a tela deixou de ter assunto: o formulário some e sobra um cartão dizendo que a aula não
+vai acontecer. Volta para de onde ela veio — e **para a home quando não há de onde**, que é o caso
+do alarme: o push abre `/aula?ocorrencia=` direto, e `history.back()` ali sairia do app (tela branca
+num app instalado). A conta é o CRESCIMENTO do `history.length` desde o carregamento, não um
+contador de rotas visitadas: `replace` não empilha entrada, e é assim que `<RotaPorNotificacao>`
+troca de rota — um contador próprio acharia que houve navegação e mandaria `back()` para fora.
+Comparar com o valor do carregamento também descarta o site de onde ela veio. "Devolver à grade" NÃO
+volta: ali ela está retomando o trabalho nesta aula.
+
+**Horário repetido é oferta, nunca automatismo** (`ofertaDeRepeticao`). Marcados ter, qui e sex, os
+três nascem no padrão; ao corrigir um, o botão oferece levar a mesma faixa aos outros e **diz quais
+dias mudam antes do toque**. Some depois de ela mexer em DOIS dias — aí ela está dizendo que a grade
+não é uniforme, e insistir apagaria o que acabou de digitar. Complementa a herança que já existia no
+`alternarDia`, que só cobre quem acerta a hora antes de marcar os outros dias.
+
+**O link do email nunca leva credencial ao navegador.** Os dois templates (`docs/emails/`) mandam o
+`{{ .TokenHash }}` para uma tela nossa (`/senha?codigo=`, `/confirmar?codigo=`), e quem troca por
+sessão é a API pelo `/auth/v1/verify` — mesmo cookie httpOnly do login. O padrão do Supabase
+(`{{ .ConfirmationURL }}`) devolve com os tokens no FRAGMENTO da URL, que nenhuma tela lê: o
+desfecho era ela confirmar o cadastro, cair no login e concluir que não funcionou. `POST
+/auth/recuperar` responde `{ ok: true }` sempre, com email cadastrado ou não — mesma regra do login,
+senão o formulário vira verificador de quem tem conta.
+
+**Fuso na tela é cidade, não identificador** (`lib/fuso.ts`). `America/Sao_Paulo` é nome de sistema;
+o que fica guardado continua sendo o IANA inteiro, porque é ele que faz a conta de hora. Fuso
+desconhecido degrada para o último trecho — nunca para vazio, senão ela deixa de saber em que fuso
+está.
 
 **Nome de aluno não entra no REGISTRO** (dado pessoal de menor). Não é só instrução de prompt: o
 JSON schema de saída não tem campo de pessoa, então não há onde um nome caber mesmo se o modelo

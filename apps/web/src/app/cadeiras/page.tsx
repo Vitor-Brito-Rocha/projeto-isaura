@@ -238,7 +238,7 @@ function FormularioCadeira({
 
   return (
     <Card>
-      <CardContent className="pt-4 sm:pt-5">
+      <CardContent className="pt-4">
         <form
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {

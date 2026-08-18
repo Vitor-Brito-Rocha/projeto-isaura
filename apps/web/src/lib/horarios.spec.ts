@@ -1,4 +1,6 @@
 import {
+  ofertaDeRepeticao,
+  repetirFaixa,
   diaSemanaDe,
   faixaInvalida,
   hojeIso,
@@ -164,5 +166,88 @@ describe('rascunhoSerieDe', () => {
       { diaSemana: 2, horaInicio: '07:00', horaFim: '07:50' },
       { diaSemana: 4, horaInicio: '07:00', horaFim: '07:50' },
     ]);
+  });
+});
+
+/**
+ * O que estes testes protegem: ela não redigitar 07:00–07:50 cinco vezes.
+ *
+ * Com onze turmas, o cadastro da grade é o trecho mais repetitivo do produto —
+ * e é o primeiro que ela faz, antes de o app ter provado que serve para alguma
+ * coisa. Atrito aqui não custa tempo: custa o app.
+ */
+describe('ofertaDeRepeticao', () => {
+  const cedo = { horaInicio: '07:00', horaFim: '07:50' };
+  const tarde = { horaInicio: '09:20', horaFim: '10:10' };
+
+  it('oferece quando ela mexeu num dia e os outros ficaram para trás', () => {
+    const oferta = ofertaDeRepeticao({ 2: tarde, 4: cedo, 5: cedo }, [2]);
+
+    expect(oferta).toEqual({ faixa: tarde, dias: [4, 5] });
+  });
+
+  it('não oferece quando já está tudo igual', () => {
+    // Nada a fazer: o botão só existiria para não fazer nada.
+    expect(ofertaDeRepeticao({ 2: tarde, 4: tarde }, [2])).toBeNull();
+  });
+
+  it('não oferece com um dia só marcado', () => {
+    expect(ofertaDeRepeticao({ 2: tarde }, [2])).toBeNull();
+  });
+
+  it('não oferece antes de ela digitar hora nenhuma', () => {
+    // Todos no padrão: ainda não há horário "dela" para propagar.
+    expect(ofertaDeRepeticao({ 2: cedo, 4: cedo }, [])).toBeNull();
+  });
+
+  it('para de oferecer quando ela mexeu em dois dias', () => {
+    // Dois horários diferentes digitados à mão é ela dizendo que a grade não é
+    // uniforme. Insistir aqui apagaria o que ela acabou de escrever.
+    const meio = { horaInicio: '08:40', horaFim: '09:30' };
+    expect(ofertaDeRepeticao({ 2: tarde, 4: meio, 5: cedo }, [2, 4])).toBeNull();
+  });
+
+  it('não propaga faixa inválida', () => {
+    // O formulário nem deixaria salvar; espalhar o erro por cinco dias
+    // transformaria um conserto em cinco.
+    const invertida = { horaInicio: '10:00', horaFim: '09:00' };
+    expect(ofertaDeRepeticao({ 2: invertida, 4: cedo }, [2])).toBeNull();
+  });
+
+  it('dia mexido e depois desmarcado não gera oferta', () => {
+    expect(ofertaDeRepeticao({ 4: cedo, 5: cedo }, [2])).toBeNull();
+  });
+
+  it('lista os dias que mudam em ordem', () => {
+    // O botão diz quais dias mudam antes do toque; fora de ordem, ela lê duas
+    // vezes para conferir.
+    expect(ofertaDeRepeticao({ 5: tarde, 1: cedo, 3: cedo, 4: cedo }, [5])?.dias).toEqual([1, 3, 4]);
+  });
+});
+
+describe('repetirFaixa', () => {
+  it('põe a mesma faixa em todos os dias marcados', () => {
+    const nova = repetirFaixa(
+      { 2: { horaInicio: '09:20', horaFim: '10:10' }, 4: { horaInicio: '07:00', horaFim: '07:50' } },
+      { horaInicio: '09:20', horaFim: '10:10' },
+    );
+
+    expect(nova).toEqual({
+      2: { horaInicio: '09:20', horaFim: '10:10' },
+      4: { horaInicio: '09:20', horaFim: '10:10' },
+    });
+  });
+
+  it('não marca nem desmarca dia nenhum', () => {
+    const dias = { 1: { horaInicio: '07:00', horaFim: '07:50' } };
+    expect(Object.keys(repetirFaixa(dias, { horaInicio: '13:00', horaFim: '13:50' }))).toEqual(['1']);
+  });
+
+  it('copia a faixa em vez de compartilhar a referência', () => {
+    // Um objeto só entre os dias faria editar terça mudar quinta junto.
+    const faixa = { horaInicio: '07:00', horaFim: '07:50' };
+    const nova = repetirFaixa({ 2: faixa, 4: faixa }, faixa);
+    expect(nova[2]).not.toBe(nova[4]);
+    expect(nova[2]).not.toBe(faixa);
   });
 });

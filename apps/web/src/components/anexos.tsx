@@ -105,7 +105,15 @@ export function Anexos({
 
   return (
     <div className="space-y-2">
-      <Label>{titulo}</Label>
+      {/*
+        `block` no rótulo, e não é detalhe: `<label>` é inline e o botão logo
+        abaixo é inline-flex, então os dois caíam na MESMA linha — "Anexos" e
+        "Anexar foto ou PDF" lado a lado, com o `space-y-2` sem separar nada,
+        porque margem entre irmãos não vale para caixas na mesma linha. Todo
+        outro uso de `Label` neste app tem um `<input>` de bloco embaixo, e por
+        isso o problema só aparecia aqui.
+      */}
+      <Label className="block">{titulo}</Label>
 
       {!isLoading && (anexos?.length ?? 0) > 0 && (
         <ul className="space-y-1">

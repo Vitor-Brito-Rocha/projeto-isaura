@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { cidadeDoFuso } from '@/lib/fuso';
 import { AlternarApi } from './api';
 import { avisoDeDegradacao, detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
 import { marcarPadroesAjustados } from '@/lib/primeiro-uso';
@@ -221,9 +222,11 @@ export default function Config() {
                   </Alert>
                 )}
 
+                {/* A cidade, não o identificador: `America/Sao_Paulo` é
+                    nome de sistema. Ver `lib/fuso.ts`. */}
                 <p className="text-xs text-muted-foreground">
-                  Fuso horário: <strong className="text-foreground">{perfil.timezone}</strong>. Os
-                  horários das aulas são interpretados nele.
+                  Fuso horário: <strong className="text-foreground">{cidadeDoFuso(perfil.timezone)}</strong>.
+                  Os horários das aulas são interpretados nele.
                 </p>
               </>
             )}

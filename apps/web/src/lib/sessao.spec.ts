@@ -1,5 +1,5 @@
 import { ApiError } from './api';
-import { avisoDoErro, destinoDoErro } from './sessao';
+import { avisoDoErro, destinoDoErro, sessaoAusente } from './sessao';
 
 describe('destinoDoErro', () => {
   it('401 fora da home manda para a home, não para o login', () => {
@@ -20,6 +20,14 @@ describe('destinoDoErro', () => {
     // que ficar num cartão de erro sem saída.
     expect(destinoDoErro(new ApiError(404, 'x'), '/aula/apagada')).toBe('/');
     expect(destinoDoErro(new ApiError(404, 'x'), '/')).toBe('/login');
+  });
+
+  it('sessão morta pula o degrau da home e vai direto ao login', () => {
+    // Aqui a renovação já foi tentada e falhou: não existe sessão. Mandar para
+    // a home só faria ela ver a mesma queda de novo, um clique depois.
+    expect(destinoDoErro(new ApiError(401, 'x', true), '/cadeiras')).toBe('/login');
+    expect(destinoDoErro(new ApiError(401, 'x', true), '/planos')).toBe('/login');
+    expect(destinoDoErro(new ApiError(401, 'x', true), '/')).toBe('/login');
   });
 
   it('403 não redireciona — é "área restrita", não sessão morta', () => {
@@ -51,5 +59,28 @@ describe('avisoDoErro', () => {
         expect(avisoDoErro(status, destino).length).toBeGreaterThan(10);
       }
     }
+  });
+});
+
+
+describe('sessaoAusente', () => {
+  it('só 401 significa deslogada', () => {
+    expect(sessaoAusente(new ApiError(401, 'sem token'))).toBe(true);
+    expect(sessaoAusente(new ApiError(401, 'sem token', true))).toBe(true);
+  });
+
+  it('rede caída NÃO é sessão ausente', () => {
+    // O produto existe para ser usado numa sala sem sinal, com registro na
+    // fila esperando para subir. Expulsar para o login ali perderia o gesto.
+    expect(sessaoAusente(new TypeError('Failed to fetch'))).toBe(false);
+    expect(sessaoAusente(new Error('offline'))).toBe(false);
+    expect(sessaoAusente(undefined)).toBe(false);
+    expect(sessaoAusente(null)).toBe(false);
+  });
+
+  it('403 e 500 também não', () => {
+    // 403 é "área restrita" (o painel de admin), não sessão morta.
+    expect(sessaoAusente(new ApiError(403, 'restrito'))).toBe(false);
+    expect(sessaoAusente(new ApiError(500, 'boom'))).toBe(false);
   });
 });

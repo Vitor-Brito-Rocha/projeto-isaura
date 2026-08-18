@@ -37,10 +37,20 @@ export class AuthService {
     return key;
   }
 
-  private async chamar(caminho: string, body: unknown): Promise<any> {
+  private async chamar(
+    caminho: string,
+    body: unknown,
+    opcoes: { metodo?: 'POST' | 'PUT'; token?: string } = {},
+  ): Promise<any> {
     const resposta = await fetch(`${this.base}${caminho}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: this.anonKey },
+      method: opcoes.metodo ?? 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: this.anonKey,
+        // Só a troca de senha manda Bearer: ela age em nome da pessoa, com o
+        // token de uso único que veio do link do email.
+        ...(opcoes.token ? { Authorization: `Bearer ${opcoes.token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
     const json = await resposta.json().catch(() => ({}));
@@ -115,5 +125,50 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Sessão expirada.');
     }
+  }
+
+  // ---- Recuperação de senha e confirmação de email ----
+
+  /**
+   * Manda o email com o link de nova senha.
+   *
+   * Nunca sinaliza se o email existe — quem chama responde igual nos dois
+   * casos. É a mesma regra do login: distinguir transformaria o formulário num
+   * verificador de quais emails têm conta neste sistema.
+   *
+   * O `redirect_to` decide para qual ambiente o link volta, pelo mesmo motivo
+   * do signup: um projeto Supabase só, atendendo localhost e produção.
+   */
+  async pedirRecuperacao(email: string): Promise<void> {
+    const destino = this.destinoDeRetorno;
+    await this.chamar(
+      destino ? `/recover?redirect_to=${encodeURIComponent(destino)}` : '/recover',
+      { email },
+    );
+  }
+
+  /**
+   * Troca o código do link de email por uma sessão.
+   *
+   * `token_hash` e não os tokens no fragmento da URL: assim o navegador nunca
+   * chega a segurar credencial nenhuma — o código vem no endereço, a API o
+   * troca, e o que volta para a professora é o mesmo cookie httpOnly de sempre.
+   *
+   * Uso único e com validade: um link reaberto no dia seguinte falha aqui, e é
+   * por isso que a tela precisa dizer "peça outro" em vez de "erro".
+   */
+  async trocarCodigo(codigo: string, tipo: 'recovery' | 'signup' | 'email'): Promise<SupabaseSession> {
+    try {
+      const json = await this.chamar('/verify', { type: tipo, token_hash: codigo });
+      if (!json?.access_token) throw new Error('sem sessão');
+      return json as SupabaseSession;
+    } catch {
+      throw new UnauthorizedException('Este link expirou ou já foi usado. Peça um novo.');
+    }
+  }
+
+  /** Grava a senha nova em nome de quem acabou de provar o email. */
+  async definirSenha(accessToken: string, senha: string): Promise<void> {
+    await this.chamar('/user', { password: senha }, { metodo: 'PUT', token: accessToken });
   }
 }

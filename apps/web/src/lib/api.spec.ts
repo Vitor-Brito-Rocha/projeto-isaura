@@ -1,4 +1,4 @@
-import { apiFetch, ApiError } from './api';
+import { apiFetch, ApiError, podeRenovar } from './api';
 
 /**
  * O que estes testes protegem: a sessão sobreviver mais de uma hora.
@@ -60,6 +60,27 @@ describe('apiFetch — renovação de sessão', () => {
     expect(chamadas.filter((c) => c.endsWith('/auth/refresh'))).toHaveLength(0);
   });
 
+  it('marca sessaoMorta só quando a renovação falhou', async () => {
+    // É o que separa "este endpoint recusou" de "não há sessão nenhuma" — e o
+    // que faz a tela ir direto ao login em vez de passar pela home.
+    fingirServidor({ refreshOk: false });
+    await expect(apiFetch('/cadeiras')).rejects.toMatchObject({ status: 401, sessaoMorta: true });
+  });
+
+  it('401 que sobrevive a uma renovação BEM-sucedida não é sessão morta', async () => {
+    // A sessão está viva; quem recusou foi o endpoint. Derrubar o login aqui
+    // deixaria um endpoint com problema expulsar a professora do app.
+    fingirServidor({ refreshOk: true, falhasAntesDeRenovar: 2 });
+    await expect(apiFetch('/cadeiras')).rejects.toMatchObject({ status: 401, sessaoMorta: false });
+  });
+
+  it('renova em /auth/eu — token vencido com refresh válido é o caso normal', async () => {
+    // A regra por prefixo `/auth/` barrava a renovação aqui e jogava para o
+    // login quem só estava com o access token de uma hora vencido.
+    fingirServidor({ refreshOk: true });
+    await expect(apiFetch('/auth/eu')).resolves.toEqual({ certo: true });
+    expect(chamadas.filter((c) => c.endsWith('/auth/refresh'))).toHaveLength(1);
+  });
   it('renova UMA vez só quando várias chamadas levam 401 juntas', async () => {
     fingirServidor({ refreshOk: true });
 
@@ -122,5 +143,21 @@ describe('apiFetch — cabeçalhos', () => {
     const primeira = feitas[0].init.headers as Record<string, string>;
     expect(primeira['Content-Type']).toBe('text/plain');
     expect(primeira['ngrok-skip-browser-warning']).toBeTruthy();
+  });
+});
+
+describe('podeRenovar', () => {
+  it('as rotas que ESTABELECEM sessão ficam de fora', () => {
+    // Renovar depois de um 401 de senha errada viraria laço.
+    expect(podeRenovar('/auth/login')).toBe(false);
+    expect(podeRenovar('/auth/signup')).toBe(false);
+    expect(podeRenovar('/auth/refresh')).toBe(false);
+    expect(podeRenovar('/auth/logout')).toBe(false);
+  });
+
+  it('rota autenticada comum renova, inclusive sob /auth', () => {
+    expect(podeRenovar('/auth/eu')).toBe(true);
+    expect(podeRenovar('/cadeiras')).toBe(true);
+    expect(podeRenovar('/registros/ocorrencia/abc')).toBe(true);
   });
 });

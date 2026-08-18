@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { apiFetch } from '@/lib/api';
 import { dataBR, diaEDataBR } from '@/lib/datas';
+import { useVoltar } from '@/lib/navegacao';
 import type { ContextoAula, StatusOcorrencia } from '@/lib/types';
 
 interface Transferencia {
@@ -40,6 +41,7 @@ export function EstadoDaAula({
   contexto: ContextoAula;
 }) {
   const qc = useQueryClient();
+  const voltar = useVoltar();
   const [levarPlano, setLevarPlano] = useState(true);
 
   const status = contexto.ocorrencia.status;
@@ -62,7 +64,19 @@ export function EstadoDaAula({
         qc.invalidateQueries({ queryKey: ['progresso'] }),
       ]);
 
+      // Devolver à grade é o oposto: ela está voltando a trabalhar NESTA aula,
+      // então a tela que interessa é esta mesma.
       if (corpo.status === 'AGENDADA') return toast.success('Aula de volta à grade.');
+
+      /*
+        Cancelou: esta tela deixou de ter assunto.
+        O formulário some (a aula não vai acontecer) e o que sobra é um cartão
+        dizendo que não vai acontecer — ficar parada nele obriga um segundo
+        gesto só para sair. Volta para de onde ela veio: a grade da semana, a
+        lista de pendências, o histórico. Se veio do alarme — que abre a aula
+        direto, sem tela anterior —, vai para a home.
+      */
+      voltar();
 
       const t = r.transferencia;
       if (t?.ok && t.data) {
@@ -102,66 +116,74 @@ export function EstadoDaAula({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-      <span className="text-xs text-muted-foreground">Esta aula não aconteceu?</span>
+    /*
+      A pergunta em cima e os dois botões embaixo, e não os três em fila.
+      Em 390px a linha comportava a pergunta e "Cancelar aula", e "Feriado"
+      caía sozinho na linha seguinte — órfão, parecendo outro assunto. Com a
+      pergunta em bloco próprio, os dois botões ficam sempre juntos.
+    */
+    <div className="space-y-2 border-t pt-3">
+      <p className="text-xs text-muted-foreground">Esta aula não aconteceu?</p>
 
-      <Confirmar
-        titulo="Cancelar esta aula?"
-        perigo
-        rotuloAcao="Cancelar aula"
-        rotuloCancelar="Voltar"
-        carregando={mudar.isPending}
-        onConfirmar={() => mudar.mutate({ status: 'CANCELADA', transferirPlano: levarPlano })}
-        descricao={
-          <div className="space-y-2">
-            <p>
-              Ela sai das pendências e os dois alarmes param. O que você já escreveu fica guardado.
-            </p>
-
-            {podeTransferir ? (
-              <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/40 p-2">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 shrink-0"
-                  checked={levarPlano}
-                  onChange={(e) => setLevarPlano(e.target.checked)}
-                />
-                <span className="text-sm">
-                  Levar o plano para <strong>{diaEDataBR(proxima!.data)}</strong>
-                  {/* Avisa ANTES, porque sobrescrever em silêncio o que ela
-                      escreveu é o acidente que esta caixa existe para evitar. */}
-                  {proxima!.temPlano && (
-                    <span className="mt-0.5 block text-xs text-destructive">
-                      Essa aula já tem plano escrito — ele será substituído.
-                    </span>
-                  )}
-                </span>
-              </label>
-            ) : plano ? (
-              <p className="text-xs text-muted-foreground">
-                Não há próxima aula desta turma na grade, então o plano fica só aqui.
+      <div className="flex flex-wrap gap-2">
+        <Confirmar
+          titulo="Cancelar esta aula?"
+          perigo
+          rotuloAcao="Cancelar aula"
+          rotuloCancelar="Voltar"
+          carregando={mudar.isPending}
+          onConfirmar={() => mudar.mutate({ status: 'CANCELADA', transferirPlano: levarPlano })}
+          descricao={
+            <div className="space-y-2">
+              <p>
+                Ela sai das pendências e os dois alarmes param. O que você já escreveu fica guardado.
               </p>
-            ) : null}
-          </div>
-        }
-      >
-        <Button size="sm" variant="outline">
-          <CalendarOff />
-          Cancelar aula
-        </Button>
-      </Confirmar>
 
-      <Confirmar
-        titulo="Marcar como feriado?"
-        descricao="Mesmo efeito de cancelar: sai das pendências e os alarmes param."
-        rotuloAcao="Marcar feriado"
-        carregando={mudar.isPending}
-        onConfirmar={() => mudar.mutate({ status: 'FERIADO', transferirPlano: levarPlano })}
-      >
-        <Button size="sm" variant="ghost">
-          Feriado
-        </Button>
-      </Confirmar>
+              {podeTransferir ? (
+                <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/40 p-2">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 shrink-0"
+                    checked={levarPlano}
+                    onChange={(e) => setLevarPlano(e.target.checked)}
+                  />
+                  <span className="text-sm">
+                    Levar o plano para <strong>{diaEDataBR(proxima!.data)}</strong>
+                    {/* Avisa ANTES, porque sobrescrever em silêncio o que ela
+                        escreveu é o acidente que esta caixa existe para evitar. */}
+                    {proxima!.temPlano && (
+                      <span className="mt-0.5 block text-xs text-destructive">
+                        Essa aula já tem plano escrito — ele será substituído.
+                      </span>
+                    )}
+                  </span>
+                </label>
+              ) : plano ? (
+                <p className="text-xs text-muted-foreground">
+                  Não há próxima aula desta turma na grade, então o plano fica só aqui.
+                </p>
+              ) : null}
+            </div>
+          }
+        >
+          <Button size="sm" variant="outline">
+            <CalendarOff />
+            Cancelar aula
+          </Button>
+        </Confirmar>
+
+        <Confirmar
+          titulo="Marcar como feriado?"
+          descricao="Mesmo efeito de cancelar: sai das pendências e os alarmes param."
+          rotuloAcao="Marcar feriado"
+          carregando={mudar.isPending}
+          onConfirmar={() => mudar.mutate({ status: 'FERIADO', transferirPlano: levarPlano })}
+        >
+          <Button size="sm" variant="ghost">
+            Feriado
+          </Button>
+        </Confirmar>
+      </div>
     </div>
   );
 }

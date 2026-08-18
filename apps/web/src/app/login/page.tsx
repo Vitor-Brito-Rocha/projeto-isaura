@@ -66,6 +66,20 @@ export default function Login() {
         </Button>
       </form>
 
+      {/*
+        Dentro do bloco do formulário, e não junto do "criar conta" lá embaixo:
+        quem esqueceu a senha descobre isso ao errar aqui, e o caminho de volta
+        precisa estar onde o olho já está.
+      */}
+      <p className="-mt-4 text-center text-sm">
+        <Link
+          href="/recuperar"
+          className="font-medium text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Esqueci minha senha
+        </Link>
+      </p>
+
       <TrocarApiCompacto />
 
       <p className="text-center text-sm text-muted-foreground">

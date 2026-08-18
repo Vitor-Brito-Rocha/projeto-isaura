@@ -179,3 +179,62 @@ export function horariosDoRascunho(r: RascunhoSerie): HorarioDia[] {
     .map(([dia, faixa]) => ({ diaSemana: Number(dia), ...faixa }))
     .sort((a, b) => a.diaSemana - b.diaSemana);
 }
+
+// ---- Repetir o mesmo horário nos outros dias ----
+
+export interface Faixa {
+  horaInicio: string;
+  horaFim: string;
+}
+
+/**
+ * Vale oferecer "usar este horário em todos os dias"?
+ *
+ * O caso que isto resolve: ela marca ter, qui e sex — os três nascem no horário
+ * padrão — e então corrige um deles para 09:20. Os outros dois continuam em
+ * 07:00, e arrumar cada um custa quatro toques. Com onze turmas, é o atrito que
+ * faz parar de cadastrar na terceira.
+ *
+ * `alternarDia` já herda a faixa do último dia marcado, mas isso só cobre quem
+ * acerta a hora ANTES de marcar os outros dias. Quem marca os dias primeiro —
+ * que é a ordem em que a tela pergunta — ficava sem nada.
+ *
+ * **Um dia mexido, e só um.** Dois dias com horas diferentes é ela dizendo que a
+ * grade não é uniforme (o primeiro tempo numa turma, o terceiro noutra), e
+ * insistir com a oferta vira ruído — pior, um toque errado apagaria o horário
+ * que ela acabou de digitar.
+ */
+export function ofertaDeRepeticao(
+  dias: RascunhoSerie['dias'],
+  tocados: number[],
+): { faixa: Faixa; dias: number[] } | null {
+  if (tocados.length !== 1) return null;
+
+  const origem = dias[tocados[0]];
+  // O dia mexido pode ter sido desmarcado depois.
+  if (!origem) return null;
+  // Faixa inválida não se propaga: o formulário nem deixaria salvar, e
+  // espalhar o erro por cinco dias transforma um conserto em cinco.
+  if (faixaInvalida(origem.horaInicio, origem.horaFim)) return null;
+
+  const diferentes = Object.entries(dias)
+    .map(([n, faixa]) => ({ n: Number(n), faixa }))
+    .filter(
+      ({ n, faixa }) =>
+        n !== tocados[0] &&
+        (faixa.horaInicio !== origem.horaInicio || faixa.horaFim !== origem.horaFim),
+    )
+    .map(({ n }) => n)
+    .sort((a, b) => a - b);
+
+  return diferentes.length > 0
+    ? { faixa: { horaInicio: origem.horaInicio, horaFim: origem.horaFim }, dias: diferentes }
+    : null;
+}
+
+/** A mesma faixa em todos os dias marcados. Não marca nem desmarca dia nenhum. */
+export function repetirFaixa(dias: RascunhoSerie['dias'], faixa: Faixa): RascunhoSerie['dias'] {
+  const saida: RascunhoSerie['dias'] = {};
+  for (const n of Object.keys(dias)) saida[Number(n)] = { ...faixa };
+  return saida;
+}
