@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Toaster } from 'sonner';
+import { RotaPorNotificacao } from '@/components/rota-por-notificacao';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Instância por montagem, não módulo: no App Router um client global vaza
@@ -24,6 +25,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <RotaPorNotificacao />
       {children}
       <Toaster position="top-center" richColors closeButton />
     </QueryClientProvider>

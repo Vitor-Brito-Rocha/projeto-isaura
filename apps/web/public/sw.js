@@ -71,6 +71,62 @@ self.addEventListener('push', (event) => {
   );
 });
 
+/** Mesmo valor de `lib/rota-notificacao.ts` — mudar de um lado só faz o clique virar nada. */
+const CANAL_ROTA = 'ir-para';
+
+function mesmaTela(urlDaAba, alvo) {
+  try {
+    const a = new URL(urlDaAba);
+    const b = new URL(alvo, self.location.origin);
+    return a.pathname === b.pathname && a.search === b.search;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * O caminho do clique até a tela da aula — e por que ele tem degraus.
+ *
+ * O desenho anterior tinha um só (`navigate()` e pronto) e falhava MUDO no
+ * iPhone: o app vinha para a frente na tela em que ela tinha parado, como se o
+ * alarme não soubesse de qual aula era. Um alarme que não abre o registro é um
+ * alarme que não serve.
+ *
+ * 1. **Aba já no destino** — só focar. Não recarrega a tela que ela já está
+ *    olhando, o que apagaria texto ainda não salvo.
+ * 2. **`postMessage` para a página** — é o degrau que funciona no iPhone com o
+ *    app em segundo plano: ali o `navigate()` daqui resolve SEM navegar, e quem
+ *    consegue trocar de rota é a própria página, que está viva. Quem escuta é
+ *    `<RotaPorNotificacao>`.
+ * 3. **`navigate()`** — cobre a aba que não está ouvindo (build antigo em
+ *    cache) e é o que funciona no Android e no navegador. Precisa de `await` e
+ *    de `catch`: ele REJEITA quando a aba não é controlada por este service
+ *    worker, e `includeUncontrolled: true` pede justamente essas abas. Sem o
+ *    catch a rejeição ficava solta, o `waitUntil` morria junto e o `openWindow`
+ *    nunca era alcançado — que é como um clique virava nada.
+ *
+ * Os degraus 2 e 3 rodam os dois, sem condição: o modo de falhar do iOS é o
+ * `navigate()` RESOLVER sem ter navegado, então não existe resposta dele que
+ * sirva de teste. Os dois apontam para a mesma URL, então o pior caso aqui é
+ * uma recarga a mais — e o pior caso do outro desenho é abrir a aula errada.
+ */
+async function abrirNoApp(url) {
+  const abas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const aba = abas.find((a) => 'focus' in a);
+
+  // App fechado: `openWindow` é o único caminho, e é o que funciona em todo
+  // lugar. É também o único caso em que o iPhone acerta sozinho.
+  if (!aba) return self.clients.openWindow ? self.clients.openWindow(url) : undefined;
+
+  if (mesmaTela(aba.url, url)) return aba.focus();
+
+  aba.postMessage({ tipo: CANAL_ROTA, url });
+  if (typeof aba.navigate === 'function') {
+    await aba.navigate(url).catch(() => undefined);
+  }
+  return aba.focus();
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const d = event.notification.data || {};
@@ -81,15 +137,5 @@ self.addEventListener('notificationclick', (event) => {
   else if (d.url) url = d.url;
   else url = ROTA_PADRAO[d.tipo] || '/';
 
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((abas) => {
-      for (const aba of abas) {
-        if ('focus' in aba) {
-          aba.navigate(url);
-          return aba.focus();
-        }
-      }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
-    }),
-  );
+  event.waitUntil(abrirNoApp(url));
 });

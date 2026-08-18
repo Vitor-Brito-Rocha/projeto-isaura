@@ -208,6 +208,20 @@ que é o oposto do que um botão de teste prova. Os alarmes de aula já nascem �
 e Alertas", que não muda com os botões laterais enquanto "Mudar com Botões" estiver desligado — o
 `avisoDeDegradacao` diz onde fica, porque é a única parte que ela pode resolver.
 
+**O clique no alarme abre a AULA, e isso são dois caminhos porque um não basta.** O push manda
+`/aula?ocorrencia=…&momento=abertura|fechamento`, e o `notificationclick` do `sw.js` faz três coisas:
+foca sem recarregar se a aba já estiver naquela aula (recarregar apagaria texto não salvo), manda
+`postMessage` para a página, e chama `navigate()`. Os dois últimos rodam **sem condição**, porque o
+modo de falhar do iPhone é o `navigate()` *resolver sem ter navegado* — não existe resposta dele que
+sirva de teste, e com o app em segundo plano quem ainda consegue trocar de rota é a página viva
+(`<RotaPorNotificacao>`, no `Providers`). O preço é uma recarga a mais; o preço do outro desenho era
+abrir a aula errada. **`navigate()` precisa de `await` e de `catch`**: ele REJEITA em aba não
+controlada por este service worker, e `includeUncontrolled: true` pede justamente essas — a rejeição
+solta matava o `waitUntil` e o clique não fazia nada, sem erro em lugar nenhum. `lib/sw.spec.ts` lê
+o `public/sw.js` e o executa contra um `self` de mentira, porque é a única lógica do produto que roda
+fora da página: clique que não abre nada não gera erro na tela, nem log na API, nem reclamação do
+`next build`. Rodar o spec novo contra o `sw.js` antigo **derruba o processo Node**.
+
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.
