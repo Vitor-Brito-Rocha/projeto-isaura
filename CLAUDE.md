@@ -267,6 +267,15 @@ o que barra `javascript:` e `data:`, que num campo de endereço são execução 
 limpa o cache do React Query (ele guarda por chave, não por servidor) e avisa por
 `EVENTO_BASE_API`, porque o evento `storage` do navegador não dispara na aba que escreveu.
 
+**Toda chamada leva `ngrok-skip-browser-warning`** (`CABECALHOS_DA_API`). No plano gratuito o ngrok
+intercepta o que tem cara de navegador e devolve a página de aviso DELE — `200 OK`, `text/html`,
+`ngrok-error-code: ERR_NGROK_6024` — sem chamar a API. O `.json()` estoura em cima de HTML e a tela
+mostra falha genérica: status 200 na aba de rede, nada no log da API, nenhuma pista do túnel. Vai em
+todas, inclusive no `/auth/refresh` e nos anexos — uma chamada que escape volta HTML e derruba a
+tela sozinha. Vai também no caminho do proxy, porque o rewrite do Next repassa o que recebeu e o
+destino pode ser um túnel. O preflight não precisa dele: o ngrok não intercepta `OPTIONS`, e o
+`enableCors` sem `allowedHeaders` já reflete o que o navegador pediu.
+
 A troca aparece em **duas** telas: cartão nos Ajustes e um link discreto **no login**. O login não
 é enfeite — os Ajustes ficam atrás dele, então endereço errado deixava um laço fechado: sem alcançar
 a API ela não entra, e sem entrar não chega na tela que conserta. **A flag é decidida no BUILD**,
