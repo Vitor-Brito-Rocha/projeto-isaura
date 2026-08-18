@@ -1,4 +1,10 @@
-import { avisoDeBase, normalizarBase, validarBase } from './base-api';
+import {
+  avisoDeBase,
+  avisoDeSessaoCruzada,
+  ehOutroSite,
+  normalizarBase,
+  validarBase,
+} from './base-api';
 
 describe('normalizarBase', () => {
   /**
@@ -71,5 +77,66 @@ describe('avisoDeBase', () => {
   it('não avisa sobre endereço que nem é válido — a validação já falou', () => {
     expect(avisoDeBase('javascript:alert(1)')).toBeNull();
     expect(avisoDeBase('')).toBeNull();
+  });
+});
+
+describe('ehOutroSite', () => {
+  /**
+   * Porta não conta para cookie: `localhost:3000` e `localhost:3333` são o
+   * mesmo site, e é a topologia normal do desenvolvimento. Avisar ali seria
+   * alarme falso todo dia — e alarme falso todo dia é aviso que ninguém lê.
+   */
+  it('porta diferente não é outro site', () => {
+    expect(ehOutroSite('http://localhost:3333/api', 'http://localhost:3000')).toBe(false);
+  });
+
+  it('caminho relativo nunca é outro site — é a própria origem', () => {
+    expect(ehOutroSite('/api', 'https://projeto-isaura.vercel.app')).toBe(false);
+  });
+
+  /** O caso que custou a tarde: front publicado falando com um túnel. */
+  it('vercel falando com ngrok é outro site', () => {
+    expect(
+      ehOutroSite('https://xyz.ngrok-free.dev/api', 'https://projeto-isaura.vercel.app'),
+    ).toBe(true);
+  });
+
+  it('subdomínio do mesmo domínio não é outro site', () => {
+    expect(ehOutroSite('https://api.exemplo.com/api', 'https://app.exemplo.com')).toBe(false);
+  });
+
+  it('endereço inválido não vira aviso — a validação já falou', () => {
+    expect(ehOutroSite('javascript:alert(1)', 'https://app.exemplo.com')).toBe(false);
+  });
+});
+
+describe('avisoDeSessaoCruzada', () => {
+  const vercel = 'https://projeto-isaura.vercel.app';
+  const tunel = 'https://xyz.ngrok-free.dev/api';
+
+  /**
+   * No iPhone não é risco, é certeza: o Safari vem com Prevent Cross-Site
+   * Tracking ligado e descarta o cookie de outro site mesmo com
+   * `SameSite=None; Secure`. O texto precisa dizer isso sem rodeio — foi
+   * exatamente aqui que "login OK e tela seguinte deslogada" queimou uma tarde.
+   */
+  it('no iPhone afirma que a sessão não vai durar', () => {
+    const m = avisoDeSessaoCruzada(tunel, vercel, true)!;
+    expect(m).toMatch(/NÃO vai durar/);
+    expect(m).toMatch(/Safari/);
+  });
+
+  it('fora do iOS avisa do risco, sem afirmar', () => {
+    const m = avisoDeSessaoCruzada(tunel, vercel, false)!;
+    expect(m).toMatch(/pode não durar/);
+  });
+
+  it('cala a boca no caminho normal, em qualquer aparelho', () => {
+    expect(avisoDeSessaoCruzada('/api', vercel, true)).toBeNull();
+    expect(avisoDeSessaoCruzada('/api', vercel, false)).toBeNull();
+  });
+
+  it('cala a boca entre portas do localhost', () => {
+    expect(avisoDeSessaoCruzada('http://localhost:3333/api', 'http://localhost:3000', false)).toBeNull();
   });
 });

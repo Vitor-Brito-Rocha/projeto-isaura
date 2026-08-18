@@ -276,6 +276,16 @@ tela sozinha. Vai também no caminho do proxy, porque o rewrite do Next repassa 
 destino pode ser um túnel. O preflight não precisa dele: o ngrok não intercepta `OPTIONS`, e o
 `enableCors` sem `allowedHeaders` já reflete o que o navegador pediu.
 
+**Cookie de sessão não atravessa sites no iPhone, e a tela diz isso antes.** Medido: no Chromium,
+`SameSite=None; Secure` entre sites diferentes é guardado E reenviado; no Safari do iOS, não — o
+Prevent Cross-Site Tracking vem ligado e descarta o cookie na chegada. O desfecho é mudo dos dois
+lados: login responde `201` com os dois `Set-Cookie` corretos, e toda chamada seguinte volta
+`401 Token de autenticação ausente`. Nada no log da API além disso, nada na tela além de "sessão
+expirada". `avisoDeSessaoCruzada` afirma no iOS e alerta fora dele — mesma regra do
+`avisoDeDegradacao`: dizer antes do clique o que o aparelho realmente entrega. **A saída é o proxy**
+(`API_INTERNAL_URL`), que devolve tudo para a mesma origem; `COOKIE_CROSS_SITE` só resolve para
+navegador que aceita cookie de terceiro, e o iPhone não é um.
+
 A troca aparece em **duas** telas: cartão nos Ajustes e um link discreto **no login**. O login não
 é enfeite — os Ajustes ficam atrás dele, então endereço errado deixava um laço fechado: sem alcançar
 a API ela não entra, e sem entrar não chega na tela que conserta. **A flag é decidida no BUILD**,

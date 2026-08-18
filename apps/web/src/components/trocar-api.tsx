@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   avisoDeBase,
+  avisoDeSessaoCruzada,
   BASE_PADRAO,
   baseDaApi,
   definirBaseDaApi,
   PODE_ALTERNAR,
   validarBase,
 } from '@/lib/base-api';
+import { detectarCapacidade } from '@/lib/capacidade';
 
 /**
  * O comportamento da troca, num lugar só.
@@ -35,9 +37,25 @@ export function useTrocaDeApi() {
     setCampo(base);
   }, []);
 
+  const [ehIOS, setEhIOS] = useState(false);
+  useEffect(() => {
+    const c = detectarCapacidade();
+    setEhIOS(c === 'IOS_PWA' || c === 'IOS_NAVEGADOR');
+  }, []);
+
   const mudou = campo !== atual;
   const erro = mudou ? validarBase(campo) : null;
   const aviso = mudou ? avisoDeBase(campo) : null;
+
+  /**
+   * Vale para o que ESTÁ em uso, não só para o que está sendo digitado: quem
+   * chega no login já deslogado precisa ler o motivo, e nesse momento ninguém
+   * digitou nada ainda.
+   */
+  const avisoDaSessao =
+    typeof window === 'undefined'
+      ? null
+      : avisoDeSessaoCruzada(mudou && !erro ? campo : atual, window.location.origin, ehIOS);
 
   function aplicar(destino: string | null) {
     definirBaseDaApi(destino);
@@ -68,6 +86,7 @@ export function useTrocaDeApi() {
     aviso,
     mudou,
     alternada: atual !== BASE_PADRAO,
+    avisoDaSessao,
     aplicar,
   };
 }
@@ -129,6 +148,7 @@ export function TrocarApiCompacto() {
 
       {t.erro && <p className="text-xs text-destructive">{t.erro}</p>}
       {!t.erro && t.aviso && <p className="text-xs text-muted-foreground">{t.aviso}</p>}
+      {t.avisoDaSessao && <p className="text-xs font-medium text-alarme">{t.avisoDaSessao}</p>}
 
       <div className="flex flex-wrap gap-2">
         <Button

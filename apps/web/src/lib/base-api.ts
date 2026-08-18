@@ -125,6 +125,63 @@ export const CABECALHOS_DA_API: Record<string, string> = {
   'ngrok-skip-browser-warning': '1',
 };
 
+/**
+ * O endereço escolhido é de outro SITE que não a página?
+ *
+ * "Site" e não "origem": para cookie, `localhost:3000` e `localhost:3333` são o
+ * mesmo site (a porta não conta), e avisar ali seria alarme falso. A regra exata
+ * é a Public Suffix List, que não existe no navegador — comparar os dois últimos
+ * rótulos do host acerta o que importa aqui (`vercel.app` ≠ `ngrok-free.dev`) e,
+ * quando erra, erra deixando de avisar. Endereço relativo nunca é outro site.
+ */
+export function ehOutroSite(base: string, origem: string): boolean {
+  const alvo = normalizarBase(base);
+  if (!alvo || alvo.startsWith('/')) return false;
+  // Mesma deferência do `avisoDeBase`: endereço que nem é válido já tem quem
+  // reclame dele. E `new URL('javascript:...')` NÃO lança — devolve hostname
+  // vazio, que aqui pareceria "outro site" e viraria aviso errado.
+  if (validarBase(alvo)) return false;
+  try {
+    const doAlvo = new URL(alvo).hostname.split('.').slice(-2).join('.');
+    const daPagina = new URL(origem).hostname.split('.').slice(-2).join('.');
+    return doAlvo !== daPagina;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Avisa ANTES que o login vai se perder — a falha mais cara que este projeto
+ * já produziu.
+ *
+ * Apontar o front publicado direto para a API custou uma tarde: o login
+ * responde 200, o navegador descarta o cookie na chegada e toda tela seguinte
+ * volta 401. Nada aparece no log da API além de "sem token", nada aparece na
+ * tela além de "sessão expirada", e o palpite natural — "o login quebrou" — é o
+ * errado.
+ *
+ * No iPhone é CERTEZA, não risco: o Safari vem com Prevent Cross-Site Tracking
+ * ligado e descarta cookie de outro site mesmo com `SameSite=None; Secure`. Não
+ * é ajuste de código nosso e não é coisa que se peça a uma professora desligar.
+ * Fora do iOS depende de configuração do navegador, então o texto é outro.
+ *
+ * Mesma regra do `avisoDeDegradacao`: dizer antes do clique o que o aparelho
+ * realmente vai entregar.
+ */
+export function avisoDeSessaoCruzada(
+  base: string,
+  origem: string,
+  ehIOS: boolean,
+): string | null {
+  if (!ehOutroSite(base, origem)) return null;
+
+  return ehIOS
+    ? 'Neste aparelho a sessão NÃO vai durar: o Safari descarta cookie de outro site, ' +
+        'então você entra e a tela seguinte já aparece deslogada. Use o endereço padrão.'
+    : 'A sessão pode não durar: falando com outro site, o navegador pode descartar o cookie ' +
+        'do login. Se cair para o login sozinho, volte ao endereço padrão.';
+}
+
 /** Está apontando para outro lugar que não o do build? A tela avisa quando sim. */
 export function estaAlternada(): boolean {
   return baseDaApi() !== BASE_PADRAO;

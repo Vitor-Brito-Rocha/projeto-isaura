@@ -56,6 +56,9 @@ export function AlternarApi() {
           </p>
           {t.erro && <p className="text-xs text-destructive">{t.erro}</p>}
           {!t.erro && t.aviso && <p className="text-xs text-muted-foreground">{t.aviso}</p>}
+          {t.avisoDaSessao && (
+            <p className="text-xs font-medium text-alarme">{t.avisoDaSessao}</p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
