@@ -267,6 +267,14 @@ o que barra `javascript:` e `data:`, que num campo de endereço são execução 
 limpa o cache do React Query (ele guarda por chave, não por servidor) e avisa por
 `EVENTO_BASE_API`, porque o evento `storage` do navegador não dispara na aba que escreveu.
 
+A troca aparece em **duas** telas: cartão nos Ajustes e um link discreto **no login**. O login não
+é enfeite — os Ajustes ficam atrás dele, então endereço errado deixava um laço fechado: sem alcançar
+a API ela não entra, e sem entrar não chega na tela que conserta. **A flag é decidida no BUILD**,
+porque o Next inlina `NEXT_PUBLIC_*` no bundle: salvar a variável no painel da hospedagem não muda
+nada até sair um build novo (aconteceu num deploy do Vercel — subiu inteiro, sem erro, e só faltava
+o botão). Quando a troca some da tela, suspeite da variável ausente antes do código;
+`components/trocar-api.spec.ts` trava os dois lados, porque a falha é muda nos dois.
+
 **Chave de terceiro nunca vai para o navegador.** `ANTHROPIC_API_KEY` e `SUPABASE_SERVICE_ROLE_KEY`
 existem só dentro de `ResumoService` e `StorageService`. É por isso que upload e resumo passam pela
 API em vez de o front falar direto com o serviço.
