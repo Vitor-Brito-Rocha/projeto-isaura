@@ -62,7 +62,36 @@ const nextConfig = {
          * auth cross-origin da fase 6 existe. Ver "Fase 6" em `docs/PLANO.md`.
          */
         async rewrites() {
+          /**
+           * O `/api` é acrescentado AQUI. `API_INTERNAL_URL` é a origem da API,
+           * sem caminho: `https://api.seudominio.com`. Com `/api` no fim, o
+           * destino vira `/api/api/...` e toda chamada volta 404.
+           */
           const api = process.env.API_INTERNAL_URL ?? 'http://localhost:3333';
+
+          /**
+           * O padrão de desenvolvimento é uma armadilha em produção, e ela é
+           * MUDA: publicado sem esta variável, o servidor do front tenta falar
+           * com o próprio localhost, não acha ninguém, e devolve 500 em toda
+           * chamada — sem nada no log da API, porque a chamada nunca chegou
+           * nela. O palpite provável ("a API caiu") é o errado.
+           *
+           * Aviso e não erro: dá para servir o front e a API da mesma máquina,
+           * e aí localhost é legítimo.
+           *
+           * Aparece no log de BUILD porque é lá que ele é lido: o Next resolve
+           * `rewrites()` e assa o destino no manifesto de rotas. Sem prefixo
+           * `NEXT_PUBLIC_`, mas com a mesma consequência — definir a variável no
+           * painel não muda nada até sair um build novo.
+           */
+          if (process.env.NODE_ENV === 'production' && !process.env.API_INTERNAL_URL) {
+            console.warn(
+              '⚠  API_INTERNAL_URL não definida neste build. O proxy vai apontar para ' +
+                `${api}, que só existe na sua máquina — publicado assim, toda chamada volta 500. ` +
+                'Defina a ORIGEM da API (sem /api no fim) e refaça o build SEM cache.',
+            );
+          }
+
           return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
         },
 

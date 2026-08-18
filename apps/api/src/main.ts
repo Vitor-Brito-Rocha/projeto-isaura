@@ -64,17 +64,31 @@ async function bootstrap() {
    * ("o código quebrou") é justamente o errado.
    */
   const entreSites = config.get<string>('COOKIE_CROSS_SITE') === '1';
+  const ambiente = config.get<string>('NODE_ENV');
   const externas = webOrigin.split(',').filter((o) => !/localhost|127\.0\.0\.1/.test(o));
 
   console.log(`API ouvindo em http://localhost:${port}/api`);
+  /**
+   * O `NODE_ENV` entra aqui porque é ele que decide o `Secure` do cookie, e
+   * num container ele pode não ser o que está escrito no painel: o
+   * `docker-compose.yml` fixa `production` sem interpolação, então uma variável
+   * de mesmo nome definida por fora fica inerte. Sem esta linha, a única forma
+   * de saber qual valor VALEU era ler o compose e deduzir.
+   */
   console.log(
-    `Cookie de sessão: SameSite=${entreSites ? 'None; Secure' : 'Lax'} · WEB_ORIGIN: ${webOrigin}`,
+    `Cookie de sessão: SameSite=${entreSites ? 'None' : 'Lax'}, ` +
+      `${entreSites || ambiente === 'production' ? 'Secure' : 'SEM Secure'} · ` +
+      `NODE_ENV=${ambiente ?? '(não definido)'} · WEB_ORIGIN: ${webOrigin}`,
   );
   if (externas.length && !entreSites) {
     console.warn(
-      `⚠  ${externas.join(', ')} está no WEB_ORIGIN, mas o cookie é SameSite=Lax: o navegador ` +
-        'NÃO vai mandá-lo de outro site, e toda chamada volta 401 depois de um login que deu 200. ' +
-        'Ligue COOKIE_CROSS_SITE=1 em apps/api/.env (e reinicie) se o front fala direto com a API.',
+      `⚠  ${externas.join(', ')} está no WEB_ORIGIN, mas o cookie é SameSite=Lax: se o navegador ` +
+        'chamar a API DIRETO, ele guarda o cookie e não o manda — toda chamada volta 401 depois ' +
+        'de um login que deu 200.\n' +
+        '   Duas saídas, e a primeira é a melhor: se o front usa o proxy (API_INTERNAL_URL), ' +
+        'nada é entre sites e esta origem NÃO precisa estar no WEB_ORIGIN — tire-a e o aviso some. ' +
+        'Se o front fala direto com a API, ligue COOKIE_CROSS_SITE=1 e reinicie (no local isso é ' +
+        'apps/api/.env; na VPS, o painel do serviço).',
     );
   }
 }
