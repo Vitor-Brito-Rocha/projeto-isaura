@@ -5,7 +5,7 @@
 # No EasyPanel, do jeito que o projeto-professor subiu:
 #   Tipo do serviço: Compose (ou App com Build Path "." e Dockerfile
 #   "apps/api/Dockerfile" — o Dockerfile é o mesmo nos dois casos)
-#   Domínio → porta 3333, com HTTPS ligado.
+#   Domínio → a porta de `API_PORT` (3334 por padrão), com HTTPS ligado.
 #   As variáveis abaixo vão no painel de Environment do serviço.
 #
 # Local: `docker compose up --build`, com um `.env` nesta pasta (não é o mesmo
