@@ -175,6 +175,18 @@ substituí-lo: um "1º ou 2º semestre?" obrigatório seria pergunta sem respost
 8º ano. `semestreDoCampo('')` devolve `undefined` e não `0` — `Number('')` é 0, e 0 bateria no
 `@Min(1)` da API como erro de validação em vez de "não informado".
 
+**Quem rola é o `<main>`, não a página.** A casca é `h-dvh` + `overflow-hidden`, e a barra de baixo
+é a última linha do flex — **nada de `fixed`**. Com `fixed bottom-0` (que é o certo no papel) a barra
+deslizava junto com o dedo no Safari do iPhone: enquanto a barra do navegador encolhe, o elemento
+fixo é posicionado contra o viewport de LAYOUT, que não encolheu, e só assenta quando a rolagem
+para. Não há ajuste de `fixed` que conserte — o que conserta é a página não rolar. `dvh` e não `vh`
+pelo mesmo motivo: `100vh` no iOS é a altura COM a barra escondida. Consequências que vêm junto:
+o `<header>` não precisa mais de `sticky`, o `pb-24` do main sumiu (a barra ocupa espaço em vez de
+cobrir), e **o Next rola a JANELA ao trocar de rota** — por isso o `useEffect` que zera o
+`scrollTop` do main, senão sair de uma lista longa cairia no meio da tela seguinte. Diálogo em
+`<AlertDialog.Portal>` continua fora da casca, então o `overflow-hidden` não o corta. Medido em
+viewport de 390×664: `navBottom` = 664 antes e depois de rolar 1200px.
+
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.

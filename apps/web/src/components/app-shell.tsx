@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { baseDaApi, estaAlternada, EVENTO_BASE_API } from '@/lib/base-api';
 import { useFilaOffline } from '@/lib/usar-fila';
@@ -77,7 +77,7 @@ function FaixaDaApi() {
   if (!base) return null;
 
   return (
-    <div className="flex items-center justify-center gap-2 bg-alarme/15 px-4 py-1.5 text-xs text-alarme">
+    <div className="flex shrink-0 items-center justify-center gap-2 bg-alarme/15 px-4 py-1.5 text-xs text-alarme">
       <Plug className="size-3.5 shrink-0" aria-hidden />
       <span className="truncate">API alternada: {base}</span>
     </div>
@@ -102,15 +102,36 @@ export function AppShell({
   // "Progresso" é o oposto — é semanal e é de todo mundo, então entra nas duas.
   const itens = useEhAdmin() ? [...ITENS, ADMIN] : ITENS;
 
+  /**
+   * Quem rola é o MAIN, não a página — e isso é por causa do iPhone.
+   *
+   * A barra de baixo era `fixed bottom-0`, que é o certo no papel e falha no
+   * Safari: enquanto a barra do navegador encolhe durante a rolagem, o elemento
+   * fixo é posicionado contra o viewport de LAYOUT (que não encolheu) e desliza
+   * junto com o dedo, só assentando quando a rolagem para. Não há ajuste de
+   * `fixed` que conserte isso — o que conserta é não ter nada fixo: a casca tem
+   * a altura da tela, e a barra é só a última linha de um flex que nunca rola.
+   *
+   * `dvh` e não `vh` pelo mesmo motivo: `100vh` no iOS é a altura COM a barra
+   * escondida, então a navegação ficaria fora da tela até alguém rolar.
+   */
+  const rolagem = useRef<HTMLElement>(null);
+
+  // O Next rola a JANELA ao trocar de rota, e agora quem rola é outro elemento.
+  // Sem isto, sair de uma lista longa para outra tela começaria no meio dela.
+  useEffect(() => {
+    rolagem.current?.scrollTo({ top: 0 });
+  }, [caminho]);
+
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/*
         Registro parado no aparelho é coisa que ela precisa saber sem ter de
         procurar: some sozinho quando sobe, e enquanto está lá diz onde está o
         trabalho dela.
       */}
       {pendentes > 0 && (
-        <div className="flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+        <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-400">
           <CloudOff className="size-3.5 shrink-0" aria-hidden />
           <span>
             {pendentes} registro(s) salvos no aparelho, aguardando rede
@@ -126,7 +147,8 @@ export function AppShell({
         ainda obriga a abrir os ajustes para saber para onde.
       */}
       <FaixaDaApi />
-      <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      {/* Sem `sticky`: o cabeçalho é uma linha do flex e nunca sai da tela. */}
+      <header className="shrink-0 border-b bg-card">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">{titulo}</h1>
@@ -160,10 +182,14 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-4 pb-24 sm:pb-8">{children}</main>
+      <main ref={rolagem} className="flex-1 overflow-y-auto overscroll-contain">
+        {/* O padding embaixo some junto com o `fixed`: a barra não cobre mais
+            nada, ela ocupa o próprio espaço. */}
+        <div className="mx-auto w-full max-w-4xl px-4 py-4">{children}</div>
+      </main>
 
       {/* Navegação de celular. */}
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t bg-card sm:hidden">
+      <nav className="safe-bottom shrink-0 border-t bg-card sm:hidden">
         <div className="mx-auto flex max-w-4xl">
           {ITENS.map(({ href, rotulo, Icone }) => {
             const ativo = estaNaSecao(caminho, href);
