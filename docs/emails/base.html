@@ -1,19 +1,52 @@
 <!--
-  Supabase → Authentication → Emails → "Confirm signup".
-  Assunto sugerido: Confirme seu email — Projeto Isaura
+  ============================================================================
+  O template do Projeto Isaura. É a BASE — não cole este arquivo no Supabase.
+  ============================================================================
 
-  Este arquivo é `base.html` com os cinco trechos preenchidos. Se for mexer no
-  visual, mexa nos dois emails juntos — eles chegam para a mesma pessoa.
+  Os emails de verdade (`confirmar-email.html`, `recuperar-senha.html`) são
+  este arquivo com os cinco trechos marcados por <!-- ▸ --> trocados. Copie
+  daqui para criar um email novo.
+
+  As cores são as mesmas do app, tiradas de `apps/web/src/app/globals.css` —
+  um email que chega com outro azul não parece o mesmo produto, e o que ele
+  precisa transmitir em dois segundos é "isto é o sistema em que eu confio".
+
+    #2F4A9C  azul de tinta de registro escolar (a marca)
+    #F3F5F7  fundo            #FFFFFF  cartão        #D8DDE4  borda
+    #161922  texto            #6A7181  texto fraco
+
+  Três decisões que valem a estranheza do HTML:
+
+  1. **Tabela aninhada e estilo em atributo.** Cliente de email descarta folha
+     de estilo externa, e o Outlook desenha `<div>` com `float` de um jeito
+     próprio. O `<style>` do cabeçalho só carrega o que pode faltar sem doer:
+     modo escuro e ajuste de celular.
+
+  2. **A marca é desenhada, não é imagem.** A maioria dos clientes bloqueia
+     imagem por padrão, e uma logo que não carrega deixa o email começando com
+     um retângulo quebrado. A barra vertical azul é `border-left` — é a mesma
+     marca que o app põe ao lado de cada aula na grade.
+
+  3. **O endereço aparece escrito por extenso embaixo do botão.** Há cliente
+     que não abre o botão. Sem essa linha, o email vira um beco sem saída
+     justamente para quem está sem acesso à conta.
+
+  Não tem VML de propósito: o botão redondo do Outlook para Windows exigiria um
+  bloco condicional que ninguém aqui consegue testar, e o que se perde sem ele é
+  o arredondamento — o botão continua clicável e legível.
 -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sem isto, o Apple Mail inverte as cores sozinho e escolhe pior que a gente. -->
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
-<title>Confirme seu email — Projeto Isaura</title>
+<title>Projeto Isaura</title>
 <style>
+  /* Modo escuro. Só o Apple Mail, o iOS e alguns outros respeitam — nos demais
+     valem os estilos em atributo, que já estão certos no claro. */
   @media (prefers-color-scheme: dark) {
     .fundo    { background:#101218 !important; }
     .cartao   { background:#191C24 !important; border-color:#303440 !important; }
@@ -24,6 +57,7 @@
     .endereco { color:#7D9AE8 !important; }
     .divisor  { border-color:#303440 !important; }
   }
+  /* Em tela estreita o respiro de 28px come a largura útil do texto. */
   @media only screen and (max-width:400px) {
     .respiro { padding-left:20px !important; padding-right:20px !important; }
   }
@@ -32,8 +66,11 @@
 
 <body class="fundo" style="margin:0;padding:0;background:#F3F5F7;">
 
+<!-- ▸ 1. PRÉVIA: a linha que aparece na caixa de entrada ao lado do assunto.
+        Escondida no corpo. Sem ela, o cliente de email usa o começo do texto e
+        a prévia vira "Projeto Isaura Confirme seu…". -->
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent;height:0;width:0;">
-  Um toque e sua conta abre já conectada.
+  Uma frase que continue o assunto, sem repetir o assunto.
 </div>
 
 <table role="presentation" class="fundo" width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -43,6 +80,9 @@
 
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
 
+        <!-- Marca: a mesma barra vertical azul que o app põe ao lado de cada
+             aula na grade. `border-left` porque borda é o que todo cliente
+             desenha igual. -->
         <tr>
           <td class="marca respiro" style="padding:0 28px 14px 28px;">
             <div style="border-left:4px solid #2F4A9C;padding-left:11px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:#2F4A9C;">
@@ -53,33 +93,38 @@
 
         <tr>
           <td class="cartao" style="background:#FFFFFF;border:1px solid #D8DDE4;border-radius:12px;">
+
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
+              <!-- ▸ 2. TÍTULO: o que o email pede, em uma frase. -->
               <tr>
                 <td class="respiro" style="padding:28px 28px 0 28px;">
                   <h1 class="titulo" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:30px;font-weight:600;color:#161922;">
-                    Confirme seu email para começar
+                    O título vai aqui
                   </h1>
                 </td>
               </tr>
 
+              <!-- ▸ 3. TEXTO: por que ela recebeu, e o que acontece depois do clique. -->
               <tr>
                 <td class="respiro" style="padding:14px 28px 0 28px;">
                   <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:25px;color:#6A7181;">
-                    Falta um toque. Confirmando, sua conta abre já com você conectada — daí é
-                    cadastrar suas turmas e os horários delas, e o aviso passa a chegar em cada aula.
+                    Duas ou três linhas, no tom do app: direto, sem "prezado usuário".
                   </p>
                 </td>
               </tr>
 
+              <!-- ▸ 4. BOTÃO. O `bgcolor` no <td> é o que segura a cor onde o
+                   `background` do CSS não passa; o preenchimento vai no <a>
+                   para a área clicável ser o botão inteiro, e não só o texto. -->
               <tr>
                 <td align="center" style="padding:26px 28px 0 28px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
                       <td align="center" bgcolor="#2F4A9C" style="border-radius:10px;">
-                        <a href="{{ .SiteURL }}/confirmar?codigo={{ .TokenHash }}"
+                        <a href="{{ .SiteURL }}/CAMINHO?codigo={{ .TokenHash }}"
                            style="display:block;padding:15px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;">
-                          Confirmar meu email
+                          O que o botão faz
                         </a>
                       </td>
                     </tr>
@@ -93,18 +138,20 @@
                     Se o botão não abrir, copie este endereço no navegador:
                   </p>
                   <p class="endereco" style="margin:6px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#2F4A9C;word-break:break-all;">
-                    {{ .SiteURL }}/confirmar?codigo={{ .TokenHash }}
+                    {{ .SiteURL }}/CAMINHO?codigo={{ .TokenHash }}
                   </p>
                 </td>
               </tr>
 
+              <!-- ▸ 5. AVISO: o que fazer se ela NÃO pediu isto. Muda por email,
+                   e é a parte que evita a reação errada. -->
               <tr>
                 <td class="respiro" style="padding:22px 28px 28px 28px;">
                   <div class="divisor" style="border-top:1px solid #D8DDE4;padding-top:18px;">
                     <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6A7181;">
                       O link vale uma vez só e por pouco tempo.
-                      <strong class="forte" style="color:#161922;font-weight:600;">Se não foi você que criou esta conta</strong>,
-                      pode ignorar este email — sem o clique, nenhuma conta é aberta.
+                      <strong class="forte" style="color:#161922;font-weight:600;">Se não foi você</strong>,
+                      diga aqui o que acontece se ela ignorar.
                     </p>
                   </div>
                 </td>
@@ -114,6 +161,7 @@
           </td>
         </tr>
 
+        <!-- Rodapé: quem recebe sem saber o que é precisa poder descobrir. -->
         <tr>
           <td align="center" class="respiro" style="padding:18px 28px 0 28px;">
             <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#6A7181;">

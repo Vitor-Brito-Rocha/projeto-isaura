@@ -1,71 +1,132 @@
 <!--
   Supabase → Authentication → Emails → "Reset password".
-  O link aponta para /senha do NOSSO app, com o `token_hash` no parâmetro
-  `codigo` — quem troca por sessão é a API. Ver docs/emails/README.md.
+  Assunto sugerido: Criar uma senha nova — Projeto Isaura
+
+  Este arquivo é `base.html` com os cinco trechos preenchidos. Se for mexer no
+  visual, mexa nos dois emails juntos — eles chegam para a mesma pessoa.
 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-       style="background:#f4f5f7;margin:0;padding:24px 12px;">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Criar uma senha nova — Projeto Isaura</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    .fundo    { background:#101218 !important; }
+    .cartao   { background:#191C24 !important; border-color:#303440 !important; }
+    .titulo   { color:#E7EBEF !important; }
+    .forte    { color:#E7EBEF !important; }
+    .texto    { color:#949BA8 !important; }
+    .marca    { color:#7D9AE8 !important; border-color:#7D9AE8 !important; }
+    .endereco { color:#7D9AE8 !important; }
+    .divisor  { border-color:#303440 !important; }
+  }
+  @media only screen and (max-width:400px) {
+    .respiro { padding-left:20px !important; padding-right:20px !important; }
+  }
+</style>
+</head>
+
+<body class="fundo" style="margin:0;padding:0;background:#F3F5F7;">
+
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;opacity:0;color:transparent;height:0;width:0;">
+  O link abre a tela da senha nova — e já entra com ela.
+</div>
+
+<table role="presentation" class="fundo" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background:#F3F5F7;">
   <tr>
-    <td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="max-width:480px;background:#ffffff;border-radius:12px;border:1px solid #e4e6eb;">
+    <td align="center" style="padding:32px 12px;">
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;">
 
         <tr>
-          <td style="padding:28px 28px 0 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <p style="margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#2F4A9C;font-weight:600;">
+          <td class="marca respiro" style="padding:0 28px 14px 28px;">
+            <div style="border-left:4px solid #2F4A9C;padding-left:11px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:#2F4A9C;">
               Projeto Isaura
-            </p>
-            <h1 style="margin:12px 0 0 0;font-size:22px;line-height:1.3;color:#111827;font-weight:600;">
-              Criar uma senha nova
-            </h1>
+            </div>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:16px 28px 0 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#4b5563;">
-            <p style="margin:0;">
-              Recebemos um pedido para trocar a senha de <strong style="color:#374151;">{{ .Email }}</strong>.
-              O botão abaixo abre a tela onde você escolhe a nova — e já entra com ela.
-            </p>
-          </td>
-        </tr>
+          <td class="cartao" style="background:#FFFFFF;border:1px solid #D8DDE4;border-radius:12px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
-        <tr>
-          <td align="center" style="padding:24px 28px 0 28px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td align="center" bgcolor="#2F4A9C" style="border-radius:8px;">
-                  <a href="{{ .SiteURL }}/senha?codigo={{ .TokenHash }}"
-                     style="display:inline-block;padding:14px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
-                    Escolher senha nova
-                  </a>
+                <td class="respiro" style="padding:28px 28px 0 28px;">
+                  <h1 class="titulo" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:22px;line-height:30px;font-weight:600;color:#161922;">
+                    Criar uma senha nova
+                  </h1>
                 </td>
               </tr>
+
+              <tr>
+                <td class="respiro" style="padding:14px 28px 0 28px;">
+                  <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:25px;color:#6A7181;">
+                    Recebemos um pedido para trocar a senha de
+                    <strong class="forte" style="color:#161922;font-weight:600;">{{ .Email }}</strong>.
+                    O botão abre a tela onde você escolhe a nova — e já entra com ela, sem passar
+                    pelo login de novo.
+                  </p>
+                </td>
+              </tr>
+
+              <tr>
+                <td align="center" style="padding:26px 28px 0 28px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td align="center" bgcolor="#2F4A9C" style="border-radius:10px;">
+                        <a href="{{ .SiteURL }}/senha?codigo={{ .TokenHash }}"
+                           style="display:block;padding:15px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;">
+                          Escolher senha nova
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td class="respiro" style="padding:22px 28px 0 28px;">
+                  <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6A7181;">
+                    Se o botão não abrir, copie este endereço no navegador:
+                  </p>
+                  <p class="endereco" style="margin:6px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#2F4A9C;word-break:break-all;">
+                    {{ .SiteURL }}/senha?codigo={{ .TokenHash }}
+                  </p>
+                </td>
+              </tr>
+
+              <!--
+                O aviso importa mais aqui do que na confirmação: o pedido pode
+                ter partido de outra pessoa que digitou o email dela. Dizer que a
+                senha ATUAL continua valendo evita a reação errada — trocar a
+                senha por medo de um email que não pedia reação nenhuma.
+              -->
+              <tr>
+                <td class="respiro" style="padding:22px 28px 28px 28px;">
+                  <div class="divisor" style="border-top:1px solid #D8DDE4;padding-top:18px;">
+                    <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#6A7181;">
+                      O link vale uma vez só e por pouco tempo.
+                      <strong class="forte" style="color:#161922;font-weight:600;">Se não foi você que pediu</strong>,
+                      ignore este email: sua senha atual continua valendo e ninguém entrou na sua conta.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+
             </table>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:20px 28px 0 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#6b7280;">
-            <p style="margin:0;">Se o botão não abrir, copie este endereço no navegador:</p>
-            <p style="margin:6px 0 0 0;word-break:break-all;color:#2F4A9C;">
-              {{ .SiteURL }}/senha?codigo={{ .TokenHash }}
-            </p>
-          </td>
-        </tr>
-
-        <tr>
-          <td style="padding:0 28px 28px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#6b7280;">
-            <p style="margin:20px 0 0 0;padding-top:16px;border-top:1px solid #e4e6eb;">
-              <!--
-                O aviso importa: o pedido pode ter partido de outra pessoa que
-                digitou o email dela. Dizer que a senha ATUAL continua valendo
-                evita a reação errada — trocar a senha por medo de um email que
-                não precisava de reação nenhuma.
-              -->
-              O link vale uma vez só e por pouco tempo. <strong style="color:#374151;">Se não foi
-              você que pediu</strong>, ignore este email: sua senha atual continua valendo e
-              ninguém entrou na sua conta.
+          <td align="center" class="respiro" style="padding:18px 28px 0 28px;">
+            <p class="texto" style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#6A7181;">
+              Projeto Isaura — o lembrete que faz o registro da aula acontecer na hora certa.<br>
+              Este email é automático; não adianta responder.
             </p>
           </td>
         </tr>
@@ -74,3 +135,6 @@
     </td>
   </tr>
 </table>
+
+</body>
+</html>

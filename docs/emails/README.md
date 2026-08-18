@@ -12,9 +12,35 @@ que ele envia é o que estiver colado no painel.
 |---|---|---|
 | `confirmar-email.html` | **Confirm signup** | Confirme seu email — Projeto Isaura |
 | `recuperar-senha.html` | **Reset password** | Criar uma senha nova — Projeto Isaura |
+| `base.html` | *nenhuma* — é o molde | — |
 
 Cole o HTML inteiro no campo *Message body*, salve, e mande um de teste para você antes de mandar
 para ela.
+
+## O molde
+
+`base.html` é o template do Projeto Isaura, e os dois emails são ele com cinco trechos preenchidos
+(prévia, título, texto, botão, aviso). Para criar um email novo, copie o `base.html` e troque os
+cinco — assim os emails continuam parecendo o mesmo produto quando forem três.
+
+O visual sai de `apps/web/src/app/globals.css`, e não de um gosto à parte: mesmo azul de tinta
+(`#2F4A9C`), mesmo cartão branco sobre cinza-claro, mesmo raio de canto. Um email que chega com
+outro azul não parece o mesmo sistema — e o que ele precisa transmitir em dois segundos é
+"isto é o app em que eu confio".
+
+Três detalhes que não são enfeite:
+
+- **A marca é desenhada, não é imagem.** A barra vertical azul é a mesma que o app põe ao lado de
+  cada aula na grade, e é `border-left` — imagem seria bloqueada por padrão na maioria dos clientes,
+  e o email começaria com um retângulo quebrado.
+- **Prévia própria.** A linha escondida no topo é o texto que aparece na caixa de entrada ao lado do
+  assunto. Sem ela, o cliente usa o começo do corpo e a prévia vira "Projeto Isaura Confirme…".
+- **Modo escuro.** O `<style>` do cabeçalho troca as cores no Apple Mail e no iOS; onde ele é
+  descartado valem os estilos em atributo, que já estão certos no claro.
+
+Sem VML de propósito: o botão redondo do Outlook para Windows exigiria um bloco condicional que
+ninguém aqui consegue testar. O que se perde sem ele é o arredondamento — o botão continua clicável
+e legível.
 
 ## O link não é o padrão do Supabase, e isso é de propósito
 
