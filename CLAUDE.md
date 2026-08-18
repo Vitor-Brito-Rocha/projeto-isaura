@@ -187,6 +187,18 @@ cobrir), e **o Next rola a JANELA ao trocar de rota** — por isso o `useEffect`
 `<AlertDialog.Portal>` continua fora da casca, então o `overflow-hidden` não o corta. Medido em
 viewport de 390×664: `navBottom` = 664 antes e depois de rolar 1200px.
 
+**O alarme é oferecido na HOME, não escondido em Ajustes** (`lib/primeiro-uso.ts`, puro e testado).
+Sem isso o caminho para ligar a única coisa que o produto promete era descobrir a tela de Ajustes
+sozinha — e o desfecho provável é usar uma semana sem receber aviso e concluir que não funciona.
+**Nunca chamar `Notification.requestPermission()` sozinho:** o navegador dá uma chance só, recusa é
+quase irreversível no celular, e prompt sem contexto é recusado. O cartão é o pedido ANTES do
+pedido; a permissão do sistema só aparece no clique dela. A ordem dos passos é deliberada — instalar
+(iOS), ativar, e só então sugerir os padrões: perguntar "quantos minutos antes?" a quem nunca
+recebeu um aviso é pedir opinião sobre o que ela não viu funcionar. Dispensar silencia **7 dias, não
+para sempre**, e cada passo tem a própria dispensa. Estado em `localStorage` porque permissão é por
+aparelho — e porque o sinal de conta que existiria (`Professor.atualizadoEm`) é reescrito a cada
+login pelo `upsert` do `garantirPerfil`.
+
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.

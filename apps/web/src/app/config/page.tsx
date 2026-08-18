@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
 import { AlternarApi } from './api';
 import { avisoDeDegradacao, detectarCapacidade, rotuloCapacidade, type Capacidade } from '@/lib/capacidade';
+import { marcarPadroesAjustados } from '@/lib/primeiro-uso';
 import { ativarNotificacoes, desativarNotificacoes, enviarPushTeste, notificacoesAtivas } from '@/lib/push';
 import type { IntensidadeAlarme, Perfil } from '@/lib/types';
 
@@ -53,6 +54,8 @@ export default function Config() {
       return apiFetch('/perfil', { method: 'PATCH', body: JSON.stringify({ [campo]: valor }) });
     },
     onSuccess: async (_r, { campo }) => {
+      // Mexeu num padrão = a sugestão da home já cumpriu o papel dela.
+      marcarPadroesAjustados();
       await qc.invalidateQueries({ queryKey: ['perfil'] });
       await qc.invalidateQueries({ queryKey: ['alarme'] });
       setSalvo(campo);

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { LinhaAula } from '@/components/linha-aula';
+import { PrimeirosPassos } from '@/components/primeiros-passos';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -122,6 +123,12 @@ export default function Semana() {
         </div>
       }
     >
+      {/* Primeiro de tudo, e só enquanto houver passo pendente: sem alarme
+          ligado, a grade abaixo é uma agenda bonita que nunca avisa nada. */}
+      <div className="mb-3 empty:mb-0">
+        <PrimeirosPassos />
+      </div>
+
       <div className="mb-3 flex items-center gap-1">
         <Button
           variant={calendario ? 'ghost' : 'default'}
