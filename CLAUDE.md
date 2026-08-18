@@ -199,6 +199,15 @@ para sempre**, e cada passo tem a própria dispensa. Estado em `localStorage` po
 aparelho — e porque o sinal de conta que existiria (`Professor.atualizadoEm`) é reescrito a cada
 login pelo `upsert` do `garantirPerfil`.
 
+**Tag repetida chega MUDA.** Notificação com a mesma `tag` substitui a anterior, e a plataforma não
+re-alerta ao substituir — sem som, sem vibração. Quem pede o contrário é o `renotify`, e **o iOS não
+o implementa**. Por isso o push de teste usa `teste-${Date.now()}` e o alerta de erro usa a
+assinatura do erro: com tag fixa, o primeiro apitava no iPhone e todos os seguintes chegavam mudos,
+que é o oposto do que um botão de teste prova. Os alarmes de aula já nascem únicos
+(`abertura-${oc.id}`). **Volume não é ajustável por código**: no iOS o aviso sai no volume de "Toque
+e Alertas", que não muda com os botões laterais enquanto "Mudar com Botões" estiver desligado — o
+`avisoDeDegradacao` diz onde fica, porque é a única parte que ela pode resolver.
+
 **Alarme ≠ notificação.** `lib/capacidade.ts` decide o que cada aparelho entrega de verdade, e a UI
 avisa **antes** quando vai degradar. Prometer alarme que não toca é o pior desfecho do produto —
 16 testes travam essa regra.

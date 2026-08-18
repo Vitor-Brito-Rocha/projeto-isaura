@@ -77,7 +77,12 @@ export function avisoDeDegradacao(
     case 'ANDROID_WEB':
       return 'Neste aparelho vai chegar como notificação, não como alarme: pelo navegador não dá para furar o modo silencioso. Instalar o app resolve.';
     case 'IOS_PWA':
-      return 'No iPhone vai chegar como notificação, não como alarme. Se o celular estiver no silencioso, ela não toca — isso é limitação do iOS, não do app.';
+      // O volume entra aqui porque é a única parte que ela PODE resolver. O
+      // resto é teto do iOS; a altura do aviso não é — sai no volume de "Toque
+      // e Alertas", que costuma estar baixo e não muda com os botões laterais
+      // enquanto "Mudar com Botões" estiver desligado. Sem dizer onde fica, o
+      // desfecho é ela achar que o app avisa baixinho de propósito.
+      return 'No iPhone vai chegar como notificação, não como alarme: no silencioso não toca, e o volume é o de Ajustes › Sons e Toques › Toque e Alertas. Isso é limitação do iOS, não do app.';
     default:
       return 'Neste aparelho vai chegar como notificação, não como alarme.';
   }

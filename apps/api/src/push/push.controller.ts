@@ -36,7 +36,16 @@ export class PushController {
       title: 'Teste de alarme',
       body: 'Se você está lendo isto, os alarmes estão funcionando neste aparelho.',
       tipo: dto.tipo ?? TipoNotificacao.GERAL,
-      tag: 'teste',
+      /**
+       * Tag ÚNICA a cada envio — e isso não é detalhe.
+       *
+       * Notificação com a mesma `tag` SUBSTITUI a anterior, e a plataforma não
+       * re-alerta ao substituir: sem som, sem vibração. O `renotify` existe
+       * para pedir o contrário, e o iOS não o implementa. Com tag fixa, o
+       * primeiro teste apitava no iPhone e todos os seguintes chegavam mudos —
+       * que é exatamente o oposto do que um botão de teste serve para provar.
+       */
+      tag: `teste-${Date.now()}`,
       intensidade: IntensidadeAlarme.NOTIFICACAO,
       som: true,
       vibra: true,

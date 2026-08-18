@@ -69,7 +69,14 @@ export class ErrosService {
       await this.push.enviarPush(this.professorIdCache, {
         title: titulo,
         body: corpo,
-        tag: 'erro-sistema',
+        /**
+         * Por assinatura, não fixa: erro DIFERENTE precisa apitar. Com uma tag
+         * só, o segundo alerta substituía o primeiro em silêncio no iPhone, e
+         * uma falha nova passava despercebida. Repetição do MESMO erro já é
+         * contida pelo cooldown acima, então colapsar por assinatura mantém o
+         * que a tag servia para fazer.
+         */
+        tag: `erro-${assinatura}`,
         url: '/config',
         tipo: TipoNotificacao.GERAL,
       });
