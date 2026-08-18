@@ -1,5 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { StatusOcorrencia } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Frequencia, StatusOcorrencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JANELA_DIAS, RecorrenciaService } from '../agenda/recorrencia.service';
 import {
@@ -10,6 +15,7 @@ import {
   minutos,
   somarDias,
 } from '../common/tz';
+import { AulaExistente, choqueInterno, mensagemDeChoque, primeiroChoque } from './conflito';
 import { CreateSerieDto, HorarioDto, UpdateSerieDto } from './dto/serie.dto';
 
 @Injectable()
@@ -51,6 +57,13 @@ export class SeriesService {
     });
     if (!cadeira) throw new BadRequestException('Cadeira não encontrada.');
 
+    await this.recusarSeChocar(professorId, {
+      frequencia: dto.frequencia,
+      dataInicio: dataUTC(dto.dataInicio),
+      dataFim: dto.dataFim ? dataUTC(dto.dataFim) : null,
+      horarios: dto.horarios,
+    });
+
     const serie = await this.prisma.serieAula.create({
       data: {
         professorId,
@@ -69,7 +82,7 @@ export class SeriesService {
   }
 
   async atualizar(professorId: string, id: string, dto: UpdateSerieDto) {
-    await this.buscar(professorId, id);
+    const atual = await this.buscar(professorId, id);
     if (dto.horarios) this.validarHorarios(dto.horarios);
 
     // Qualquer um destes muda QUAIS datas a série gera, não só o horário delas.
@@ -81,6 +94,21 @@ export class SeriesService {
       dto.frequencia !== undefined ||
       dto.dataInicio !== undefined ||
       dto.dataFim !== undefined;
+
+    if (mudaAsDatas) {
+      // A série editada é ignorada de propósito: as ocorrências dela ainda estão
+      // no banco, e sem isto toda edição chocaria consigo mesma.
+      await this.recusarSeChocar(
+        professorId,
+        {
+          frequencia: dto.frequencia ?? atual.frequencia,
+          dataInicio: dto.dataInicio ? dataUTC(dto.dataInicio) : atual.dataInicio,
+          dataFim: dto.dataFim ? dataUTC(dto.dataFim) : atual.dataFim,
+          horarios: dto.horarios ?? atual.horarios,
+        },
+        id,
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.serieAula.update({
@@ -190,6 +218,63 @@ export class SeriesService {
     return faltantes.length;
   }
 
+  /**
+   * Recusa antes de gravar, e diz com o quê chocou.
+   *
+   * Compara contra as OCORRÊNCIAS já materializadas, e não contra as outras
+   * séries, porque só as ocorrências sabem em que dias a regra de fato cai:
+   * quinzenal alternando, série que já terminou, feriado cancelado à mão. A
+   * recorrência é expandida na mesma janela da materialização — o que estiver
+   * além dela ainda não existe para ninguém.
+   *
+   * Canceladas ficam de fora: aula que ela desmarcou não ocupa mais o horário,
+   * e bloquear por causa dela seria o sistema defendendo um compromisso que a
+   * própria professora já desfez.
+   */
+  private async recusarSeChocar(
+    professorId: string,
+    serie: {
+      frequencia: Frequencia;
+      dataInicio: Date;
+      dataFim: Date | null;
+      horarios: HorarioDto[];
+    },
+    ignorarSerieId?: string,
+  ) {
+    const de = hojeUTC();
+    const ate = somarDias(de, JANELA_DIAS);
+
+    const candidatas = this.recorrencia.gerar({ ...serie, de, ate });
+    if (candidatas.length === 0) return;
+
+    const ocorrencias = await this.prisma.ocorrencia.findMany({
+      where: {
+        professorId,
+        data: { gte: de, lte: ate },
+        status: { not: StatusOcorrencia.CANCELADA },
+        ...(ignorarSerieId ? { serieId: { not: ignorarSerieId } } : {}),
+      },
+      select: {
+        data: true,
+        horaInicio: true,
+        horaFim: true,
+        serieId: true,
+        cadeira: { select: { disciplina: true, turma: true } },
+      },
+    });
+
+    const existentes: AulaExistente[] = ocorrencias.map((o) => ({
+      data: o.data,
+      horaInicio: o.horaInicio,
+      horaFim: o.horaFim,
+      serieId: o.serieId,
+      cadeira: `${o.cadeira.disciplina} · ${o.cadeira.turma}`,
+    }));
+
+    const choque = primeiroChoque(candidatas, existentes);
+    if (choque) throw new ConflictException(mensagemDeChoque(choque));
+  }
+
   private validarHorarios(horarios: HorarioDto[]) {
     for (const h of horarios) {
       if (minutos(h.horaFim) <= minutos(h.horaInicio)) {
@@ -208,6 +293,15 @@ export class SeriesService {
         throw new BadRequestException(`Horário repetido: dia ${h.diaSemana} às ${h.horaInicio}.`);
       }
       vistos.add(chave);
+    }
+
+    const interno = choqueInterno(horarios);
+    if (interno) {
+      const [a, b] = interno;
+      throw new BadRequestException(
+        `Dois horários se sobrepõem no mesmo dia: ${a.horaInicio}–${a.horaFim} e ` +
+          `${b.horaInicio}–${b.horaFim}. Uma aula só pode acontecer de cada vez.`,
+      );
     }
   }
 }

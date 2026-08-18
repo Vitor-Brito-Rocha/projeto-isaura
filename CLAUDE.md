@@ -304,6 +304,17 @@ JSON schema de saída não tem campo de pessoa, então não há onde um nome cab
 desobedecer. A fala dela (`transcricaoBruta`) pode conter nome e **é guardada** — só ela vê. Áudio
 é descartado na revisão. Ver "LGPD" em `docs/PLANO.md`.
 
+**Duas turmas no mesmo horário são recusadas, e a mensagem diz qual.** `series/conflito.ts` é puro
+e testado; `recusarSeChocar` compara contra as OCORRÊNCIAS já materializadas, não contra as outras
+séries — só elas sabem em que dias a regra de fato cai (quinzenal alternando, série encerrada, aula
+cancelada à mão). Canceladas ficam de fora: aula desmarcada não ocupa horário. **Encostar não é
+sobrepor** — 07:50 depois de 07:00–07:50 é o intervalo entre dois tempos, e tratar isso como choque
+tornaria a checagem inútil justo para quem dá aulas seguidas. Ao editar, a própria série é ignorada,
+senão toda edição chocaria consigo mesma. O choque DENTRO do mesmo formulário é checado à parte
+(`choqueInterno`): as ocorrências dele ainda não existem, e a checagem de duplicata não pega, porque
+`(dia, horaInicio)` são diferentes. O estrago que isso evita não é a linha errada na grade — são os
+dois alarmes de abertura tocando no mesmo minuto para turmas diferentes.
+
 **Registrar não tem janela de tempo.** Os 5 minutos de antecedência/atraso são só quando o *alarme
 toca*; `salvarAbertura` e `salvarFechamento` nunca olharam o relógio. `GET /agenda/pendencias` é a
 porta de quem não conseguiu escrever na hora — sem ela, registrar a terça passada exigia lembrar a

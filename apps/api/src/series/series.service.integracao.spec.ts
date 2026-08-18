@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { Frequencia, PrismaClient, StatusOcorrencia } from '@prisma/client';
 import { RecorrenciaService } from '../agenda/recorrencia.service';
 import { hhmmNaTz, instanteDeParede, isoDeDataUTC } from '../common/tz';
@@ -215,5 +216,101 @@ descreve('SeriesService (integração)', () => {
     expect(await prisma.serieAula.count({ where: { professorId: SP } })).toBe(0);
     expect(await prisma.cadeira.count({ where: { professorId: SP } })).toBe(0);
     expect(await prisma.serieHorario.count({ where: { serieId: serie.id } })).toBe(0);
+  });
+
+  /**
+   * O sistema deixava três turmas na segunda às 07:00 e não reclamava.
+   *
+   * A regra pura já tem teste; o que só o banco prova é o recorte da consulta —
+   * que ela olha as ocorrências certas, ignora as da própria série ao editar,
+   * respeita o dono e não conta aula cancelada.
+   */
+  describe('choque de horário', () => {
+    async function cadeiraDe(professorId: string, disciplina: string, turma: string) {
+      return prisma.cadeira.create({
+        data: { professorId, disciplina, turma, anoLetivo: 2026 },
+      });
+    }
+
+    const naQuinta = (cadeiraId: string, horaInicio: string, horaFim: string) => ({
+      cadeiraId,
+      frequencia: Frequencia.SEMANAL,
+      dataInicio: '2026-08-06',
+      horarios: [{ diaSemana: 4, horaInicio, horaFim }],
+    });
+
+    it('recusa e diz com qual turma chocou', async () => {
+      await criarSerieDe(SP); // Matemática · 8º A, quinta 07:00–07:50
+      const outra = await cadeiraDe(SP, 'Ciências', '7º B');
+
+      const tentativa = servico.criar(SP, naQuinta(outra.id, '07:20', '08:10'));
+
+      await expect(tentativa).rejects.toBeInstanceOf(ConflictException);
+      await expect(tentativa).rejects.toThrow(/Matemática · 8º A/);
+    });
+
+    it('deixa passar a aula seguinte, que só encosta', async () => {
+      await criarSerieDe(SP);
+      const outra = await cadeiraDe(SP, 'Ciências', '7º B');
+
+      await expect(servico.criar(SP, naQuinta(outra.id, '07:50', '08:40'))).resolves.toBeDefined();
+    });
+
+    /**
+     * A grade de uma professora não pode barrar a de outra. Se este quebrar, a
+     * consulta perdeu o `professorId` — que é vazamento entre contas, não só um
+     * falso positivo.
+     */
+    it('não olha a grade de outro professor', async () => {
+      await criarSerieDe(SP);
+      const doAcre = await cadeiraDe(ACRE, 'Matemática', '8º A');
+
+      await expect(servico.criar(ACRE, naQuinta(doAcre.id, '07:00', '07:50'))).resolves.toBeDefined();
+    });
+
+    /**
+     * Aula desmarcada não ocupa mais o horário. Bloquear por causa dela seria o
+     * sistema defendendo um compromisso que a própria professora desfez.
+     */
+    it('aula cancelada não segura o horário', async () => {
+      const serie = await criarSerieDe(SP);
+      await prisma.ocorrencia.updateMany({
+        where: { serieId: serie.id },
+        data: { status: StatusOcorrencia.CANCELADA },
+      });
+      const outra = await cadeiraDe(SP, 'Ciências', '7º B');
+
+      await expect(servico.criar(SP, naQuinta(outra.id, '07:00', '07:50'))).resolves.toBeDefined();
+    });
+
+    /**
+     * Sem ignorar a própria série, toda edição chocaria consigo mesma: as
+     * ocorrências antigas ainda estão no banco quando a checagem roda.
+     */
+    it('editar a própria série não choca com ela mesma', async () => {
+      const serie = await criarSerieDe(SP);
+
+      await expect(
+        servico.atualizar(SP, serie.id, {
+          horarios: [{ diaSemana: 4, horaInicio: '07:10', horaFim: '08:00' }],
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('recusa dois horários sobrepostos no mesmo formulário', async () => {
+      const cadeira = await cadeiraDe(SP, 'Matemática', '8º A');
+
+      await expect(
+        servico.criar(SP, {
+          cadeiraId: cadeira.id,
+          frequencia: Frequencia.SEMANAL,
+          dataInicio: '2026-08-06',
+          horarios: [
+            { diaSemana: 4, horaInicio: '07:00', horaFim: '08:00' },
+            { diaSemana: 4, horaInicio: '07:30', horaFim: '08:30' },
+          ],
+        }),
+      ).rejects.toThrow(/sobrep/i);
+    });
   });
 });

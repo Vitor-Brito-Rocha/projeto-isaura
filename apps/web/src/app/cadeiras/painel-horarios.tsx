@@ -82,7 +82,17 @@ export function PainelHorarios({
       setEditando(null);
       toast.success('Grade atualizada.');
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.'),
+    /**
+     * Erro de grade não é aviso, é instrução — e ela precisa dele na tela
+     * enquanto conserta. "Choca com Matemática · 8º A, segunda, 24/08" some em
+     * quatro segundos, e aí a pergunta ("chocava com qual mesmo?") já não tem
+     * resposta na tela. Fica até ela fechar.
+     */
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : 'Não foi possível salvar.', {
+        duration: Infinity,
+        closeButton: true,
+      }),
   });
 
   const remover = useMutation({
