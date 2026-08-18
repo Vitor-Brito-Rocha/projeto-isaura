@@ -70,3 +70,57 @@ describe('apiFetch — renovação de sessão', () => {
     expect(chamadas.filter((c) => c.endsWith('/auth/refresh'))).toHaveLength(1);
   });
 });
+
+/**
+ * Um desfecho que parece bug do app e não é.
+ *
+ * Testando o front publicado contra a API por um túnel do ngrok gratuito, ele
+ * intercepta o que tem cara de navegador e responde a SUA página de aviso:
+ * `200 OK` com `content-type: text/html` e `ngrok-error-code: ERR_NGROK_6024`,
+ * sem chamar a API. O `resposta.json()` estoura em cima de HTML e a tela mostra
+ * uma falha genérica — status 200 na aba de rede, nada no log da API, e nenhuma
+ * pista de que o problema está no túnel.
+ *
+ * O header resolve, e precisa estar em TODA chamada: uma que escape volta HTML
+ * e derruba a tela sozinha.
+ */
+describe('apiFetch — cabeçalhos', () => {
+  function capturar() {
+    const feitas: { url: string; init: RequestInit }[] = [];
+    global.fetch = jest.fn(async (url: string | URL | Request, init: RequestInit = {}) => {
+      feitas.push({ url: String(url), init });
+      if (String(url).endsWith('/auth/refresh')) return { ok: true, status: 200, json: async () => ({}) };
+      // 401 na primeira, para o refresh entrar na conversa também.
+      const jaTentou = feitas.filter((f) => f.url === String(url)).length > 1;
+      return jaTentou
+        ? { ok: true, status: 200, json: async () => ({}) }
+        : { ok: false, status: 401, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    return feitas;
+  }
+
+  it('manda o header que faz o ngrok repassar em vez de mostrar a página dele', async () => {
+    const feitas = capturar();
+    await apiFetch('/progresso');
+
+    const cabecalhos = feitas.map((f) => f.init.headers as Record<string, string>);
+    expect(cabecalhos.every((h) => h['ngrok-skip-browser-warning'])).toBe(true);
+  });
+
+  it('a renovação também leva — senão o refresh volta HTML e a sessão morre', async () => {
+    const feitas = capturar();
+    await apiFetch('/progresso');
+
+    const refresh = feitas.find((f) => f.url.endsWith('/auth/refresh'))!;
+    expect((refresh.init.headers as Record<string, string>)['ngrok-skip-browser-warning']).toBeTruthy();
+  });
+
+  it('quem chama ainda manda no que passa — o header do caller ganha', async () => {
+    const feitas = capturar();
+    await apiFetch('/progresso', { headers: { 'Content-Type': 'text/plain' } });
+
+    const primeira = feitas[0].init.headers as Record<string, string>;
+    expect(primeira['Content-Type']).toBe('text/plain');
+    expect(primeira['ngrok-skip-browser-warning']).toBeTruthy();
+  });
+});

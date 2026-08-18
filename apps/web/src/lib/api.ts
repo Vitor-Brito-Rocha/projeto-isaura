@@ -1,4 +1,4 @@
-import { baseDaApi } from './base-api';
+import { baseDaApi, CABECALHOS_DA_API } from './base-api';
 
 export class ApiError extends Error {
   constructor(
@@ -24,6 +24,7 @@ function renovarSessao(): Promise<boolean> {
   renovacaoEmCurso ??= fetch(`${baseDaApi()}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
+    headers: { ...CABECALHOS_DA_API },
   })
     .then((r) => r.ok)
     .catch(() => false)
@@ -52,7 +53,7 @@ export async function apiFetch<T = unknown>(
     fetch(`${baseDaApi()}${caminho}`, {
       ...init,
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...init.headers },
+      headers: { 'Content-Type': 'application/json', ...CABECALHOS_DA_API, ...init.headers },
     });
 
   let resposta = await enviar();

@@ -8,7 +8,7 @@ import { Confirmar } from '@/components/confirmar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api';
-import { baseDaApi } from '@/lib/base-api';
+import { baseDaApi, CABECALHOS_DA_API } from '@/lib/base-api';
 import type { Anexo } from '@/lib/types';
 
 
@@ -53,7 +53,10 @@ export function Anexos({
   const { data: anexos, isLoading } = useQuery({
     queryKey: chave,
     queryFn: async () => {
-      const r = await fetch(`${baseDaApi()}${rota}`, { credentials: 'include' });
+      const r = await fetch(`${baseDaApi()}${rota}`, {
+        credentials: 'include',
+        headers: { ...CABECALHOS_DA_API },
+      });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível listar os anexos.');
       return (await r.json()) as Anexo[];
     },
@@ -68,6 +71,7 @@ export function Anexos({
       const r = await fetch(`${baseDaApi()}${rota}`, {
         method: 'POST',
         credentials: 'include',
+        headers: { ...CABECALHOS_DA_API },
         body: corpo,
       });
       if (!r.ok) {
@@ -88,7 +92,11 @@ export function Anexos({
 
   const remover = useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`${baseDaApi()}/anexos/${id}`, { method: 'DELETE', credentials: 'include' });
+      const r = await fetch(`${baseDaApi()}/anexos/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { ...CABECALHOS_DA_API },
+      });
       if (!r.ok) throw new ApiError(r.status, 'Não foi possível remover.');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: chave }),

@@ -101,6 +101,30 @@ export function definirBaseDaApi(url: string | null): void {
   window.dispatchEvent(new Event(EVENTO_BASE_API));
 }
 
+/**
+ * Cabeçalhos que TODA chamada leva, seja qual for o corpo.
+ *
+ * `ngrok-skip-browser-warning` existe por causa de um desfecho que parece bug do
+ * app e não é: no plano gratuito, o ngrok intercepta requisições com cara de
+ * navegador e responde a SUA página de aviso — `200 OK`, `content-type:
+ * text/html`, `ngrok-error-code: ERR_NGROK_6024` — sem sequer chamar a API. O
+ * `resposta.json()` estoura em cima de HTML, e o sintoma na tela é uma falha
+ * genérica que não aponta para lugar nenhum. Qualquer valor no header basta
+ * para o ngrok repassar.
+ *
+ * Vai sempre, e não só quando o endereço é absoluto, porque o desvio pelo proxy
+ * do Next também pode terminar num túnel: o rewrite repassa os cabeçalhos que
+ * chegaram, então mandar daqui cobre os dois caminhos. Para quem não é ngrok é
+ * um header ignorado — o custo real é um preflight a mais no upload, que é a
+ * única chamada que hoje não tem `Content-Type` e por isso ainda não pedia um.
+ *
+ * NÃO inclui `Content-Type`: o upload manda `FormData`, e o navegador precisa
+ * gerar o boundary do multipart sozinho.
+ */
+export const CABECALHOS_DA_API: Record<string, string> = {
+  'ngrok-skip-browser-warning': '1',
+};
+
 /** Está apontando para outro lugar que não o do build? A tela avisa quando sim. */
 export function estaAlternada(): boolean {
   return baseDaApi() !== BASE_PADRAO;
