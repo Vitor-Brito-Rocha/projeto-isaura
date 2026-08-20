@@ -11,7 +11,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 |---|---|
 | 1 — Fundação multitenant e grade | feita (`8921d81`, `8ed4568`); a **tela** de séries só chegou em `3670473` |
 | 2 — Os dois alarmes + casca PWA | feita (`aa71e52`, `37baa31`, `9c8dfdb`); falta só a verificação em aparelho real |
-| 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`); falta só o teste de modo avião |
+| 3 — Registro por texto | feita (`57f85a8`…`eafd4e0`), mais o rascunho local do que ela digita e não salvou; falta só o teste de modo avião |
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita e o lado de API da frente C também (`COOKIE_CROSS_SITE`); faltam A (build na nuvem), o lado wrapper de C e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
@@ -125,7 +125,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 195 de web
+npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 212 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -275,6 +275,25 @@ headers); `build:web:nativo` é o do APK (`APP_NATIVO=1` → `output: 'export'`,
 `next.config.mjs` **recusa** o build nativo se `NEXT_PUBLIC_API_URL` não for absoluta: o padrão
 `/api` resolveria para `https://localhost/api` dentro da WebView, e o app instalaria, abriria e
 falharia em toda chamada com cara de "erro de rede".
+
+**Três lugares guardam trabalho dela, e são degraus diferentes.** A **fila** (`fila-offline.ts`) é
+o que ela mandou salvar e a rede não deixou subir. O **rascunho local**
+(`rascunho-local.ts` + `usar-rascunho-local.ts`) é o que ela nem chegou a mandar: vivia só em
+`useState` e sumia ao trocar de aba, sair da tela ou fechar o app — sem erro, sem aviso. O
+**rascunho da IA** (`rascunho.ts`) é o que o modelo escreveu e ela ainda não conferiu. **Nenhum dos
+três conta como registro.**
+
+O rascunho local mora numa loja PRÓPRIA do IndexedDB, nunca na da fila: misturados, a sincronização
+mandaria para o servidor exatamente o que ela não pediu para salvar. Some sozinho quando fica igual
+ao que já está gravado (`recuperar`) — senão o aviso diria "isto não foi salvo" apontando para o que
+está salvo — e é podado em 30 dias. A cópia em memória de módulo é o que faz a troca entre "o que
+planejo dar" e "o que eu dei" não perder nada: são componentes distintos, e trocar de aba desmonta
+um. **Quem usa aplica em DOIS efeitos, servidor primeiro e rascunho por cima.** Num efeito só
+(`aplicar(local ?? doServidor)`), toda mudança do servidor reaplicaria o rascunho — ela recupera o
+texto, corrige, salva, a consulta volta e a correção sumia. O rascunho é com o que a tela ABRE, não
+uma fonte que continua valendo. E a tela **diz** que recuperou, pela mesma razão de `avisar`
+separar "registrada" de "salvo no aparelho": texto na tela que não está salvo precisa se anunciar,
+senão ela fecha o app achando que a coordenação já pode ver aquilo.
 
 **Saída da IA é sempre rascunho.** `revisadoEm` nulo = não conta como registro. O histórico pode
 virar prova de trabalho na frente da coordenação. Quem preenche `revisadoEm` é `salvarFechamento`,

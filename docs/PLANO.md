@@ -326,6 +326,12 @@ resolve só no prompt:
   Janela rolante de ~14 dias, renovada a cada abertura do app.
 - **Sala sem sinal** — escrita local-first (IndexedDB) + fila de sync é requisito, não refinamento.
   É exatamente no fechamento que a rede falta.
+- **Perder o que ela digitou é pior do que a rede cair** — e é um degrau ANTES da fila. A fila cobre
+  "clicou em Salvar e não havia rede"; o que ela escreveu sem chegar a clicar vivia só em
+  `useState` e sumia ao trocar de aba, sair da tela ou fechar o app, sem erro nenhum. O caso mais
+  caro é a fala ditada, que só alcança o servidor quando ela pede o resumo. Rascunho local por
+  ocorrência, em IndexedDB (`lib/rascunho-local.ts`), com a tela dizendo que recuperou — rascunho
+  **não** é registro: não sobe para o servidor, não entra no histórico, não conta no progresso.
 - **Feriado / semana de prova / aula trocada** — ocorrência editável individualmente sem quebrar a
   série; cancelar aula cancela os alarmes dela.
 - **Fuso** — regra como hora local + dia da semana; materializar em `timestamptz`.
@@ -419,7 +425,8 @@ mostrar se é necessária.
 3. ~~**Registro por texto**~~ — **feito.** `PlanoCurricular` + unidades + tópicos, `RegistroAula`
    por ocorrência, a tela `/aula/[id]` com os dois formulários, encadeamento `planoProximaAula`,
    sugestão da turma irmã, telas de plano curricular e vínculo cadeira↔plano, anexos e escrita
-   local-first. Falta só o teste de modo avião no aparelho.
+   local-first — mais o rascunho local do que ela digita e ainda não salvou (`lib/rascunho-local.ts`).
+   Falta só o teste de modo avião no aparelho.
    *Entrega: substitui o caderno.*
 4. **Voz e resumo padronizado** — **construída e verificada pela Groq** (`fbb7499`). Ditado sem
    gravar áudio, `POST /ia/ocorrencia/:id/resumo` devolvendo rascunho, revisão que preserva a fala

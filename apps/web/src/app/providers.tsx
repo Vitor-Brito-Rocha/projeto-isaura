@@ -1,15 +1,24 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import { RotaPorNotificacao } from '@/components/rota-por-notificacao';
 import { useInicioDoHistorico } from '@/lib/navegacao';
+import { hidratarRascunhos } from '@/lib/usar-rascunho-local';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Anota o tamanho do histórico antes de qualquer navegação — é o que permite
   // ao botão de voltar saber se há para onde voltar. Ver `lib/navegacao.ts`.
   useInicioDoHistorico();
+
+  // Lê do disco, uma vez por carregamento, o que ela digitou e não salvou. Aqui
+  // e não na tela da aula: quando o formulário monta, a leitura já terminou, e
+  // o rascunho volta para os campos sem uma espera assíncrona no meio da
+  // montagem. Ver `lib/usar-rascunho-local.ts`.
+  useEffect(() => {
+    void hidratarRascunhos();
+  }, []);
 
   // Instância por montagem, não módulo: no App Router um client global vaza
   // cache entre requisições no servidor.

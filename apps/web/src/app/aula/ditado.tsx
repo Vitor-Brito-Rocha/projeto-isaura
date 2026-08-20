@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Mic, Square, Wand2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api';
 import { useDitado } from '@/lib/ditado';
 import type { RascunhoIA } from '@/lib/rascunho';
+import { useRascunhoLocal } from '@/lib/usar-rascunho-local';
+import { RascunhoRecuperado } from './rascunho-recuperado';
 
 interface Resposta {
   rascunho: RascunhoIA;
@@ -41,7 +43,29 @@ export function Ditado({
   // os campos preenchidos e concluído que estavam salvos.
   const [gerouAgora, setGerouAgora] = useState(false);
 
-  useEffect(() => setFala(falaSalva), [falaSalva]);
+  // A fala só alcança o servidor pelo botão de gerar o rascunho. Sem guardá-la
+  // no aparelho, contar a aula inteira e sair da tela antes de apertar o botão
+  // perdia tudo — é o texto mais longo desta tela e o mais caro de refazer.
+  //
+  // `enviada` é a sombra do que o servidor acabou de guardar: gerar o rascunho
+  // grava a fala em `transcricaoBruta`, mas a tela não refaz a consulta ali —
+  // é o mesmo motivo de `gerouAgora` existir. Sem esta sombra, o aviso de
+  // rascunho continuaria dizendo "isto não saiu do aparelho" sobre uma fala que
+  // acabou de sair.
+  const [enviada, setEnviada] = useState<string | null>(null);
+  const doServidor = useMemo(() => ({ fala: enviada ?? falaSalva }), [enviada, falaSalva]);
+  const valores = useMemo(() => ({ fala }), [fala]);
+  const { local, recuperado, descartar } = useRascunhoLocal(
+    `fala:${ocorrenciaId}`,
+    valores,
+    doServidor,
+  );
+
+  // Dois efeitos, nesta ordem — ver `lib/usar-rascunho-local.ts`.
+  useEffect(() => setFala(doServidor.fala), [doServidor]);
+  useEffect(() => {
+    if (local) setFala(local.fala);
+  }, [local]);
 
   const { disponivel, ouvindo, alternar } = useDitado(
     (t) => setFala((atual) => (atual ? `${atual} ${t}` : t)),
@@ -65,6 +89,7 @@ export function Ditado({
     onSuccess: (r) => {
       aoGerar(r.rascunho);
       setGerouAgora(true);
+      setEnviada(r.transcricao);
       toast.success('Rascunho pronto.', {
         description: 'Confira antes de salvar — ainda não conta como registro.',
         duration: 6000,
@@ -100,6 +125,17 @@ export function Ditado({
           </Button>
         )}
       </div>
+
+      {recuperado && (
+        <RascunhoRecuperado
+          consequencia="Ela ainda não saiu do aparelho: quem a envia é o botão abaixo."
+          oQueSomeAoDescartar="O campo volta para a última fala que você enviou nesta aula. O que você ditou e não enviou some do aparelho, e não dá para trazer de volta."
+          onDescartar={() => {
+            descartar();
+            setFala(doServidor.fala);
+          }}
+        />
+      )}
 
       <Textarea
         id="fala"

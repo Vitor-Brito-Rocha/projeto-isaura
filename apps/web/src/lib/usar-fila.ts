@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch, ApiError } from './api';
-import { armazenamentoIndexedDB } from './armazenamento-idb';
+import { armazenamentoDaFila } from './armazenamento-idb';
 import {
   criarFila,
   ErroPermanente,
@@ -14,7 +14,7 @@ import {
 let fila: Fila | null = null;
 
 function obterFila(): Fila {
-  fila ??= criarFila(armazenamentoIndexedDB());
+  fila ??= criarFila(armazenamentoDaFila());
   return fila;
 }
 

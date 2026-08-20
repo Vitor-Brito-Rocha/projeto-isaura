@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Check, Lightbulb, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
@@ -25,9 +25,11 @@ import {
 import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { ContextoAula } from '@/lib/types';
 import { useFilaOffline, type Desfecho } from '@/lib/usar-fila';
+import { useRascunhoLocal } from '@/lib/usar-rascunho-local';
 import { Anexos } from '@/components/anexos';
 import { Ditado } from './ditado';
 import { EstadoDaAula } from './estado-da-aula';
+import { RascunhoRecuperado } from './rascunho-recuperado';
 
 type Momento = 'abertura' | 'fechamento';
 
@@ -226,9 +228,31 @@ function FormAbertura({
 
   // Pré-preenche com o que ela escreveu como "próxima aula" no fechamento
   // anterior. É o que transforma o alarme em confirmação em vez de digitação.
+  const doServidor = useMemo(
+    () => ({ plano: contexto.registro?.planoPrevisto ?? anterior?.texto ?? '' }),
+    [contexto.registro?.planoPrevisto, anterior?.texto],
+  );
+
+  const valores = useMemo(() => ({ plano }), [plano]);
+
+  // A chave tem a forma da chave da fila de propósito: `abertura:<id>` e
+  // `fechamento:<id>` são as duas metades do mesmo gesto, e confundir uma com a
+  // outra escreveria o plano da próxima aula por cima do que ela deu.
+  const { local, recuperado, descartar } = useRascunhoLocal(
+    `abertura:${ocorrenciaId}`,
+    valores,
+    doServidor,
+  );
+
+  // Dois efeitos, nesta ordem: o que está gravado, e o que ela digitou e não
+  // salvou por cima. Ver `lib/usar-rascunho-local.ts` para por que não é um só.
   useEffect(() => {
-    setPlano(contexto.registro?.planoPrevisto ?? anterior?.texto ?? '');
-  }, [contexto.registro?.planoPrevisto, anterior?.texto]);
+    setPlano(doServidor.plano);
+  }, [doServidor]);
+
+  useEffect(() => {
+    if (local) setPlano(local.plano);
+  }, [local]);
 
   const { salvar: salvarComFila } = useFilaOffline();
 
@@ -250,6 +274,17 @@ function FormAbertura({
         <CardTitle className="text-base">O que você planeja dar?</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {recuperado && (
+          <RascunhoRecuperado
+            consequencia="Salve para o plano valer na próxima vez que esta aula abrir."
+            oQueSomeAoDescartar="O campo volta para o plano que está gravado nesta aula. O texto que você digitou e não salvou some do aparelho, e não dá para trazer de volta."
+            onDescartar={() => {
+              descartar();
+              setPlano(doServidor.plano);
+            }}
+          />
+        )}
+
         {anterior && !contexto.registro?.planoPrevisto && (
           <Sugestao
             icone={Lightbulb}
@@ -310,9 +345,32 @@ function FormFechamento({
     setProxima(v.proxima);
   }, []);
 
+  const doServidor = useMemo(
+    () => valoresIniciais(registro, sugestaoIrma?.unidadeId),
+    [registro, sugestaoIrma?.unidadeId],
+  );
+
+  const valores = useMemo(
+    () => ({ conteudo, unidadeId, topicos, atividade, entrega, proxima }),
+    [conteudo, unidadeId, topicos, atividade, entrega, proxima],
+  );
+  const { local, recuperado, descartar } = useRascunhoLocal(
+    `fechamento:${ocorrenciaId}`,
+    valores,
+    doServidor,
+  );
+
+  // A ordem das fontes, da mais antiga para a mais recente: o registro gravado,
+  // o rascunho da IA (as duas resolvidas por `valoresIniciais`) e, por cima, o
+  // que ela digitou e não salvou. Dois efeitos e não um — ver
+  // `lib/usar-rascunho-local.ts`.
   useEffect(() => {
-    aplicar(valoresIniciais(registro, sugestaoIrma?.unidadeId));
-  }, [registro, sugestaoIrma?.unidadeId, aplicar]);
+    aplicar(doServidor);
+  }, [doServidor, aplicar]);
+
+  useEffect(() => {
+    if (local) aplicar(local);
+  }, [local, aplicar]);
 
   const { salvar: salvarComFila } = useFilaOffline();
 
@@ -347,6 +405,17 @@ function FormFechamento({
         <CardTitle className="text-base">O que você deu?</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {recuperado && (
+          <RascunhoRecuperado
+            consequencia="Confira e salve — enquanto isso não acontecer, nada disto entra no histórico nem conta no progresso."
+            oQueSomeAoDescartar="Os campos voltam para o que está gravado nesta aula. O texto que você digitou e não salvou some do aparelho, e não dá para trazer de volta."
+            onDescartar={() => {
+              descartar();
+              aplicar(doServidor);
+            }}
+          />
+        )}
+
         {contexto.registro?.planoPrevisto && (
           <div className="rounded-md border-l-2 border-primary/40 bg-muted/40 px-3 py-2">
             <p className="text-xs font-medium text-muted-foreground">Você planejou</p>
