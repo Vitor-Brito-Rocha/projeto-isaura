@@ -3,7 +3,7 @@ import { AnexosService, type ArquivoRecebido } from '../anexos/anexos.service';
 import { StorageService } from '../anexos/storage.service';
 import { ImportacaoService } from '../ia/importacao.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { identidadeDoPlano } from './identidade';
+import { cadeiraDoDocumento, identidadeDoPlano, type CadeiraSugerida } from './identidade';
 import {
   CreatePlanoDto,
   CreateTopicoDto,
@@ -66,7 +66,44 @@ export class PlanosService {
     // melhor que perder o upload.
     const anexo = await this.anexos.enviarParaPlano(professorId, plano.id, arquivo);
 
-    return { plano, anexoId: anexo.id, proposta, jaExiste: await this.parecido(professorId, plano) };
+    const sugestao = cadeiraDoDocumento(proposta);
+
+    return {
+      plano,
+      anexoId: anexo.id,
+      proposta,
+      jaExiste: await this.parecido(professorId, plano),
+      // A turma que o documento descreve, e a que ela já tem com esse nome. Sem
+      // isso o select de turmas vinha VAZIO para quem está começando: ela
+      // importava o plano inteiro e não conseguia criar uma única aula, que é
+      // o que faz o alarme tocar.
+      cadeira: {
+        sugestao,
+        existente: sugestao ? await this.cadeiraParecida(professorId, sugestao) : null,
+      },
+    };
+  }
+
+  /**
+   * A turma que ela já tem com esta cara.
+   *
+   * Reaproveitar em vez de criar outra é a regra que importa aqui: duas
+   * cadeiras para o mesmo grupo partem o progresso ao meio e disparam o alarme
+   * em duplicata, e a grade fica com a mesma cara na tela — nada denuncia.
+   * Importar o mesmo PDF de novo tem de cair na cadeira que já existe.
+   */
+  private async cadeiraParecida(professorId: string, sugestao: CadeiraSugerida) {
+    return this.prisma.cadeira.findFirst({
+      where: {
+        professorId,
+        ativo: true,
+        disciplina: sugestao.disciplina,
+        turma: sugestao.turma,
+        anoLetivo: sugestao.anoLetivo,
+        semestre: sugestao.semestre ?? null,
+      },
+      select: { id: true, disciplina: true, turma: true },
+    });
   }
 
   /**

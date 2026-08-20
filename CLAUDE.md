@@ -126,7 +126,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 248 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
+npm test              # 255 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -316,6 +316,17 @@ quando ela confirma. Documento de outro formato ainda cria o plano, com o nome d
 (`planos/identidade.ts`): um formulário antes do upload traria de volta a digitação que este
 caminho existe para acabar. Plano repetido **avisa e não bloqueia** — dois semestres com a mesma
 disciplina são legítimos.
+
+**A turma também sai do documento, e turma repetida é REAPROVEITADA.** `Ocorrencia.cadeiraId` é
+obrigatório: sem cadeira não há aula, e sem aula não há alarme. Para quem estava começando, o
+select de turmas vinha vazio e ela importava o plano inteiro sem conseguir criar uma única aula.
+`cadeiraDoDocumento` propõe a turma a partir do `Código/Turma` — `T203 - 30(31)` → `30(31)`, os
+**dois** números, porque são a mesma turma encontrando duas vezes por semana e guardar metade
+convidaria alguém a cadastrar as duas separadas depois. O rótulo é editável antes de criar (vai
+para a grade, o alarme e o relatório da coordenação), e uma cadeira já existente com a mesma
+`(disciplina, turma, ano, semestre)` é reusada em vez de duplicada — duas cadeiras para o mesmo
+grupo partem o progresso ao meio e disparam alarme em duplicata, com a grade de mesma cara na
+tela. Traço sem nada depois não vira turma: `T203 -` no alarme é pior que pedir.
 
 **Guarda de provedor mora junto da CHAMADA ao provedor, nunca na porta do método.** O
 `extrair` começava recusando quem não tem `IA_PROVEDOR`, e o parser da Unifor — que não fala com

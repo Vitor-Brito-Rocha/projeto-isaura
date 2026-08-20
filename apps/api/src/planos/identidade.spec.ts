@@ -1,5 +1,5 @@
 import type { PropostaDeImportacao } from '../ia/importacao.service';
-import { identidadeDoPlano } from './identidade';
+import { cadeiraDoDocumento, identidadeDoPlano, turmaDoCodigo } from './identidade';
 
 function proposta(
   identificacao: PropostaDeImportacao['identificacao'],
@@ -64,5 +64,55 @@ describe('identidadeDoPlano', () => {
 
     expect(r.nome.length).toBeLessThanOrEqual(160);
     expect(r.disciplina!.length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe('turmaDoCodigo', () => {
+  it('tira a turma do código do documento', () => {
+    expect(turmaDoCodigo('T203 - 30(31)')).toBe('30(31)');
+  });
+
+  it('guarda os DOIS números, não só o primeiro', () => {
+    // `30` e `31` são a mesma turma encontrando duas vezes por semana. Guardar
+    // metade jogaria fora o que impede alguém de cadastrar as duas separadas
+    // depois — e duas cadeiras partem o progresso ao meio e duplicam o alarme.
+    expect(turmaDoCodigo('T203 - 30(31)')).toContain('31');
+  });
+
+  it('sem traço, o código inteiro serve', () => {
+    // Rótulo estranho que ela corrige na tela é melhor que campo vazio, que o
+    // `@MinLength(1)` do DTO recusa depois de o PDF já ter sido lido.
+    expect(turmaDoCodigo('T203')).toBe('T203');
+  });
+
+  it('não inventa turma a partir do nada', () => {
+    // Traço sem nada depois não é turma: cair no código inteiro poria
+    // "T203 -" como nome do grupo na grade e no alarme.
+    expect(turmaDoCodigo(null)).toBeNull();
+    expect(turmaDoCodigo('')).toBeNull();
+    expect(turmaDoCodigo('T203 -   ')).toBeNull();
+  });
+});
+
+describe('cadeiraDoDocumento', () => {
+  it('monta a turma do plano de exemplo', () => {
+    expect(cadeiraDoDocumento(DA_UNIFOR)).toEqual({
+      disciplina: 'Ambiente De Dados',
+      turma: '30(31)',
+      anoLetivo: 2026,
+      semestre: 2,
+    });
+  });
+
+  it('sem disciplina não propõe nada', () => {
+    // Documento de outro formato: não há o que propor, e inventar nome de turma
+    // é pior que pedir. A tela cai no select das turmas que ela já tem.
+    expect(cadeiraDoDocumento(proposta(null))).toBeNull();
+  });
+
+  it('sem código de turma não propõe nada', () => {
+    expect(
+      cadeiraDoDocumento(proposta({ disciplina: 'X', codigoTurma: null, ano: 2026, semestre: 1 })),
+    ).toBeNull();
   });
 });

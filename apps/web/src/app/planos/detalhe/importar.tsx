@@ -27,6 +27,13 @@ interface Horario {
   horaFim: string;
 }
 
+interface CadeiraSugerida {
+  disciplina: string;
+  turma: string;
+  anoLetivo: number;
+  semestre?: number;
+}
+
 interface Proposta {
   /** `unifor` = lido por parser. Muda o que a tela promete — ver `avisoDaOrigem`. */
   origem: 'unifor' | 'modelo';
@@ -92,6 +99,11 @@ export function ImportarPlano({
   // confirmar unidades, criar a grade — é idêntico ao caminho de sempre.
   const [planoNovo, setPlanoNovo] = useState<{ id: string; nome: string } | null>(null);
   const [jaExiste, setJaExiste] = useState<{ id: string; nome: string } | null>(null);
+  // A turma que o documento descreve. `turma` fica em estado à parte porque é o
+  // único campo dela que a professora precisa poder corrigir antes de existir:
+  // o rótulo aparece na grade, no alarme e no relatório da coordenação.
+  const [sugestao, setSugestao] = useState<CadeiraSugerida | null>(null);
+  const [turma, setTurma] = useState('');
   const entrada = useRef<HTMLInputElement>(null);
   const planoId = planoExistente ?? planoNovo?.id ?? '';
   const [fora, setFora] = useState<Set<number>>(new Set());
@@ -121,6 +133,10 @@ export function ImportarPlano({
         anexoId: string;
         proposta: Proposta;
         jaExiste: { id: string; nome: string } | null;
+        cadeira: {
+          sugestao: CadeiraSugerida | null;
+          existente: { id: string; disciplina: string; turma: string } | null;
+        };
       }>('/planos/importar', arquivo),
     onSuccess: (r) => {
       setFora(new Set());
@@ -128,6 +144,12 @@ export function ImportarPlano({
       setPlanoNovo({ id: r.plano.id, nome: r.plano.nome });
       setJaExiste(r.jaExiste);
       setProposta(r.proposta);
+      setSugestao(r.cadeira.sugestao);
+      setTurma(r.cadeira.sugestao?.turma ?? '');
+      // Turma que já existe é REAPROVEITADA, não duplicada: duas cadeiras para
+      // o mesmo grupo partem o progresso ao meio e disparam alarme em
+      // duplicata, com a grade de mesma cara na tela.
+      setCadeiraId(r.cadeira.existente?.id ?? '');
       qc.invalidateQueries({ queryKey: ['planos'] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível ler o PDF.'),
@@ -178,15 +200,33 @@ export function ImportarPlano({
   });
 
   const criarGrade = useMutation({
-    mutationFn: () =>
-      apiFetch<{ criadas: number }>('/series/calendario', {
+    mutationFn: async () => {
+      // A cadeira primeiro, quando ainda não há uma: `Ocorrencia.cadeiraId` é
+      // obrigatório, então sem turma não existe aula — e sem aula não existe
+      // alarme, que é o produto inteiro.
+      let alvo = cadeiraId;
+      if (!alvo && sugestao) {
+        const nova = await apiFetch<Cadeira>('/cadeiras', {
+          method: 'POST',
+          body: JSON.stringify({ ...sugestao, turma: turma.trim() }),
+        });
+        alvo = nova.id;
+        // Guarda antes de seguir: se a grade falhar (choque de horário, por
+        // exemplo), a tentativa seguinte reusa esta cadeira em vez de criar
+        // outra igual.
+        setCadeiraId(nova.id);
+        qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      }
+
+      return apiFetch<{ criadas: number }>('/series/calendario', {
         method: 'POST',
         body: JSON.stringify({
-          cadeiraId,
+          cadeiraId: alvo,
           horarios: proposta?.grade ?? [],
           datas: proposta?.encontros ?? [],
         }),
-      }),
+      });
+    },
     onSuccess: (r) => {
       setProposta(null);
       qc.invalidateQueries({ queryKey: ['agenda'] });
@@ -474,7 +514,9 @@ export function ImportarPlano({
                   onChange={(e) => setCadeiraId(e.target.value)}
                   className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
                 >
-                  <option value="">— escolha —</option>
+                  {/* Com turma proposta pelo documento, "nenhuma" deixa de ser
+                      um beco: significa criar a do documento, logo abaixo. */}
+                  <option value="">{sugestao ? '— criar a turma do documento —' : '— escolha —'}</option>
                   {(cadeiras ?? [])
                     .filter((c) => c.ativo)
                     .map((c) => (
@@ -485,11 +527,38 @@ export function ImportarPlano({
                 </select>
               </div>
 
+              {sugestao && !cadeiraId && (
+                <div className="space-y-1.5 rounded-md border border-dashed bg-card p-3">
+                  <Label htmlFor="turma-nova" className="block text-xs">
+                    Turma nova: {sugestao.disciplina}
+                  </Label>
+                  <Input
+                    id="turma-nova"
+                    value={turma}
+                    onChange={(e) => setTurma(e.target.value)}
+                    placeholder="Ex.: 30(31)"
+                  />
+                  {/* O rótulo vai para a grade, para o alarme e para o relatório
+                      da coordenação, e é o único campo da turma que ela precisa
+                      poder corrigir antes de a turma existir. */}
+                  <p className="text-xs text-muted-foreground">
+                    Veio do <strong className="font-medium">Código/Turma</strong> do documento. É
+                    assim que ela vai aparecer na sua semana e no alarme.
+                  </p>
+                </div>
+              )}
+
+              {sugestao && cadeiraId && (
+                <p className="text-xs text-muted-foreground">
+                  Usando uma turma que você já tem — as aulas entram nela, sem criar outra igual.
+                </p>
+              )}
+
               <Button
                 size="sm"
                 className="w-full"
                 loading={criarGrade.isPending}
-                disabled={!cadeiraId}
+                disabled={!cadeiraId && !(sugestao && turma.trim())}
                 onClick={() => criarGrade.mutate()}
               >
                 Criar as {proposta.encontros.length} aulas

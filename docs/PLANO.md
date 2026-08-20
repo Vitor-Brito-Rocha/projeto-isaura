@@ -518,6 +518,13 @@ Duas regras de ordem, e as duas custam caro invertidas:
    nenhum; exigi-lo na porta do método trancava o caminho grátis com a chave do caminho pago, e
    a tela sumia inteira sem dizer por quê.
 
+### A turma vem junto
+
+Sem `Cadeira` não há `Ocorrencia`, e sem ocorrência não há alarme — o produto inteiro. Quem estava
+começando importava o plano e travava ali, com o select de turmas vazio. Agora o `Código/Turma`
+vira a turma proposta (`T203 - 30(31)` → `30(31)`), editável antes de criar, e uma turma já
+existente com a mesma disciplina e período é **reusada**, nunca duplicada.
+
 ### Verificação
 
 - Contra o PDF real, pelo mesmo caminho da API: 4 unidades, 16 tópicos, 72 h/a, 37 encontros,
