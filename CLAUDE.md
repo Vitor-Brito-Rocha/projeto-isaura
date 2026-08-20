@@ -125,7 +125,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 212 de web
+npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -492,3 +492,14 @@ data e voltar semana a semana na grade.
 **Admin é `ADMIN_EMAIL`, não coluna no banco.** `AdminGuard` compara o email do JWT com a variável
 de ambiente. Uma flag `ehAdmin` no `Professor` estaria a um `UPDATE` de virar escalação de
 privilégio, e o `ErrosService` já escolhe quem alertar por este mesmo caminho.
+
+**O Admin está em UMA das duas navegações, e as duas trocam no mesmo ponto.** Ele fica só na barra
+do topo (desktop): a de baixo tem cinco lugares e eles são das telas do dia a dia, não de uma tela
+que existe para uma conta só. O preço disso era um beco sem saída — no celular não havia caminho
+nenhum para `/admin`, e a saída era digitar a URL. Quem cobre é um cartão nos Ajustes com
+`SO_NO_CELULAR`, o par de `NAV_SO_NO_DESKTOP` que a casca exporta. **Nunca escrever `sm:hidden` à
+mão numa tela**: com os dois lados separados, mudar o breakpoint de um deixa uma faixa de largura
+sem caminho nenhum, e isso não gera erro, log nem reclamação de build — só uma tela que não oferece
+nada. `app-shell.spec.ts` compara os dois. A classe também vai por extenso e nunca montada com
+template: o Tailwind varre o código atrás do TEXTO dela, e `` `${ponto}:hidden` `` não gera CSS
+nenhum. Quem decide se você é admin continua sendo o servidor (`useEhAdmin` → `/admin/status`).

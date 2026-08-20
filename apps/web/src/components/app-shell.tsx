@@ -31,13 +31,34 @@ const ITENS = [
 const ADMIN = { href: '/admin', rotulo: 'Admin', Icone: ShieldCheck } as const;
 
 /**
+ * As duas larguras, e o par que decide onde o Admin mora.
+ *
+ * A barra de baixo tem cinco lugares e eles são das telas do dia a dia — o
+ * Admin não entra ali de propósito (ver `AppShell`). Quem oferece o caminho no
+ * lugar dela é o cartão da tela de Ajustes, que usa `SO_NO_CELULAR` para
+ * aparecer exatamente onde a navegação do topo não está.
+ *
+ * Por isso os dois saem daqui em vez de cada tela escrever a classe à mão: se
+ * um mudar de `sm` para `md` sem o outro, sobra uma faixa de largura em que o
+ * Admin não está em lugar NENHUM — que é justamente o beco sem saída que este
+ * par existe para fechar, e ninguém percebe até tentar abrir o painel naquele
+ * tamanho de tela. `app-shell.spec.ts` compara os dois.
+ *
+ * Classe escrita por extenso, e nunca montada com template: o Tailwind varre o
+ * código atrás do texto da classe, e `` `${ponto}:hidden` `` não gera CSS
+ * nenhum — o cartão apareceria no desktop também, sem erro em lugar nenhum.
+ */
+export const NAV_SO_NO_DESKTOP = 'hidden sm:flex';
+export const SO_NO_CELULAR = 'sm:hidden';
+
+/**
  * Pergunta ao servidor se esta conta é admin.
  *
  * A regra vive no `ADMIN_EMAIL` da API, não aqui: comparar email no navegador
  * colocaria a decisão onde qualquer um edita. O item de menu some quando a rota
  * responde 403 — e mesmo se alguém forçar a URL, a API recusa igual.
  */
-function useEhAdmin() {
+export function useEhAdmin() {
   const { data } = useQuery({
     queryKey: ['admin', 'status'],
     queryFn: () => apiFetch<{ admin: boolean }>('/admin/status'),
@@ -186,7 +207,7 @@ export function AppShell({
 
           <div className="flex shrink-0 items-center gap-2">
             {/* Navegação de desktop, ao lado da ação. */}
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className={cn(NAV_SO_NO_DESKTOP, 'items-center gap-1')}>
               {itens.map(({ href, rotulo, Icone }) => (
                 <Link
                   key={href}
@@ -216,7 +237,7 @@ export function AppShell({
       </main>
 
       {/* Navegação de celular. */}
-      <nav className="safe-bottom shrink-0 border-t bg-card sm:hidden">
+      <nav className={cn('safe-bottom shrink-0 border-t bg-card', SO_NO_CELULAR)}>
         <div className="mx-auto flex max-w-4xl">
           {ITENS.map(({ href, rotulo, Icone }) => {
             const ativo = estaNaSecao(caminho, href);

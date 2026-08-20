@@ -1,11 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Check, Info, Loader2, LogOut, Send } from 'lucide-react';
+import { Bell, BellOff, Check, Info, Loader2, LogOut, Send, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AppShell } from '@/components/app-shell';
+import { AppShell, SO_NO_CELULAR, useEhAdmin } from '@/components/app-shell';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -235,6 +236,8 @@ export default function Config() {
 
         <AlternarApi />
 
+        <AtalhoDeAdmin />
+
         <Button
           variant="outline"
           className="w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
@@ -248,6 +251,46 @@ export default function Config() {
         </Button>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * O caminho para o painel de administração em quem não vê a navegação do topo.
+ *
+ * O Admin fica só na barra de cima, que é de desktop: a barra do celular tem
+ * cinco lugares e eles são das telas do dia a dia, não de uma tela que existe
+ * para UMA conta. O efeito colateral era um beco sem saída — no celular não
+ * havia caminho nenhum para `/admin`, e a única saída era digitar a URL.
+ *
+ * Aparece exatamente onde a navegação do topo não está, pela classe que a
+ * própria casca exporta. Escrever `sm:hidden` à mão aqui é o que faria os dois
+ * lados se separarem depois — ver o comentário de `SO_NO_CELULAR`.
+ *
+ * Quem decide se você é admin continua sendo o servidor: `useEhAdmin` pergunta
+ * ao `/admin/status`, que responde 403 para todo mundo que não é. Some para
+ * quem não é, e o painel recusa igual se alguém forçar a URL.
+ */
+function AtalhoDeAdmin() {
+  const ehAdmin = useEhAdmin();
+  if (!ehAdmin) return null;
+
+  return (
+    <Card className={SO_NO_CELULAR}>
+      <CardHeader>
+        <CardTitle className="text-base">Painel de administração</CardTitle>
+        <CardDescription>
+          No computador ele fica na navegação do topo. Aqui a barra de baixo é das telas do dia a
+          dia, então o caminho é este.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/admin">
+            <ShieldCheck /> Abrir o painel
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
