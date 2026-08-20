@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Confirmar } from '@/components/confirmar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { ApiError } from '@/lib/api';
+import { ApiError, enviarArquivo } from '@/lib/api';
 import { baseDaApi, CABECALHOS_DA_API } from '@/lib/base-api';
 import type { Anexo } from '@/lib/types';
 
@@ -63,23 +63,7 @@ export function Anexos({
   });
 
   const enviar = useMutation({
-    mutationFn: async (arquivo: File) => {
-      // FormData sem Content-Type manual: o navegador precisa gerar o boundary
-      // do multipart, e defini-lo à mão quebra o parse no servidor.
-      const corpo = new FormData();
-      corpo.append('arquivo', arquivo);
-      const r = await fetch(`${baseDaApi()}${rota}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { ...CABECALHOS_DA_API },
-        body: corpo,
-      });
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        throw new ApiError(r.status, (j as { message?: string }).message ?? 'Falha no envio.');
-      }
-      return r.json();
-    },
+    mutationFn: (arquivo: File) => enviarArquivo(rota, arquivo),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chave });
       toast.success('Anexo enviado.');

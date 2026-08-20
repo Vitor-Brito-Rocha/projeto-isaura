@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { AnexosService, type ArquivoRecebido } from '../anexos/anexos.service';
+import { StorageService } from '../anexos/storage.service';
+import { ImportacaoService } from '../ia/importacao.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { identidadeDoPlano } from './identidade';
 import {
   CreatePlanoDto,
   CreateTopicoDto,
@@ -19,7 +23,77 @@ function data(valor?: string): Date | undefined {
 
 @Injectable()
 export class PlanosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly importacao: ImportacaoService,
+    private readonly anexos: AnexosService,
+    private readonly storage: StorageService,
+  ) {}
+
+  /**
+   * O documento entra, o plano nasce.
+   *
+   * Antes, criar um plano pedia nome, disciplina, ano e semestre — **os quatro
+   * escritos no PDF** que ela anexaria no passo seguinte. Pedir a fonte antes
+   * de ela entregar a fonte é pedir duas vezes, e eram três passos até o
+   * primeiro clique.
+   *
+   * **A ordem aqui é a regra**: ler e recusar o que não dá para ler ANTES de
+   * criar qualquer coisa. Invertida, um PDF escaneado deixaria um plano vazio
+   * para trás toda vez que ela tentasse.
+   *
+   * O que continua valendo: só o plano e o anexo são gravados. Unidades,
+   * tópicos, datas e grade seguem nascendo apenas quando ela confirma na tela —
+   * um plano importado com a unidade 3 errada contamina todo registro que
+   * apontar para ela.
+   */
+  async criarDoDocumento(professorId: string, arquivo: ArquivoRecebido) {
+    if (!this.storage.ativo) {
+      throw new ServiceUnavailableException(
+        'Importação indisponível: falta configurar a chave de serviço do Storage.',
+      );
+    }
+
+    const proposta = await this.importacao.proporDeArquivo(professorId, null, arquivo.buffer);
+    const identidade = identidadeDoPlano(proposta, arquivo.originalname);
+
+    const plano = await this.prisma.planoCurricular.create({
+      data: { professorId, ...identidade },
+    });
+
+    // Depois de criado, porque o caminho no Storage leva o id do plano. Se
+    // falhar, sobra um plano sem documento — que ela preenche à mão, e é bem
+    // melhor que perder o upload.
+    const anexo = await this.anexos.enviarParaPlano(professorId, plano.id, arquivo);
+
+    return { plano, anexoId: anexo.id, proposta, jaExiste: await this.parecido(professorId, plano) };
+  }
+
+  /**
+   * Outro plano da mesma disciplina no mesmo período.
+   *
+   * Avisa, não bloqueia: dois semestres com a mesma disciplina são legítimos, e
+   * recusar o segundo seria o sistema decidindo o que é duplicata na carreira
+   * dela. Serve para a tela dizer "já existe um assim" com o link, que é o que
+   * ela precisa para reconhecer o próprio engano.
+   */
+  private async parecido(
+    professorId: string,
+    novo: { id: string; disciplina: string | null; anoLetivo: number; semestre: number | null },
+  ) {
+    if (!novo.disciplina) return null;
+
+    return this.prisma.planoCurricular.findFirst({
+      where: {
+        professorId,
+        id: { not: novo.id },
+        disciplina: novo.disciplina,
+        anoLetivo: novo.anoLetivo,
+        semestre: novo.semestre,
+      },
+      select: { id: true, nome: true },
+    });
+  }
 
   listar(professorId: string) {
     return this.prisma.planoCurricular.findMany({

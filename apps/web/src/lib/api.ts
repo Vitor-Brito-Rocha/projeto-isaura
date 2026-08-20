@@ -106,3 +106,49 @@ export async function apiFetch<T = unknown>(
   if (resposta.status === 204) return undefined as T;
   return resposta.json() as Promise<T>;
 }
+
+/**
+ * Envia um arquivo por multipart.
+ *
+ * Separado do `apiFetch` porque ele fixa `Content-Type: application/json`, e
+ * multipart precisa que o NAVEGADOR gere o cabeçalho — o boundary vai dentro
+ * dele, e defini-lo à mão quebra o parse no servidor.
+ *
+ * O que veio junto ao sair do `fetch` cru: a renovação de sessão no 401. Sem
+ * ela, o access token vencido fazia o upload falhar com "sessão expirada" no
+ * meio de um anexo que ela acabou de escolher — e o arquivo se perdia, porque o
+ * `<input type="file">` já tinha sido consumido.
+ */
+export async function enviarArquivo<T = unknown>(caminho: string, arquivo: File): Promise<T> {
+  const enviar = () => {
+    const corpo = new FormData();
+    corpo.append('arquivo', arquivo);
+    return fetch(`${baseDaApi()}${caminho}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...CABECALHOS_DA_API },
+      body: corpo,
+    });
+  };
+
+  let resposta = await enviar();
+
+  let sessaoMorta = false;
+  if (resposta.status === 401 && podeRenovar(caminho)) {
+    if (await renovarSessao()) resposta = await enviar();
+    else sessaoMorta = true;
+  }
+
+  if (!resposta.ok) {
+    const corpo = await resposta.json().catch(() => ({}));
+    const bruta = (corpo as { message?: string | string[] }).message;
+    const mensagem = Array.isArray(bruta) ? bruta.join('. ') : bruta;
+    throw new ApiError(
+      resposta.status,
+      mensagem ?? 'Não foi possível enviar o arquivo.',
+      sessaoMorta && resposta.status === 401,
+    );
+  }
+
+  return resposta.json() as Promise<T>;
+}

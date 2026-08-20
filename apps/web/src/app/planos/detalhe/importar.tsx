@@ -1,15 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarRange, FileSearch, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarRange, FileSearch, FileUp, Sparkles, TriangleAlert, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, enviarArquivo } from '@/lib/api';
 import { dataBR, diaDaSemanaBR } from '@/lib/datas';
-import type { Anexo, Cadeira } from '@/lib/types';
+import Link from 'next/link';
+import type { Anexo, Cadeira, PlanoCurricular } from '@/lib/types';
 
 interface UnidadeProposta {
   titulo: string;
@@ -77,9 +78,22 @@ function rotuloDoHorario(h: Horario): string {
  * editáveis aqui porque é o único lugar onde ela as vê antes de existirem, e
  * porque é delas que sai o aviso de ritmo na tela de progresso.
  */
-export function ImportarPlano({ planoId, onImportou }: { planoId: string; onImportou: () => void }) {
+export function ImportarPlano({
+  /** Ausente = o plano ainda não existe, e é o próprio documento que o cria. */
+  planoId: planoExistente,
+  onImportou,
+}: {
+  planoId?: string;
+  onImportou: () => void;
+}) {
   const qc = useQueryClient();
   const [proposta, setProposta] = useState<Proposta | null>(null);
+  // O id do plano criado pelo documento. Depois dele, todo o resto do fluxo —
+  // confirmar unidades, criar a grade — é idêntico ao caminho de sempre.
+  const [planoNovo, setPlanoNovo] = useState<{ id: string; nome: string } | null>(null);
+  const [jaExiste, setJaExiste] = useState<{ id: string; nome: string } | null>(null);
+  const entrada = useRef<HTMLInputElement>(null);
+  const planoId = planoExistente ?? planoNovo?.id ?? '';
   const [fora, setFora] = useState<Set<number>>(new Set());
   const [cadeiraId, setCadeiraId] = useState('');
   // A proposta sobrevive ao passo das unidades quando ainda há grade a criar, e
@@ -87,22 +101,36 @@ export function ImportarPlano({ planoId, onImportou }: { planoId: string; onImpo
   // plano inteiro de novo, em duplicata, sem nada avisando.
   const [unidadesCriadas, setUnidadesCriadas] = useState(false);
 
-  const { data: ia } = useQuery({
-    queryKey: ['ia', 'status'],
-    queryFn: () => apiFetch<{ resumo: boolean; provedor: string | null }>('/ia/status'),
-    staleTime: Infinity,
-  });
-
   // Mesma chave do componente de anexos: a lista já está em cache.
   const { data: anexos } = useQuery({
-    queryKey: ['anexos', 'plano', planoId],
-    queryFn: () => apiFetch<Anexo[]>(`/planos/${planoId}/anexos`),
+    queryKey: ['anexos', 'plano', planoExistente],
+    queryFn: () => apiFetch<Anexo[]>(`/planos/${planoExistente}/anexos`),
+    enabled: Boolean(planoExistente),
   });
 
   const { data: cadeiras } = useQuery({
     queryKey: ['cadeiras'],
     queryFn: () => apiFetch<Cadeira[]>('/cadeiras'),
     enabled: Boolean(proposta?.grade),
+  });
+
+  const importarArquivo = useMutation({
+    mutationFn: (arquivo: File) =>
+      enviarArquivo<{
+        plano: PlanoCurricular;
+        anexoId: string;
+        proposta: Proposta;
+        jaExiste: { id: string; nome: string } | null;
+      }>('/planos/importar', arquivo),
+    onSuccess: (r) => {
+      setFora(new Set());
+      setUnidadesCriadas(false);
+      setPlanoNovo({ id: r.plano.id, nome: r.plano.nome });
+      setJaExiste(r.jaExiste);
+      setProposta(r.proposta);
+      qc.invalidateQueries({ queryKey: ['planos'] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível ler o PDF.'),
   });
 
   const extrair = useMutation({
@@ -171,7 +199,13 @@ export function ImportarPlano({ planoId, onImportou }: { planoId: string; onImpo
   });
 
   const pdfs = (anexos ?? []).filter((a) => a.nomeArquivo.toLowerCase().endsWith('.pdf'));
-  if (!ia?.resumo || pdfs.length === 0) return null;
+
+  // **A tela NÃO some por falta de provedor de IA.** O formato da Unifor é lido
+  // por parser, sem modelo nenhum; esconder o botão por falta de chave trancaria
+  // o caminho grátis com a chave do caminho pago — e ela não teria como
+  // descobrir que o app lê o documento dela sozinho. Documento de formato livre
+  // sem provedor volta o 503 com a mensagem dizendo exatamente isso.
+  if (planoExistente && pdfs.length === 0) return null;
 
   const escolhidas = (proposta?.unidades ?? []).filter((_, i) => !fora.has(i));
 
@@ -202,22 +236,55 @@ export function ImportarPlano({ planoId, onImportou }: { planoId: string; onImpo
       {proposta === null ? (
         <>
           <p className="text-xs text-muted-foreground">
-            Dá para ler as unidades direto do PDF. Você confere antes de qualquer coisa ser criada.
+            {planoExistente
+              ? 'Dá para ler as unidades direto do PDF. Você confere antes de qualquer coisa ser criada.'
+              : 'Escolha o PDF do plano de ensino. O nome, a disciplina e o período saem dele — você confere tudo antes de qualquer coisa ser criada.'}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {pdfs.map((a) => (
+
+          {planoExistente ? (
+            <div className="flex flex-wrap gap-2">
+              {pdfs.map((a) => (
+                <Button
+                  key={a.id}
+                  size="sm"
+                  variant="outline"
+                  loading={extrair.isPending && extrair.variables === a.id}
+                  onClick={() => extrair.mutate(a.id)}
+                >
+                  <FileSearch />
+                  Ler {a.nomeArquivo}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* O input fica escondido e o botão o aciona: o seletor nativo do
+                  sistema é o que o dedo acerta no celular, e o `<input>` cru é
+                  pequeno demais para virar alvo de toque. */}
+              <input
+                ref={entrada}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const arquivo = e.target.files?.[0];
+                  if (arquivo) importarArquivo.mutate(arquivo);
+                  // Zera para o mesmo arquivo poder ser escolhido de novo depois
+                  // de um erro — sem isto, o `change` não dispara na segunda vez.
+                  e.target.value = '';
+                }}
+              />
               <Button
-                key={a.id}
                 size="sm"
                 variant="outline"
-                loading={extrair.isPending && extrair.variables === a.id}
-                onClick={() => extrair.mutate(a.id)}
+                loading={importarArquivo.isPending}
+                onClick={() => entrada.current?.click()}
               >
-                <FileSearch />
-                Ler {a.nomeArquivo}
+                <FileUp />
+                Escolher o PDF
               </Button>
-            ))}
-          </div>
+            </>
+          )}
         </>
       ) : (
         <div className="space-y-3">
@@ -238,6 +305,30 @@ export function ImportarPlano({ planoId, onImportou }: { planoId: string; onImpo
               <X className="size-4" />
             </Button>
           </div>
+
+          {planoNovo && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+              Plano criado: <strong className="font-medium text-foreground">{planoNovo.nome}</strong>
+              . O documento já está guardado nele.
+            </p>
+          )}
+
+          {jaExiste && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.06] px-3 py-2">
+              <TriangleAlert
+                className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400"
+                aria-hidden
+              />
+              <p className="text-xs">
+                Você já tem{' '}
+                <Link href={`/planos/detalhe?plano=${jaExiste.id}`} className="font-medium underline">
+                  {jaExiste.nome}
+                </Link>
+                , da mesma disciplina e período. Se foi engano, dá para apagar este novo depois —
+                dois semestres iguais também são possíveis, então não bloqueamos.
+              </p>
+            </div>
+          )}
 
           {proposta.identificacao?.disciplina && (
             <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">

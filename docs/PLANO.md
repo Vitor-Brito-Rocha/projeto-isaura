@@ -505,10 +505,25 @@ tela preenchia; sem ele `calcularRitmo` devolve `null` e o aviso nunca aparece.
 só cria 60 dias à frente. Por isso `criarDoCalendario` grava as ocorrências direto nas datas do
 documento, com `serieId` nulo. O preço é não haver regra para editar em bloco, e a tela diz isso.
 
+### O PDF é a porta de entrada
+
+`POST /planos/importar` recebe o arquivo e cria o `PlanoCurricular` com o que o documento diz —
+disciplina, ano e semestre saem do cabeçalho. O caminho antigo (criar o plano à mão, anexar, ler)
+continua funcionando para quem já tem plano cadastrado.
+
+Duas regras de ordem, e as duas custam caro invertidas:
+
+1. **Ler antes de criar.** PDF escaneado é recusado sem deixar plano órfão para trás.
+2. **A guarda de IA fica junto da chamada ao modelo.** O parser da Unifor não usa provedor
+   nenhum; exigi-lo na porta do método trancava o caminho grátis com a chave do caminho pago, e
+   a tela sumia inteira sem dizer por quê.
+
 ### Verificação
 
 - Contra o PDF real, pelo mesmo caminho da API: 4 unidades, 16 tópicos, 72 h/a, 37 encontros,
   terça e quinta 11:20–13:00, e os quatro períodos da tabela acima.
+- Com `IA_PROVEDOR` vazio e um `ModeloService` que estoura se chamado, a importação da Unifor
+  passa inteira — é o teste que trava a guarda no lugar certo.
 - Falta ela importar o plano dela de verdade e reconhecer o próprio semestre.
 
 ---

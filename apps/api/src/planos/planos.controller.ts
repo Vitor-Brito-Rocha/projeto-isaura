@@ -1,5 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthProfessor, CurrentProfessor } from '../auth/current-professor.decorator';
+import { TAMANHO_MAXIMO, type ArquivoRecebido } from '../anexos/anexos.service';
 import {
   CreatePlanoDto,
   CreateTopicoDto,
@@ -23,6 +35,21 @@ export class PlanosController {
   @Post()
   criar(@CurrentProfessor() p: AuthProfessor, @Body() dto: CreatePlanoDto) {
     return this.planos.criar(p.id, dto);
+  }
+
+  /**
+   * O caminho de entrada: o PDF cria o plano.
+   *
+   * **Antes de `@Get(':id')`** de propósito — o Nest casa as rotas na ordem em
+   * que são declaradas, e `importar` viraria o `:id` de uma busca por plano.
+   */
+  @Post('importar')
+  @UseInterceptors(FileInterceptor('arquivo', { limits: { fileSize: TAMANHO_MAXIMO } }))
+  importarDocumento(
+    @CurrentProfessor() p: AuthProfessor,
+    @UploadedFile() arquivo: ArquivoRecebido,
+  ) {
+    return this.planos.criarDoDocumento(p.id, arquivo);
   }
 
   @Get(':id')

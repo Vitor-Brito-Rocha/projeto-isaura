@@ -8,5 +8,7 @@ import { ResumoService } from './resumo.service';
 @Module({
   controllers: [IaController],
   providers: [ResumoService, ImportacaoService, ModeloService, StorageService],
+  // O `PlanosModule` importa para a importação poder criar o plano.
+  exports: [ImportacaoService, StorageService],
 })
 export class IaModule {}

@@ -51,7 +51,11 @@ descreve('RegistrosService (integração)', () => {
   beforeAll(() => {
     prisma = new PrismaClient({ datasources: { db: { url } } }) as unknown as PrismaService;
     registros = new RegistrosService(prisma, anexosFalso);
-    planos = new PlanosService(prisma);
+    // Importação, Storage e anexos não entram neste arquivo: o que ele exercita
+    // do `PlanosService` é o CRUD de unidade e tópico. Passar nulos deixa
+    // explícito que nenhum deles é tocado — se um dia for, o teste estoura em
+    // vez de gravar em algum lugar de verdade.
+    planos = new PlanosService(prisma, null as never, null as never, null as never);
   });
 
   afterAll(async () => {

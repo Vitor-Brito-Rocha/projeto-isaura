@@ -82,11 +82,6 @@ export class ImportacaoService {
     planoCurricularId: string,
     anexoId: string,
   ): Promise<PropostaDeImportacao> {
-    if (!this.modelo.ativo) {
-      throw new ServiceUnavailableException(
-        'Importação indisponível: nenhum provedor de IA configurado.',
-      );
-    }
     if (!this.storage.ativo) {
       throw new ServiceUnavailableException(
         'Importação indisponível: falta configurar a chave de serviço do Storage.',
@@ -108,6 +103,22 @@ export class ImportacaoService {
     }
 
     const arquivo = await this.storage.baixar(anexo.storagePath);
+    return this.proporDeArquivo(professorId, planoCurricularId, arquivo);
+  }
+
+  /**
+   * A proposta a partir do arquivo cru, sem passar por anexo já gravado.
+   *
+   * É o que permite a importação criar o plano: `PlanosService.criarDoDocumento`
+   * precisa da leitura ANTES de existir plano para pendurar o anexo, senão um
+   * PDF ruim deixaria um plano vazio para trás.
+   */
+  async proporDeArquivo(
+    professorId: string,
+    /** Null quando o plano ainda não existe — só serve para o log de erro. */
+    planoCurricularId: string | null,
+    arquivo: Buffer,
+  ): Promise<PropostaDeImportacao> {
     const { texto, textoCompleto, paginas, pareceEscaneado } = await extrairTextoDePdf(arquivo);
 
     // PDF escaneado tem a mesma extensão e a mesma cara na tela, e camada de
@@ -119,12 +130,37 @@ export class ImportacaoService {
       );
     }
 
+    return this.proporDeTexto(professorId, planoCurricularId, { texto, textoCompleto, paginas });
+  }
+
+  /**
+   * A escolha entre parser e modelo, já com o texto na mão.
+   *
+   * Separada do PDF para poder ser testada sem arquivo: é aqui que mora a regra
+   * de que o caminho da Unifor não depende de provedor nenhum, e é a regra que
+   * alguém vai desfazer sem perceber ao "arrumar" as guardas do método.
+   */
+  async proporDeTexto(
+    professorId: string,
+    planoCurricularId: string | null,
+    { texto, textoCompleto, paginas }: { texto: string; textoCompleto: string; paginas: number },
+  ): Promise<PropostaDeImportacao> {
     // O formato da Unifor primeiro, e sem gastar chamada: ele traz carga
     // horária e calendário, que o modelo não tem como devolver porque o schema
     // do prompt só pede unidades e tópicos. Não reconhecendo, cai no caminho
     // de sempre, que lê documento de formato livre.
     const daUnifor = this.lerUnifor(textoCompleto, paginas);
     if (daUnifor) return daUnifor;
+
+    // **A guarda mora aqui, e não na porta do método**: o parser da Unifor não
+    // fala com modelo nenhum, e recusá-lo por falta de chave trancaria o
+    // caminho grátis com a chave do caminho pago. Sem provedor, o documento de
+    // formato livre é o único que não dá para ler — e a mensagem diz isso.
+    if (!this.modelo.ativo) {
+      throw new ServiceUnavailableException(
+        'Este documento não está no formato da Unifor, e ler formato livre exige um provedor de IA configurado.',
+      );
+    }
 
     const bruto = await this.chamar(professorId, planoCurricularId, texto);
     return {
@@ -188,7 +224,7 @@ export class ImportacaoService {
 
   private async chamar(
     professorId: string,
-    planoCurricularId: string,
+    planoCurricularId: string | null,
     texto: string,
   ): Promise<PlanoBruto> {
     try {
@@ -204,11 +240,11 @@ export class ImportacaoService {
       if (e instanceof BadGatewayException) throw e;
 
       const mensagem = e instanceof Error ? e.message : String(e);
-      this.logger.error(`Importação falhou para o plano ${planoCurricularId}: ${mensagem}`);
+      this.logger.error(`Importação falhou para o plano ${planoCurricularId ?? 'novo'}: ${mensagem}`);
       await this.erros.registrar(
         `ImportacaoService:${this.modelo.provedorAtual}`,
         'POST',
-        `/planos/${planoCurricularId}/importar`,
+        `/planos/${planoCurricularId ?? 'novo'}/importar`,
         professorId,
         mensagem,
         e instanceof Error ? e.stack : undefined,

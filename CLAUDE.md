@@ -16,7 +16,7 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita e o lado de API da frente C também (`COOKIE_CROSS_SITE`); faltam A (build na nuvem), o lado wrapper de C e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
 | 7 — Exportação com filtros | **feita**; falta ela exportar um bimestre real e mandar |
-| 8 — Importar o Plano de Ensino da Unifor | **feita**; falta ela importar o plano dela de verdade |
+| 8 — Importar o Plano de Ensino da Unifor | **feita**, e o PDF é que cria o plano; falta ela importar o dela de verdade |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
 `@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
@@ -126,7 +126,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 237 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
+npm test              # 248 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -305,6 +305,25 @@ guarda o retry estrito→frouxo, o timeout e a chave; `ResumoService` (fala da a
 `ImportacaoService` (PDF do plano) só trocam prompt e schema. `MAX_CARACTERES` em `pdf.ts` são 16
 mil porque o plano gratuito da Groq dá **8000 tokens por minuto** — medido, não estimado: 40 mil
 levou 429.
+
+**O PDF é que CRIA o plano** (`POST /planos/importar`). Antes, criar um plano pedia nome,
+disciplina, ano e semestre — os quatro escritos no documento que ela anexaria no passo seguinte.
+Eram três passos até o primeiro clique, e o primeiro deles era digitar a fonte antes de entregá-la.
+A ordem dentro do endpoint é a regra: **ler e recusar o que não dá para ler ANTES de criar
+qualquer coisa**, senão um PDF escaneado deixa um plano vazio para trás toda vez que ela tenta.
+Só o plano e o anexo são gravados — unidades, tópicos, datas e grade continuam nascendo apenas
+quando ela confirma. Documento de outro formato ainda cria o plano, com o nome do arquivo
+(`planos/identidade.ts`): um formulário antes do upload traria de volta a digitação que este
+caminho existe para acabar. Plano repetido **avisa e não bloqueia** — dois semestres com a mesma
+disciplina são legítimos.
+
+**Guarda de provedor mora junto da CHAMADA ao provedor, nunca na porta do método.** O
+`extrair` começava recusando quem não tem `IA_PROVEDOR`, e o parser da Unifor — que não fala com
+modelo nenhum — estava atrás dela: sem chave da Groq a tela sumia inteira, e ninguém descobria que
+o app lê o documento sozinho. Trancar o caminho grátis com a chave do caminho pago é mudo dos dois
+lados. A tela também não esconde mais nada por falta de provedor; documento de formato livre volta
+503 dizendo POR QUE. `importacao.service.spec.ts` monta o serviço com um `ModeloService` que
+estoura se for chamado — é o que transforma "não precisa de IA" em algo provável.
 
 **O `Plano de Ensino` da Unifor é lido por PARSER, não por modelo** (`ia/unifor.ts`). Formato
 regular não precisa de IA: é grátis, instantâneo, funciona sem rede e não tem como alucinar — o

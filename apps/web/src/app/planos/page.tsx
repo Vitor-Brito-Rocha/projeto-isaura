@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +17,7 @@ import { apiFetch } from '@/lib/api';
 import { periodoLetivo, semestreDoCampo } from '@/lib/periodo';
 import { useRedirecionaEmErro } from '@/lib/sessao';
 import type { PlanoCurricular } from '@/lib/types';
+import { ImportarPlano } from './detalhe/importar';
 
 /**
  * O currículo, separado das turmas.
@@ -67,6 +68,28 @@ export default function Planos() {
     >
       <div className="space-y-3">
         {criando && <FormularioPlano onEnviar={(d) => criar.mutate(d)} enviando={criar.isPending} />}
+
+        {/*
+          O caminho curto, e o que ela deve usar quando tem o documento: o PDF
+          traz nome, disciplina, ano e semestre — os mesmos quatro campos do
+          formulário acima. Digitá-los para depois anexar o arquivo que já os
+          contém é preencher a mesma coisa duas vezes.
+
+          Sem `planoId`: aqui o plano ainda não existe, e é o próprio documento
+          que o cria. Ver `ImportarPlano`.
+        */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Importar de um PDF</CardTitle>
+            <CardDescription>
+              Tem o plano de ensino em PDF? Ele já diz a disciplina, o período, as unidades e o
+              calendário das aulas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <ImportarPlano onImportou={() => qc.invalidateQueries({ queryKey: ['planos'] })} />
+          </CardContent>
+        </Card>
 
         {isLoading && (
           <div className="space-y-3">
