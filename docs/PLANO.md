@@ -443,6 +443,74 @@ mostrar se é necessária.
    atualização que passa a exigir build/redistribuição em vez de sair no deploy do web. Canal de
    teste interno da Play Store resolve no começo. O iPhone segue no PWA, com o teto que ele tem.
 
+7. **Exportação com filtros** — **feita.** Resumo das aulas e lista de pendências como artefatos
+   separados, com o recorte único do `FiltroExportacaoDto`.
+8. **Importar o `Plano de Ensino` da Unifor** — **feita.** Parser determinístico do formato padrão
+   da universidade, cronograma estimado pelas horas-aula e a grade criada nas datas do documento.
+   Detalhada abaixo. *Entrega: o semestre inteiro cadastrado a partir do PDF que ela já tem.*
+
+---
+
+## Fase 8 — detalhamento (o formato da Unifor)
+
+O `Plano de Ensino` é o documento que todo professor da universidade já tem pronto. Três seções
+dele são aproveitáveis, e uma não é.
+
+### O que se lê, e o que não
+
+| seção | vira | por quê |
+|---|---|---|
+| `OBJETIVOS / CONTEÚDOS` | unidades, h/a e tópicos | coluna única, sem tabela: duas regex resolvem |
+| coluna de datas do `CRONOGRAMA` | as aulas da grade | é o calendário real, com os dias sem aula já fora |
+| `Horário (Turma)` | dia da semana e faixa de horário | `M3EF` decodifica: turno, dia, tempos de 50 min |
+| pareamento data → tópico | **nada** | não é recuperável — ver abaixo |
+| ementa, metodologia, bibliografia, Lattes | nada | não alimentam nenhuma tela |
+
+### Por que o pareamento data → tópico é descartado
+
+A tabela do cronograma **não tem régua entre as linhas**: das 244 operações de desenho do PDF, as
+horizontais são uma ou duas por página e são separadores de seção. A célula de data é centralizada
+verticalmente contra um bloco de conteúdo de altura variável, e onde a linha é alta não sobra
+critério para dizer onde ela termina. Três métodos independentes discordam sobre as mesmas linhas:
+
+| método | 06/08 recebe | 11/08 recebe |
+|---|---|---|
+| ordem do texto achatado | 01.04, 03.04, 03.03 | 02.01 |
+| centro da célula de data | 01.04, 03.04 | 03.03, 02.01 |
+| réguas horizontais | — | — |
+
+E mesmo lido corretamente não serviria: no plano medido, `03.01` aparece em 11 aulas seguidas
+enquanto `03.02`, `03.03` e `03.04` aparecem uma vez cada. Ler mal aquela tabela poria conteúdo
+errado no alarme — o pior desfecho deste produto. `ia/unifor.spec.ts` trava a decisão.
+
+### O cronograma estimado
+
+`planos/cronograma.ts` reparte as datas entre as unidades por maior resto, na proporção das h/a.
+Para o plano medido (37 datas, 6/12/30/24 h/a):
+
+| unidade | h/a | aulas | período |
+|---|---|---|---|
+| I | 6 | 3 | 04/08 → 11/08 |
+| II | 12 | 6 | 13/08 → 01/09 |
+| III | 30 | 16 | 03/09 → 29/10 |
+| IV | 24 | 12 | 03/11 → 10/12 |
+
+**É isso que acende o aviso de ritmo.** `Unidade.dataFimPrevista` existia desde a fase 1 e nenhuma
+tela preenchia; sem ele `calcularRitmo` devolve `null` e o aviso nunca aparece.
+
+### A grade nasce em datas, não em série
+
+`SerieAula` semanal criaria aula nos feriados que o calendário da universidade exclui, e o estrago
+é o alarme tocando num dia sem aula. Marcar como feriado depois não resolve — `materializarFaltantes`
+só cria 60 dias à frente. Por isso `criarDoCalendario` grava as ocorrências direto nas datas do
+documento, com `serieId` nulo. O preço é não haver regra para editar em bloco, e a tela diz isso.
+
+### Verificação
+
+- Contra o PDF real, pelo mesmo caminho da API: 4 unidades, 16 tópicos, 72 h/a, 37 encontros,
+  terça e quinta 11:20–13:00, e os quatro períodos da tabela acima.
+- Falta ela importar o plano dela de verdade e reconhecer o próprio semestre.
+
 ---
 
 ## Fase 5 — detalhamento (entregue em `e5598f2`…`3fd2fd5`)

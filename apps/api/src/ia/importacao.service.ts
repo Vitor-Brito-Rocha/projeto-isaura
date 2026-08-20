@@ -19,6 +19,40 @@ import {
   type PlanoBruto,
   type UnidadeExtraida,
 } from './plano.prompt';
+import { lerPlanoUnifor } from './unifor';
+import { estimarCronograma } from '../planos/cronograma';
+
+/**
+ * Uma unidade proposta, com o que o formato da Unifor sabe a mais.
+ *
+ * Os campos extras são opcionais porque o caminho do modelo não os produz: ele
+ * lê documento de formato livre, onde não há carga horária declarada nem
+ * calendário. A tela desenha o que vier.
+ */
+export interface UnidadeProposta extends UnidadeExtraida {
+  cargaHoraria?: number;
+  dataInicio?: string;
+  dataFimPrevista?: string;
+  /** Quantas aulas a estimativa reservou para esta unidade. */
+  aulas?: number;
+}
+
+export interface PropostaDeImportacao {
+  /** `unifor` = lido por parser, sem modelo nenhum. Muda o que a tela oferece. */
+  origem: 'unifor' | 'modelo';
+  paginas: number;
+  unidades: UnidadeProposta[];
+  /** A grade que o documento descreve. Null quando não dá para saber. */
+  grade: { diaSemana: number; horaInicio: string; horaFim: string }[] | null;
+  /** As datas de aula do cronograma, "YYYY-MM-DD". */
+  encontros: string[];
+  identificacao: {
+    disciplina: string | null;
+    codigoTurma: string | null;
+    ano: number | null;
+    semestre: number | null;
+  } | null;
+}
 
 /**
  * Lê o plano de curso escrito dela e devolve a estrutura como **rascunho**.
@@ -47,7 +81,7 @@ export class ImportacaoService {
     professorId: string,
     planoCurricularId: string,
     anexoId: string,
-  ): Promise<{ unidades: UnidadeExtraida[]; paginas: number }> {
+  ): Promise<PropostaDeImportacao> {
     if (!this.modelo.ativo) {
       throw new ServiceUnavailableException(
         'Importação indisponível: nenhum provedor de IA configurado.',
@@ -74,7 +108,7 @@ export class ImportacaoService {
     }
 
     const arquivo = await this.storage.baixar(anexo.storagePath);
-    const { texto, paginas, pareceEscaneado } = await extrairTextoDePdf(arquivo);
+    const { texto, textoCompleto, paginas, pareceEscaneado } = await extrairTextoDePdf(arquivo);
 
     // PDF escaneado tem a mesma extensão e a mesma cara na tela, e camada de
     // texto vazia. Mandá-la ao modelo produziria unidades inventadas a partir
@@ -85,8 +119,71 @@ export class ImportacaoService {
       );
     }
 
+    // O formato da Unifor primeiro, e sem gastar chamada: ele traz carga
+    // horária e calendário, que o modelo não tem como devolver porque o schema
+    // do prompt só pede unidades e tópicos. Não reconhecendo, cai no caminho
+    // de sempre, que lê documento de formato livre.
+    const daUnifor = this.lerUnifor(textoCompleto, paginas);
+    if (daUnifor) return daUnifor;
+
     const bruto = await this.chamar(professorId, planoCurricularId, texto);
-    return { unidades: aplicarPlano(bruto), paginas };
+    return {
+      origem: 'modelo',
+      paginas,
+      unidades: aplicarPlano(bruto),
+      grade: null,
+      encontros: [],
+      identificacao: null,
+    };
+  }
+
+  /**
+   * O caminho determinístico.
+   *
+   * As datas do cronograma entram como CALENDÁRIO, não como conteúdo: o que cai
+   * em cada aula é estimado pelas horas-aula (`planos/cronograma.ts`), porque o
+   * pareamento data → tópico daquela tabela não é recuperável. A razão inteira
+   * está em `unifor.ts`, e há um teste travando a decisão.
+   */
+  private lerUnifor(texto: string, paginas: number): PropostaDeImportacao | null {
+    const plano = lerPlanoUnifor(texto);
+    if (!plano) return null;
+
+    const estimado = new Map(
+      estimarCronograma(plano.unidades, plano.encontros).map((e) => [e.ordem, e]),
+    );
+
+    return {
+      origem: 'unifor',
+      paginas,
+      unidades: plano.unidades.map((u) => {
+        const periodo = estimado.get(u.ordem);
+        return {
+          titulo: u.titulo,
+          topicos: u.topicos,
+          ...(u.cargaHoraria !== null && { cargaHoraria: u.cargaHoraria }),
+          ...(periodo && {
+            dataInicio: periodo.dataInicio,
+            dataFimPrevista: periodo.dataFimPrevista,
+            aulas: periodo.aulas,
+          }),
+        };
+      }),
+      grade: plano.horarios.length
+        ? plano.horarios.map(({ diaSemana, horaInicio, horaFim }) => ({
+            diaSemana,
+            horaInicio,
+            horaFim,
+          }))
+        : null,
+      encontros: plano.encontros,
+      identificacao: {
+        disciplina: plano.disciplina,
+        codigoTurma: plano.codigoTurma,
+        ano: plano.ano,
+        semestre: plano.semestre,
+      },
+    };
   }
 
   private async chamar(

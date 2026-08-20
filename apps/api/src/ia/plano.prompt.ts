@@ -8,10 +8,13 @@
  */
 
 /** Os limites são os do `CreateUnidadeDto`/`CreateTopicoDto`, repetidos aqui
- *  para o texto já chegar cortado em vez de a criação falhar na validação. */
-const MAX_TITULO = 200;
-const MAX_UNIDADES = 40;
-const MAX_TOPICOS = 60;
+ *  para o texto já chegar cortado em vez de a criação falhar na validação.
+ *  Exportados porque o parser da Unifor (`unifor.ts`) corta pelos mesmos: dois
+ *  caminhos de importação com tetos diferentes dariam um documento que entra
+ *  por um e é recusado pelo outro. */
+export const MAX_TITULO = 200;
+export const MAX_UNIDADES = 40;
+export const MAX_TOPICOS = 60;
 
 export interface UnidadeExtraida {
   titulo: string;

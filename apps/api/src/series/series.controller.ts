@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { AuthProfessor, CurrentProfessor } from '../auth/current-professor.decorator';
-import { CreateSerieDto, UpdateSerieDto } from './dto/serie.dto';
+import { CreateSerieDto, GradeDoCalendarioDto, UpdateSerieDto } from './dto/serie.dto';
 import { SeriesService } from './series.service';
 
 @Controller('series')
@@ -15,6 +15,12 @@ export class SeriesController {
   @Post()
   criar(@CurrentProfessor() p: AuthProfessor, @Body() dto: CreateSerieDto) {
     return this.series.criar(p.id, dto);
+  }
+
+  /** A grade do `Plano de Ensino`: datas explícitas, sem regra de recorrência. */
+  @Post('calendario')
+  criarDoCalendario(@CurrentProfessor() p: AuthProfessor, @Body() dto: GradeDoCalendarioDto) {
+    return this.series.criarDoCalendario(p.id, dto);
   }
 
   @Get(':id')

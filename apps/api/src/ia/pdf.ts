@@ -39,7 +39,17 @@ export const MINIMO_POR_PAGINA = 40;
 export const MAX_CARACTERES = 16_000;
 
 export interface TextoDoPdf {
+  /** Cortado em `MAX_CARACTERES` — é o que vai para o modelo. */
   texto: string;
+  /**
+   * O texto inteiro, sem teto.
+   *
+   * O corte existe pelo limite de tokens por minuto da Groq, e o parser da
+   * Unifor não chama a Groq — cortá-lo para ele seria perder data de aula por
+   * causa de um limite de outra coisa. E a perda é muda: a grade nasceria curta
+   * e ela só descobriria no dia em que a aula não aparecesse.
+   */
+  textoCompleto: string;
   paginas: number;
   /** true = é foto de papel; não há o que extrair. */
   pareceEscaneado: boolean;
@@ -84,6 +94,7 @@ export async function extrairTextoDePdf(arquivo: Buffer): Promise<TextoDoPdf> {
 
   return {
     texto: texto.slice(0, MAX_CARACTERES),
+    textoCompleto: texto,
     paginas,
     pareceEscaneado: pareceEscaneado(texto, paginas),
   };

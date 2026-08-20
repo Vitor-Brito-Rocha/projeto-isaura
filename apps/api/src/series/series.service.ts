@@ -16,7 +16,7 @@ import {
   somarDias,
 } from '../common/tz';
 import { AulaExistente, choqueInterno, mensagemDeChoque, primeiroChoque } from './conflito';
-import { CreateSerieDto, HorarioDto, UpdateSerieDto } from './dto/serie.dto';
+import { CreateSerieDto, GradeDoCalendarioDto, HorarioDto, UpdateSerieDto } from './dto/serie.dto';
 
 @Injectable()
 export class SeriesService {
@@ -79,6 +79,121 @@ export class SeriesService {
     // professora que acabou de cadastrar acha que não funcionou.
     await this.materializarFaltantes(serie.id);
     return this.buscar(professorId, serie.id);
+  }
+
+  /**
+   * Cria a grade a partir de uma lista de datas, sem `SerieAula`.
+   *
+   * É o caminho da importação do `Plano de Ensino`: o documento traz o
+   * calendário real da turma, com os dias sem aula já fora. Uma série semanal
+   * geraria as aulas nesses dias também, e o estrago é o alarme tocando num dia
+   * em que ela não tem aula. Ver `GradeDoCalendarioDto` para por que marcar
+   * como feriado depois não resolve.
+   *
+   * O preço é que estas aulas não têm regra de recorrência para editar em
+   * bloco — cada uma se cancela e se remarca sozinha, pela tela da aula. É o
+   * troco justo: o documento não descreve uma regra, descreve um calendário.
+   */
+  async criarDoCalendario(professorId: string, dto: GradeDoCalendarioDto) {
+    this.validarHorarios(dto.horarios);
+
+    const cadeira = await this.prisma.cadeira.findFirst({
+      where: { id: dto.cadeiraId, professorId },
+      select: { id: true },
+    });
+    if (!cadeira) throw new BadRequestException('Cadeira não encontrada.');
+
+    const professor = await this.prisma.professor.findUniqueOrThrow({
+      where: { id: professorId },
+      select: { timezone: true },
+    });
+
+    const aulas = this.casarDatasComHorarios(dto);
+    await this.recusarSeChocarComDatas(professorId, aulas);
+
+    const criadas = await this.prisma.ocorrencia.createMany({
+      data: aulas.map((a) => ({
+        professorId,
+        cadeiraId: dto.cadeiraId,
+        serieId: null,
+        data: dataUTC(a.dataIso),
+        horaInicio: a.horaInicio,
+        horaFim: a.horaFim,
+        inicioEm: instanteDeParede(a.dataIso, a.horaInicio, professor.timezone),
+        fimEm: instanteDeParede(a.dataIso, a.horaFim, professor.timezone),
+        status: StatusOcorrencia.AGENDADA,
+      })),
+    });
+
+    // Quem impede a grade dobrada numa importação repetida é a checagem de
+    // choque acima, e não o banco: não existe unique em (cadeira, data,
+    // horaInicio), então `skipDuplicates` aqui não teria o que pular. A segunda
+    // importação bate contra as próprias ocorrências da primeira e é recusada
+    // com a mensagem dizendo com qual turma chocou.
+    return { criadas: criadas.count, pedidas: aulas.length };
+  }
+
+  /**
+   * Cada data recebe o horário do SEU dia da semana.
+   *
+   * Data sem horário correspondente é recusada com a data escrita na mensagem,
+   * e não descartada: descartar em silêncio deixaria a grade curta, e ela só
+   * descobriria no dia em que a aula não aparecesse.
+   */
+  private casarDatasComHorarios(dto: GradeDoCalendarioDto) {
+    const porDia = new Map(dto.horarios.map((h) => [h.diaSemana, h]));
+
+    return [...new Set(dto.datas)].sort().map((dataIso) => {
+      const horario = porDia.get(dataUTC(dataIso).getUTCDay());
+      if (!horario) {
+        throw new BadRequestException(
+          `Nenhum horário para ${dataIso}: a data não cai em nenhum dos dias escolhidos.`,
+        );
+      }
+      return { dataIso, horaInicio: horario.horaInicio, horaFim: horario.horaFim };
+    });
+  }
+
+  /**
+   * Mesma regra do `recusarSeChocar`, sobre datas explícitas.
+   *
+   * A janela aqui é a do próprio documento e não os 60 dias da materialização:
+   * as ocorrências são criadas todas de uma vez, então todas precisam ser
+   * conferidas de uma vez.
+   */
+  private async recusarSeChocarComDatas(
+    professorId: string,
+    aulas: { dataIso: string; horaInicio: string; horaFim: string }[],
+  ) {
+    const datas = aulas.map((a) => dataUTC(a.dataIso));
+    const ocorrencias = await this.prisma.ocorrencia.findMany({
+      where: {
+        professorId,
+        data: { gte: datas[0], lte: datas[datas.length - 1] },
+        status: { not: StatusOcorrencia.CANCELADA },
+      },
+      select: {
+        data: true,
+        horaInicio: true,
+        horaFim: true,
+        serieId: true,
+        cadeira: { select: { disciplina: true, turma: true } },
+      },
+    });
+
+    const existentes: AulaExistente[] = ocorrencias.map((o) => ({
+      data: o.data,
+      horaInicio: o.horaInicio,
+      horaFim: o.horaFim,
+      serieId: o.serieId,
+      cadeira: `${o.cadeira.disciplina} · ${o.cadeira.turma}`,
+    }));
+
+    const choque = primeiroChoque(
+      aulas.map((a) => ({ data: dataUTC(a.dataIso), horaInicio: a.horaInicio, horaFim: a.horaFim })),
+      existentes,
+    );
+    if (choque) throw new ConflictException(mensagemDeChoque(choque));
   }
 
   async atualizar(professorId: string, id: string, dto: UpdateSerieDto) {

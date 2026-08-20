@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
@@ -76,6 +77,22 @@ export class UnidadeImportadaDto {
   @MinLength(1, { each: true })
   @MaxLength(200, { each: true })
   topicos!: string[];
+
+  /**
+   * O período estimado a partir das horas-aula (ver `planos/cronograma.ts`).
+   *
+   * Opcional porque o caminho do modelo não estima nada — ele lê documento de
+   * formato livre, sem carga horária nem calendário. Quando vem, é o que acorda
+   * o aviso de ritmo do `progresso/calcular.ts`, que hoje nunca aparece por
+   * falta deste dado.
+   */
+  @IsOptional()
+  @IsDateString()
+  dataInicio?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataFimPrevista?: string;
 }
 
 /**

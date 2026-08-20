@@ -1,0 +1,297 @@
+FUNDAÇÃO EDSON QUEIROZ
+UNIVERSIDADE DE FORTALEZA
+CENTRO DE CIÊNCIAS TECNOLÓGICAS
+PLANO DE ENSINO 2026.2
+DADOS DE IDENTIFICAÇÃO
+Disciplina/Módulo:
+Código/Turma:
+Horário (Turma):
+Local (Turma):
+Ambiente De Dados
+M3EF (30), M5EF (31)
+J16 (30), J16 (31)
+Nº de Créditos:2.02
+Fulana De TalProfessor(es):
+T203 - 30(31)
+SÍNTESE DO CURRÍCULO LATTES
+[removido deste exemplo]
+
+EMENTA
+Fundamentos de banco de dados relacional. Modelagem, definição e manipulação de dados. Estrutura de banco de
+dados relacional. Projeto de banco de dados.
+OBJETIVOS / CONTEÚDOS
+UNIDADE I - Fundamentos de banco de dados relacional. (6 h/a)
+OBJETIVO: Identificar o tipo de banco de dados que melhor se adequa à solução de problemas computacionais.
+OBJETIVO: Decodificar estruturas internas de banco de dados relacional.
+OBJETIVO: Demonstrar atenção nas soluções computacionais de banco de dados e suas diversas áreas de
+conhecimento.
+01.01 - Aplicação de banco de dados em empresas.
+01.02 - Tecnologia de banco de dados.
+
+01.03 - Tipos de banco de dados (BD) e suas estruturas.
+01.04 - Aspectos de gestão de sistemas gerenciadores de banco de dados (SGBD).
+UNIDADE II - Modelagem, definição e manipulação de dados. (12 h/a)
+OBJETIVO: Selecionar soluções computacionais otimizadas, fundamentando-se na interpretação técnica de dados
+mapeados para a eficiência do sistema.
+OBJETIVO: Estruturar modelos de dados seguindo padrões de normalização ou desnormalização, conforme as
+especificidades técnicas e requisitos de escalabilidade.
+OBJETIVO: Atuar com rigor ético no tratamento de dados, em conformidade com as legislações de privacidade (LGPD) e
+as melhores práticas de governança corporativa.
+02.01 - Análise de cenários e definição de banco de dados.
+02.02 - Diagrama de modelos entidade-relacionamento.
+02.03 - Técnicas de projeto de banco de dados relacional.
+02.04 - Modelo Entidade-Relacionamento (MER).
+UNIDADE III - Estrutura de banco de dados relacional. (30 h/a)
+OBJETIVO: Diferenciar técnicas de construção dos bancos de dados relacionais.
+OBJETIVO: Adequar o desempenho de sistemas computacionais de banco de dados, com a análise das
+configurações e funcionamento dos seus serviços.
+OBJETIVO: Agir com integridade e proatividade na observância das normas jurídicas e dos princípios éticos, com a
+garantia da conformidade e a segurança de dados na proposição de novas tecnologias de banco de dados.
+03.01 - Fundamentos de linguagens de definição e manipulação de dados.
+03.02 - Estruturas de armazenamento de dados e álgebra relacional.
+03.03 - Gerenciamento de alocação de memória.
+03.04 - Estrutura de processamento de transações e controle de concorrência.
+UNIDADE IV - Projeto de banco de dados. (24 h/a)
+OBJETIVO: Distinguir as metodologias de construção de bancos de dados relacionais, com consideração entre
+processos para a garantia da consistência dos dados.
+OBJETIVO: Efetuar planejamento e implementação do projeto físico de banco de dados com uso de linguagens
+relacionais.
+OBJETIVO: Ser colaborativo e de forma responsável no trabalho em equipe no desenvolvimento de aplicações que
+necessitam de armazenamento e recuperação de dados.
+04.01 - Cenários para modelagem dos dados.
+04.02 - Objetos de banco de dados.
+04.03 - Organização e normalização do banco de dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e recuperação de dados.
+CRONOGRAMA
+AGOSTO 2026
+DataConteúdo
+04/08
+01.01 - Aplicação de banco de dados em empresas.
+Ter
+
+04/08
+01.03 - Tipos de banco de dados (BD) e suas estruturas.
+01.02 - Tecnologia de banco de dados.
+Ter
+06/08
+01.04 - Aspectos de gestão de sistemas gerenciadores de banco de
+dados (SGBD).
+03.04 - Estrutura de processamento de transações e controle de
+concorrência.
+03.03 - Gerenciamento de alocação de memória.
+Qui
+11/08
+02.01 - Análise de cenários e definição de banco de dados.
+Ter
+13/08
+02.02 - Diagrama de modelos entidade-relacionamento.
+Qui
+18/08
+02.02 - Diagrama de modelos entidade-relacionamento.
+Ter
+20/08
+02.03 - Técnicas de projeto de banco de dados relacional.
+Qui
+25/08
+02.03 - Técnicas de projeto de banco de dados relacional.
+Ter
+27/08
+02.04 - Modelo Entidade-Relacionamento (MER).
+Qui
+SETEMBRO 2026
+DataConteúdo
+01/09
+01.01 - Aplicação de banco de dados em empresas.
+01.02 - Tecnologia de banco de dados.
+01.03 - Tipos de banco de dados (BD) e suas estruturas.
+01.04 - Aspectos de gestão de sistemas gerenciadores de banco de
+dados (SGBD).
+02.01 - Análise de cenários e definição de banco de dados.
+02.02 - Diagrama de modelos entidade-relacionamento.
+02.03 - Técnicas de projeto de banco de dados relacional.
+02.04 - Modelo Entidade-Relacionamento (MER).
+Prova - Teoria BD + DER + MER
+Ter
+03/09
+Segunda Chamada
+Qui
+08/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Ter
+10/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+15/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Ter
+17/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+22/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Ter
+24/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+29/09
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Ter
+OUTUBRO 2026
+DataConteúdo
+
+01/10
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+06/10
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Prova - DDL + DML
+Ter
+08/10
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+15/10
+03.01 - Fundamentos de linguagens de definição e manipulação de
+dados.
+Qui
+20/10
+04.03 - Organização e normalização do banco de dados.
+Ter
+22/10
+Segunda Chamada
+Qui
+27/10
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Ter
+29/10
+03.02 - Estruturas de armazenamento de dados e álgebra relacional.
+Qui
+NOVEMBRO 2026
+DataConteúdo
+03/11
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Ter
+05/11
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Qui
+10/11
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Ter
+12/11
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Qui
+17/11
+04.01 - Cenários para modelagem dos dados.
+04.02 - Objetos de banco de dados.
+04.03 - Organização e normalização do banco de dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+Avaliação das Equipes
+Ter
+19/11
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.02 - Objetos de banco de dados.
+Qui
+
+24/11
+04.01 - Cenários para modelagem dos dados.
+04.02 - Objetos de banco de dados.
+04.03 - Organização e normalização do banco de dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+Atividade avaliativa (1, Avaliação - Avaliação 3, Turma:30)
+Avaliação das Equipes
+Ter
+26/11
+04.01 - Cenários para modelagem dos dados.
+04.02 - Objetos de banco de dados.
+04.03 - Organização e normalização do banco de dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+Avaliação das Equipes
+Qui
+DEZEMBRO 2026
+DataConteúdo
+01/12Ter
+03/12
+04.01 - Cenários para modelagem dos dados.
+04.02 - Objetos de banco de dados.
+04.03 - Organização e normalização do banco de dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+Avaliação das Equipes
+Qui
+08/12Ter
+10/12
+04.01 - Cenários para modelagem dos dados.
+04.04 - Arquitetura do banco de dados, linguagens de armazenamento e
+recuperação de dados.
+04.03 - Organização e normalização do banco de dados.
+04.02 - Objetos de banco de dados.
+Qui
+AVALIAÇÃO
+Nossa disciplina é de Nota Única e terá somente a AV3 como nota.
+
+Descrição: A nota será composta pela apresentação de trabalho final em equipe (5,0) + Provas (5,0)
+
+METODOLOGIA
+Modalidade da disciplina será presencial com:
+-Aulas expositivas e dialogadas.
+-Tempestade de ideias.
+-Estudo dirigido
+-Problematização.
+
+AVALIAÇÃO
+Teremos duas provas que acontecerão após os conteúdos (já com datas e programadas no AVA) e o trabalho final
+que será uma atividade que irá resumir todos os conteúdos.
+
+Nota única - AV3 com a nota composta de:
+
+Prova 01 - Conteúdo relacionado com a teoria BD + DER + MER, valendo 2,5 pontos
+Prova 02 - Conteúdo relacionado com DDL e DML, valendo 2,5 pontos
+Projeto Final Valendo 5,0
+Total 10,0
+
+Para ser aprovado na disciplina precisa totalizar no mínimo 6 pontos.
+
+O trabalho final é construído em grupo e deverá ser apresentado para o professor que irá questionar os motivos e a
+forma de como o trabalho foi construído. No trabalho final toda a equipe é indispensável na apresentação.
+
+OBS 1: Os conteúdos cobrados são acumulativos.
+OBS 2: A avaliação ocorrerá ao longo do período de aula, contemplando atividades virtuais e presenciais (quando for
+o caso), com objetivo de acompanhar o desempenho dos alunos.
+OBS 3: Trabalhos entregues na data limite serão pontuados normalmente. Entregas em atraso, perderão 1 ponto por
+cada dia de atraso.
+OBS 4: Os trabalhos que necessitem de apresentação, não dispensam a entrega de material escrito (PDFs, textos,
+arquivos, etc.). Se o trabalho tem seu método de avaliação baseado na apresentação da equipe, a não apresentação
+implica em nota Zero.
+OBS 5: Se duas equipes ou alunos entregarem trabalhos iguais, ambas as equipes ou alunos receberão nota Zero.
+Avaliação em 24/11/2026 (1ª Avaliação - Avaliação 3, Turma: 30). Avaliação das Equipes
+BIBLIOGRAFIA
+[removida deste exemplo]

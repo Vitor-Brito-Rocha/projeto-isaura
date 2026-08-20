@@ -15,7 +15,8 @@ fases, armadilhas conhecidas e as decisões já tomadas com o usuário.
 | 4 — Voz e resumo padronizado | feita e **verificada por chamada real** (`0100041`…`fbb7499`), pela Groq; o caminho Anthropic segue sem saldo |
 | 5 — Progresso e histórico | feita (`e5598f2`…`3fd2fd5`); falta o teste de reconhecimento com ela |
 | 6 — Capacitor no Android | **em andamento**: frente B (empacotar a web) feita e o lado de API da frente C também (`COOKIE_CROSS_SITE`); faltam A (build na nuvem), o lado wrapper de C e D (o plugin de alarme) — ver "Fase 6 — detalhamento" em `docs/PLANO.md` |
-| 7 — Exportação com filtros | **feita** (`HEAD`); falta ela exportar um bimestre real e mandar |
+| 7 — Exportação com filtros | **feita**; falta ela exportar um bimestre real e mandar |
+| 8 — Importar o Plano de Ensino da Unifor | **feita**; falta ela importar o plano dela de verdade |
 
 **Hospedagem: VPS própria** (decidido 17/08/2026). O processo fica vivo, então o
 `@Cron(EVERY_MINUTE)` dos dois alarmes funciona como está escrito. **Não proponha serverless nem
@@ -125,7 +126,7 @@ antes de mexer** (`npx jest > /tmp/x.log 2>&1`) — foi justamente o que faltou 
 
 ```bash
 npm run --workspace apps/api dados:teste -- voce@exemplo.com   # popula uma conta EXISTENTE
-npm test              # 199 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
+npm test              # 237 testes de API (69 de integração, pulados sem TEST_DATABASE_URL) + 215 de web
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
@@ -304,6 +305,41 @@ guarda o retry estrito→frouxo, o timeout e a chave; `ResumoService` (fala da a
 `ImportacaoService` (PDF do plano) só trocam prompt e schema. `MAX_CARACTERES` em `pdf.ts` são 16
 mil porque o plano gratuito da Groq dá **8000 tokens por minuto** — medido, não estimado: 40 mil
 levou 429.
+
+**O `Plano de Ensino` da Unifor é lido por PARSER, não por modelo** (`ia/unifor.ts`). Formato
+regular não precisa de IA: é grátis, instantâneo, funciona sem rede e não tem como alucinar — o
+que importa porque unidade errada contamina todo registro que apontar para ela. `ImportacaoService`
+tenta o parser primeiro e cai na Groq para documento de formato livre. O parser recebe o texto
+**sem o teto** de `MAX_CARACTERES`, que existe pelo limite de tokens da Groq e não vale para quem
+não a chama.
+
+**Do cronograma daquele PDF só saem as DATAS, nunca o pareamento data → tópico.** A tabela não tem
+régua entre as linhas (das 244 operações de desenho, as horizontais são uma ou duas por página, e
+são separadores de seção), e a célula de data é centralizada contra um bloco de altura variável:
+três métodos independentes — ordem do texto, centro da célula, réguas — discordam sobre as mesmas
+linhas. E mesmo lido certo não serviria: no plano medido `03.01` aparece em 11 aulas seguidas
+enquanto `03.02`, `03.03` e `03.04` aparecem uma vez cada. O que cai em cada aula é **estimado**
+pelas horas-aula (`planos/cronograma.ts`, maior resto). `unifor.spec.ts` trava isso — é a decisão
+que alguém vai querer "melhorar".
+
+**Isso acorda o `calcularRitmo`.** `Unidade.dataFimPrevista` existia desde a fase 1, a API já a
+aceitava e o `progresso/calcular.ts` já dependia dela para dizer "4 tópicos e 3 aulas até 30/09" —
+e nenhuma tela preenchia. O recurso estava escrito, testado e morto por falta deste dado.
+
+**`M3EF` é turno + dia da semana + tempos, e os dois códigos são UMA cadeira** (`unifor-horarios.ts`).
+O dígito é dia na notação brasileira (2=segunda…6=sexta), não número do tempo; as letras são tempos
+de 50 min aos pares. `M3EF (30), M5EF (31)` é uma turma que encontra duas vezes por semana — a conta
+fecha (4 tempos × 18 semanas = as 72 h/a da ementa). Duas cadeiras partiriam o progresso ao meio e
+dariam alarme em duplicata, com a grade de mesma cara na tela. Letras coladas viram UM encontro
+(`E+F` = 11:20–13:00); com buraco no meio, o parser recusa. Noite não tem bloco `E/F`.
+
+**A grade importada nasce em DATAS, não em série** (`criarDoCalendario`). O documento traz o
+calendário real com os dias sem aula já fora; uma `SerieAula` semanal criaria aula nos feriados da
+universidade — e o estrago é o alarme tocando num dia sem aula. Marcar como feriado depois não
+resolve: `materializarFaltantes` só cria 60 dias à frente, então metade do semestre nem existe no
+banco na hora do import. O preço é não ter regra para editar em bloco, e a tela **diz isso**.
+Importar duas vezes é recusado pela checagem de choque, não pelo banco — não há unique em
+`(cadeira, data, horaInicio)`.
 
 **PDF escaneado é recusado antes de chamar o modelo.** `pareceEscaneado` mede caracteres por
 página; camada de texto vazia produziria unidades inventadas a partir do nada, e plano errado

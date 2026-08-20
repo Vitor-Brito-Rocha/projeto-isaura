@@ -105,7 +105,17 @@ export class PlanosService {
       const criadas = [];
       for (const u of dto.unidades) {
         const unidade = await tx.unidade.create({
-          data: { professorId, planoCurricularId: planoId, titulo: u.titulo, ordem: ordem++ },
+          data: {
+            professorId,
+            planoCurricularId: planoId,
+            titulo: u.titulo,
+            ordem: ordem++,
+            // As datas estimadas entram na criação, e não numa edição depois:
+            // são o que liga o aviso de ritmo, e um segundo passo é um passo a
+            // mais para falhar no meio, deixando metade das unidades sem prazo.
+            dataInicio: data(u.dataInicio),
+            dataFimPrevista: data(u.dataFimPrevista),
+          },
         });
         if (u.topicos.length) {
           await tx.topico.createMany({
