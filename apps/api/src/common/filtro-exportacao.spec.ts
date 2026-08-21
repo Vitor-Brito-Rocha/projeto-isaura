@@ -1,4 +1,4 @@
-import { ondeDaOcorrencia, ondeDoRegistro } from './filtro-exportacao';
+import { cadeiraDoFiltro, ondeDaOcorrencia, ondeDoRegistro } from './filtro-exportacao';
 
 const UMA = '11111111-1111-4111-8111-111111111111';
 const OUTRA = '22222222-2222-4222-8222-222222222222';
@@ -89,5 +89,37 @@ describe('ondeDoRegistro', () => {
     expect(ondeDoRegistro('prof', { cadeiraIds: [UMA] }).ocorrencia).toEqual({
       cadeiraId: { in: [UMA] },
     });
+  });
+});
+
+/**
+ * O recorte de cadeira tem nome próprio porque as PENDÊNCIAS precisam
+ * acrescentar uma condição a ele (`ativo: true`, para turma arquivada parar de
+ * cobrar). Escrever `cadeira:` de novo por cima do espalhamento apagaria o
+ * recorte que ela escolheu na tela — em silêncio, e o sintoma seria uma lista
+ * de pendências das onze turmas quando ela pediu uma.
+ */
+describe('cadeiraDoFiltro', () => {
+  it('junta disciplina, ano e semestre num objeto só', () => {
+    expect(cadeiraDoFiltro({ disciplina: 'Matemática', anoLetivo: 2026, semestre: 1 })).toEqual({
+      disciplina: { equals: 'Matemática', mode: 'insensitive' },
+      anoLetivo: 2026,
+      semestre: 1,
+    });
+  });
+
+  it('é exatamente o que `ondeDaOcorrencia` põe na chave `cadeira`', () => {
+    // Se os dois divergirem, "o que eu dei" e "o que falta" passam a responder
+    // sobre conjuntos diferentes — que é o que a exportação existe para evitar.
+    const filtro = { disciplina: 'Física', anoLetivo: 2025 };
+
+    expect(ondeDaOcorrencia(filtro).cadeira).toEqual(cadeiraDoFiltro(filtro));
+  });
+
+  it('vazio quando o recorte não fala de cadeira, para a mescla não inventar filtro', () => {
+    // `{ ...{}, ativo: true }` tem de sobrar só o `ativo`. Devolver `undefined`
+    // aqui também funcionaria por acaso, e é justamente o tipo de acaso que
+    // quebra no dia em que alguém troca o espalhamento de lugar.
+    expect(cadeiraDoFiltro({ cadeiraIds: ['a1'], de: '2026-02-01' })).toEqual({});
   });
 });

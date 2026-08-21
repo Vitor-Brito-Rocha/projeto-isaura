@@ -460,6 +460,18 @@ que a turma antiga já tem aula. A saída que sobrava era apagar a turma antiga,
 inteiro junto: exatamente o que arquivar existe para não fazer. `cadeira.ativo` é o que separa "aula
 que ela vai dar" de "linha que existe no banco".
 
+**E para de cobrar pendência — com uma mescla que o tipo do Prisma não defende.** `pendencias`
+filtra `cadeira: { ativo: true }` pela mesma razão: arquivar existe para tirar a turma do caminho, e
+continuar listando "12 aulas sem registro" pelo resto do ano é a promessa quebrada do alarme outra
+vez. Só que o recorte que ela escolhe na tela (disciplina, ano, semestre) mora na **mesma** chave
+`cadeira`, então os dois têm de MESCLAR: escrito por cima do espalhamento, o `ativo` apagaria o
+recorte em silêncio e a lista mostraria as onze turmas quando ela pediu uma. Por isso
+`cadeiraDoFiltro` ganhou nome próprio em `filtro-exportacao.ts` — desmontar o retorno pronto de
+`ondeDaOcorrencia` para remontá-lo exigiria um cast, já que `OcorrenciaWhereInput['cadeira']` é um
+XOR, e o cast é exatamente onde o filtro dela sumiria sem ninguém notar. **O histórico e a
+exportação continuam SEM filtrar por `ativo`**, e não podem passar a filtrar: o relatório do
+semestre passado é justamente o de turmas que já acabaram.
+
 **Exportar são DOIS artefatos, e nunca um.** O resumo das aulas é o que ela entrega; as pendências
 são a lista das aulas que ela não registrou — documento contra ela mesma se sair junto por engano.
 Botões separados, com o público dito **antes** do clique. O recorte é um só (`FiltroExportacaoDto`,

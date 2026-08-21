@@ -185,6 +185,42 @@ descreve('AgendaService (integração)', () => {
       expect(ids).not.toContain(feriado.id);
     });
 
+    /**
+     * Turma arquivada parou de cobrar.
+     *
+     * Ela arquiva a turma para tirá-la do caminho; continuar listando "12 aulas
+     * de Cálculo I sem registro" pelo resto do ano é a mesma promessa quebrada
+     * do alarme que continuava tocando. O que já ESTÁ registrado não some — o
+     * histórico e a exportação não filtram por `ativo`, e não podem: o
+     * relatório do semestre passado é justamente o de turmas que acabaram.
+     */
+    it('não lista pendência de turma arquivada', async () => {
+      const oc = await aulaPassada(3);
+      expect(await idsDe()).toContain(oc.id);
+
+      await prisma.cadeira.update({ where: { id: oc.cadeiraId }, data: { ativo: false } });
+
+      expect(await idsDe()).not.toContain(oc.id);
+    });
+
+    /**
+     * E o recorte que ela escolheu na tela sobrevive a isso.
+     *
+     * O `ativo` mora na MESMA chave `cadeira` do filtro de disciplina, ano e
+     * semestre. Escrito por cima do espalhamento em vez de mesclado, ele
+     * apagaria o recorte em silêncio — e a lista passaria a mostrar as onze
+     * turmas quando ela pediu uma. É a única parte disto que não dá erro
+     * nenhum quando quebra.
+     */
+    it('o recorte por disciplina sobrevive ao filtro de turma arquivada', async () => {
+      const oc = await aulaPassada(3); // Geografia · 7º C
+
+      expect(
+        (await servico.pendencias(PROF, 45, { disciplina: 'Geografia' })).map((o) => o.id),
+      ).toEqual([oc.id]);
+      expect(await servico.pendencias(PROF, 45, { disciplina: 'Matemática' })).toEqual([]);
+    });
+
     it('respeita a janela de dias pedida', async () => {
       const antiga = await aulaPassada(60);
 

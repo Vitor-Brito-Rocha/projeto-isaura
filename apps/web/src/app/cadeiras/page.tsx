@@ -285,11 +285,13 @@ export default function Cadeiras() {
                 onConfirmar={() => arquivar.mutate(c.id)}
                 descricao={
                   <>
-                    A turma sai desta lista e da sua semana, e as aulas que{' '}
+                    A turma sai desta lista, e as aulas que{' '}
                     <strong>ainda não aconteceram são canceladas</strong> — os alarmes delas param.
                     O horário dela <strong>deixa de bloquear</strong> outra turma, então dá para
-                    cadastrar ou importar uma nova no mesmo dia e hora. O que você já registrou
-                    continua no histórico, na exportação e no relatório da coordenação.
+                    cadastrar ou importar uma nova no mesmo dia e hora. E ela{' '}
+                    <strong>para de aparecer nas pendências</strong>: as aulas que você não
+                    registrou não são mais cobradas. O que você já registrou continua no
+                    histórico, na exportação e no relatório da coordenação.
                   </>
                 }
               >

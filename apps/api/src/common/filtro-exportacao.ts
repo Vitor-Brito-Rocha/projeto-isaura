@@ -8,19 +8,30 @@ import { FiltroExportacaoDto } from './filtro-exportacao.dto';
  * que vai para a coordenação, e os dois jeitos de errar aqui são silenciosos —
  * mandar demais ou mandar nada, os dois sem erro na tela.
  */
-export function ondeDaOcorrencia(f: FiltroExportacaoDto): Prisma.OcorrenciaWhereInput {
-  /**
-   * Tudo que descreve a CADEIRA vai num objeto só.
-   *
-   * Em dois espalhamentos o segundo apaga o primeiro em silêncio — filtrar por
-   * disciplina e por semestre juntos devolveria a disciplina inteira, de todos
-   * os anos, sem nenhum sinal de que metade do filtro sumiu.
-   */
-  const daCadeira: Prisma.CadeiraWhereInput = {
+/**
+ * Tudo que descreve a CADEIRA, num objeto só.
+ *
+ * Em dois espalhamentos o segundo apaga o primeiro em silêncio — filtrar por
+ * disciplina e por semestre juntos devolveria a disciplina inteira, de todos os
+ * anos, sem nenhum sinal de que metade do filtro sumiu.
+ *
+ * Exportada com nome próprio porque quem precisa acrescentar UMA condição de
+ * cadeira (as pendências, que ignoram turma arquivada) tem de mesclar com este
+ * objeto em vez de escrever `cadeira:` de novo por cima. O tipo do Prisma não
+ * defende: `OcorrenciaWhereInput['cadeira']` é um XOR, e desmontar o retorno
+ * pronto para remontá-lo exigiria um cast — que é justamente onde o filtro dela
+ * sumiria sem ninguém notar.
+ */
+export function cadeiraDoFiltro(f: FiltroExportacaoDto): Prisma.CadeiraWhereInput {
+  return {
     ...(f.disciplina ? { disciplina: { equals: f.disciplina, mode: 'insensitive' as const } } : {}),
     ...(f.anoLetivo !== undefined ? { anoLetivo: f.anoLetivo } : {}),
     ...(f.semestre !== undefined ? { semestre: f.semestre } : {}),
   };
+}
+
+export function ondeDaOcorrencia(f: FiltroExportacaoDto): Prisma.OcorrenciaWhereInput {
+  const daCadeira = cadeiraDoFiltro(f);
 
   const data = {
     ...(f.de ? { gte: new Date(`${f.de}T00:00:00.000Z`) } : {}),

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { StatusOcorrencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ondeDaOcorrencia } from '../common/filtro-exportacao';
+import { cadeiraDoFiltro, ondeDaOcorrencia } from '../common/filtro-exportacao';
 import { FiltroExportacaoDto } from '../common/filtro-exportacao.dto';
 import { dataUTC } from '../common/tz';
 import { UpdateOcorrenciaDto } from './dto/ocorrencia.dto';
@@ -49,7 +49,7 @@ export class AgendaService {
     const agora = new Date();
     // O mesmo recorte do histórico, para "o que eu dei" e "o que falta" nunca
     // responderem sobre conjuntos diferentes.
-    const { data: _ignorado, ...recorte } = ondeDaOcorrencia(filtro);
+    const { data: _ignorado, cadeira: _daCadeira, ...recorte } = ondeDaOcorrencia(filtro);
 
     return this.prisma.ocorrencia.findMany({
       where: {
@@ -69,6 +69,21 @@ export class AgendaService {
         },
         // Aula cancelada e feriado não são pendência — não houve o que dar.
         status: { notIn: [StatusOcorrencia.CANCELADA, StatusOcorrencia.FERIADO] },
+        /**
+         * Turma arquivada também não é pendência.
+         *
+         * Ela arquivou a turma para tirá-la do caminho; continuar cobrando "12
+         * aulas de Cálculo I sem registro" pelo resto do ano é a mesma promessa
+         * quebrada do alarme que continuava tocando. O que já ESTÁ registrado
+         * continua no histórico e na exportação — `ondeDaOcorrencia` não filtra
+         * por `ativo`, e não pode: o relatório do semestre passado é justamente
+         * o de turmas que já acabaram.
+         *
+         * Mesclado, e nunca espalhado por cima: o recorte que ela escolheu
+         * (disciplina, ano, semestre) também mora na chave `cadeira`, e em dois
+         * espalhamentos o segundo apaga o primeiro em silêncio.
+         */
+        cadeira: { ...cadeiraDoFiltro(filtro), ativo: true },
         OR: [
           { registro: { is: null } },
           { registro: { conteudoDado: null } },
