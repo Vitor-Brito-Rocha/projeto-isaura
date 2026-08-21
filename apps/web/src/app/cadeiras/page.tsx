@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
+import { TextoEditavel } from '@/components/texto-editavel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +68,30 @@ export default function Cadeiras() {
       toast.success('Plano da turma atualizado.');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível vincular.'),
+  });
+
+  /**
+   * O rótulo da turma, e só ele.
+   *
+   * Nascia congelado: a importação propõe "30(31)" a partir do `Código/Turma`
+   * do documento, e depois de criada a API sempre aceitou o `PATCH` sem
+   * nenhuma tela chamar. O conserto era apagar a cadeira — e apagar leva as
+   * aulas, os registros e o progresso junto.
+   *
+   * **Disciplina, ano e semestre ficam de fora de propósito.** Eles dizem o que
+   * a cadeira É; trocá-los num clique mudaria a identidade do grupo com o
+   * histórico inteiro pendurado nela, e isso é criar outra turma, não corrigir
+   * digitação.
+   */
+  const renomearTurma = useMutation({
+    mutationFn: ({ id, turma }: { id: string; turma: string }) =>
+      apiFetch(`/cadeiras/${id}`, { method: 'PATCH', body: JSON.stringify({ turma }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      qc.invalidateQueries({ queryKey: ['agenda'] });
+      toast.success('Turma renomeada.');
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
   });
 
   const criar = useMutation({
@@ -155,8 +180,21 @@ export default function Cadeiras() {
                 aria-hidden
               />
               <div className="min-w-0 flex-1">
-                <CardTitle className="truncate text-base">
-                  {c.disciplina} · {c.turma}
+                {/* A disciplina fica fixa e só a turma é editável — ver
+                    `renomearTurma`. O rótulo aparece na grade, no alarme e no
+                    relatório da coordenação, e é o que ela precisa poder
+                    corrigir sem apagar a turma. */}
+                <CardTitle className="flex min-w-0 items-center gap-1 text-base">
+                  {/* Os dois truncam: disciplina longa não pode empurrar a
+                      turma para fora da tela, que é onde o toque acontece. */}
+                  <span className="truncate">{c.disciplina} ·</span>
+                  <span className="min-w-0 flex-1">
+                    <TextoEditavel
+                      valor={c.turma}
+                      rotuloAcessivel={`a turma de ${c.disciplina}`}
+                      aoSalvar={(turma) => renomearTurma.mutate({ id: c.id, turma })}
+                    />
+                  </span>
                 </CardTitle>
                 <p className="truncate text-xs text-muted-foreground">
                   {periodoLetivo(c.anoLetivo, c.semestre)}

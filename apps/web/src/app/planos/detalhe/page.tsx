@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api';
+import { dataBR, paraCampoDeData } from '@/lib/datas';
 import { Anexos } from '@/components/anexos';
 import { Confirmar } from '@/components/confirmar';
 import { periodoLetivo } from '@/lib/periodo';
@@ -65,6 +66,13 @@ function TelaDoPlano() {
     enabled: Boolean(id),
   });
   useRedirecionaEmErro(error);
+
+  const renomearPlano = useMutation({
+    mutationFn: (nome: string) =>
+      apiFetch(`/planos/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
+    onSuccess: recarregar,
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
+  });
 
   const criarUnidade = useMutation({
     mutationFn: (titulo: string) =>
@@ -121,6 +129,25 @@ function TelaDoPlano() {
       }
     >
       <div className="space-y-4">
+        {/*
+          O nome vem do documento importado ("Ambiente De Dados — 2026.2") ou do
+          nome do arquivo, e nascia congelado: a API sempre aceitou o `PATCH`, e
+          nenhuma tela chamava. Sem isto, corrigir o nome exigia apagar o plano
+          — e apagar leva unidades, tópicos e a marcação de todas as aulas.
+        */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Nome do plano</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <TextoEditavel
+              valor={plano.nome}
+              rotuloAcessivel="o plano"
+              aoSalvar={(nome) => renomearPlano.mutate(nome)}
+            />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Turmas que seguem este plano</CardTitle>
@@ -269,6 +296,25 @@ function CartaoUnidade({
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
   });
 
+  /**
+   * As datas previstas da unidade.
+   *
+   * A conferência da importação era a ÚNICA janela para elas — a API sempre
+   * aceitou o `PATCH`, e nenhuma tela chamava. É delas que sai o aviso de ritmo
+   * do `progresso/calcular.ts`, que sem data prevista devolve `null` e nunca
+   * aparece: um prazo digitado errado ficava congelado até alguém apagar a
+   * unidade, e apagar unidade tira a marcação de todas as aulas que a cobriram.
+   */
+  const mudarPeriodo = useMutation({
+    mutationFn: (campos: { dataInicio?: string; dataFimPrevista?: string }) =>
+      apiFetch(`/planos/${planoId}/unidades/${unidade.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(campos),
+      }),
+    onSuccess: onMudou,
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível salvar a data.'),
+  });
+
   const renomearTopico = useMutation({
     mutationFn: ({ id, titulo }: { id: string; titulo: string }) =>
       apiFetch(`/planos/${planoId}/unidades/${unidade.id}/topicos/${id}`, {
@@ -318,6 +364,43 @@ function CartaoUnidade({
       </CardHeader>
 
       <CardContent className="space-y-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor={`inicio-${unidade.id}`} className="block text-xs">
+              Começa em
+            </Label>
+            <Input
+              id={`inicio-${unidade.id}`}
+              type="date"
+              value={paraCampoDeData(unidade.dataInicio)}
+              onChange={(e) => mudarPeriodo.mutate({ dataInicio: e.target.value })}
+            />
+            {/* O seletor nativo desenha no formato do SISTEMA, que este código
+                não controla — num aparelho em inglês sai MM/DD/YYYY. Por extenso
+                ao lado é a convenção de `lib/datas.ts`. */}
+            {unidade.dataInicio && (
+              <p className="text-xs text-muted-foreground">{dataBR(unidade.dataInicio)}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`fim-${unidade.id}`} className="block text-xs">
+              Prevista até
+            </Label>
+            <Input
+              id={`fim-${unidade.id}`}
+              type="date"
+              value={paraCampoDeData(unidade.dataFimPrevista)}
+              onChange={(e) => mudarPeriodo.mutate({ dataFimPrevista: e.target.value })}
+            />
+            {unidade.dataFimPrevista && (
+              <p className="text-xs text-muted-foreground">{dataBR(unidade.dataFimPrevista)}</p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          É da data prevista que sai o aviso de ritmo em Progresso — sem ela, ele não aparece.
+        </p>
+
         {unidade.topicos.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Sem tópicos. São eles que você marca como cobertos ao fechar a aula.

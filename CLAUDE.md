@@ -317,6 +317,14 @@ quando ela confirma. Documento de outro formato ainda cria o plano, com o nome d
 caminho existe para acabar. Plano repetido **avisa e não bloqueia** — dois semestres com a mesma
 disciplina são legítimos.
 
+**Dado que a importação propõe tem de continuar editável DEPOIS.** Nome do plano, datas previstas
+da unidade e rótulo da turma nasciam congelados: os três `UpdateDto` sempre aceitaram o `PATCH` e
+nenhuma tela chamava, então a conferência da importação era a única janela. O conserto era apagar
+e refazer — e apagar plano leva unidades, tópicos e a marcação de todas as aulas; apagar cadeira
+leva as aulas inteiras. Renomear passa por `TextoEditavel`, que já é o padrão. **Na cadeira, só a
+turma:** disciplina, ano e semestre dizem o que ela É, e trocá-los num clique mudaria a identidade
+do grupo com o histórico pendurado — isso é criar outra turma, não corrigir digitação.
+
 **A turma também sai do documento, e turma repetida é REAPROVEITADA.** `Ocorrencia.cadeiraId` é
 obrigatório: sem cadeira não há aula, e sem aula não há alarme. Para quem estava começando, o
 select de turmas vinha vazio e ela importava o plano inteiro sem conseguir criar uma única aula.
