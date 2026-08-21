@@ -171,6 +171,19 @@ export class SeriesService {
         professorId,
         data: { gte: datas[0], lte: datas[datas.length - 1] },
         status: { not: StatusOcorrencia.CANCELADA },
+        // **Turma arquivada não ocupa horário.** `cadeira.ativo` é o que separa
+        // "aula que ela vai dar" de "linha que existe no banco". Arquivar já
+        // cancela as aulas FUTURAS (`CadeirasService.desativar`), mas as que já
+        // passaram continuam AGENDADA de propósito — são histórico e podem ter
+        // registro, e mudar o status delas tiraria do progresso o que ela deu.
+        //
+        // Sem este filtro esse histórico bloqueava a importação de um plano
+        // novo no mesmo horário: o calendário do documento começa no início do
+        // semestre, então ele cobre justamente as datas onde a turma antiga já
+        // tem aula. A única saída era apagar a turma antiga — que leva o
+        // histórico inteiro junto, e é exatamente o que `desativar` existe para
+        // não fazer.
+        cadeira: { ativo: true },
       },
       select: {
         data: true,
@@ -367,6 +380,9 @@ export class SeriesService {
         professorId,
         data: { gte: de, lte: ate },
         status: { not: StatusOcorrencia.CANCELADA },
+        // Mesma regra do `recusarSeChocarComDatas`, e pelo mesmo motivo: turma
+        // arquivada é compromisso que ela desfez.
+        cadeira: { ativo: true },
         ...(ignorarSerieId ? { serieId: { not: ignorarSerieId } } : {}),
       },
       select: {

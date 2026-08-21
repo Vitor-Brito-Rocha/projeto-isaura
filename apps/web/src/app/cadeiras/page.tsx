@@ -287,8 +287,9 @@ export default function Cadeiras() {
                   <>
                     A turma sai desta lista e da sua semana, e as aulas que{' '}
                     <strong>ainda não aconteceram são canceladas</strong> — os alarmes delas param.
-                    O que você já registrou continua no histórico, na exportação e no relatório da
-                    coordenação.
+                    O horário dela <strong>deixa de bloquear</strong> outra turma, então dá para
+                    cadastrar ou importar uma nova no mesmo dia e hora. O que você já registrou
+                    continua no histórico, na exportação e no relatório da coordenação.
                   </>
                 }
               >

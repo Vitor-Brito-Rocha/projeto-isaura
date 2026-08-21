@@ -284,6 +284,51 @@ descreve('SeriesService (integração)', () => {
     });
 
     /**
+     * Turma arquivada também não segura o horário — mesma leitura da cancelada,
+     * um degrau acima.
+     *
+     * `desativar` cancela as aulas FUTURAS, mas as que já passaram continuam
+     * AGENDADA de propósito: são histórico e podem ter registro. Sem o filtro
+     * por `cadeira.ativo`, esse histórico bloqueava um plano novo no mesmo
+     * horário, e a única saída era apagar a turma antiga — levando o histórico
+     * junto, que é o que arquivar existe para evitar.
+     */
+    it('turma arquivada não segura o horário', async () => {
+      const serie = await criarSerieDe(SP);
+      // Só a cadeira fica inativa: as ocorrências continuam AGENDADA, que é o
+      // caso que importa. Cancelá-las aqui repetiria o teste anterior.
+      await prisma.cadeira.update({ where: { id: serie.cadeiraId }, data: { ativo: false } });
+      const outra = await cadeiraDe(SP, 'Ciências', '7º B');
+
+      await expect(servico.criar(SP, naQuinta(outra.id, '07:00', '07:50'))).resolves.toBeDefined();
+    });
+
+    /**
+     * O caminho que ela de fato percorreu: importar o `Plano de Ensino` cria a
+     * grade por DATAS, não por série, e é outra consulta — um filtro corrigido
+     * só num dos dois deixaria a importação recusando o que a grade aceita.
+     */
+    it('a grade do calendário também ignora a turma arquivada', async () => {
+      const serie = await criarSerieDe(SP); // quinta 07:00–07:50, a partir de 06/08
+      const nova = await cadeiraDe(SP, 'Ambiente De Dados', '30(31)');
+
+      const grade = {
+        cadeiraId: nova.id,
+        horarios: [{ diaSemana: 4, horaInicio: '07:00', horaFim: '07:50' }],
+        datas: [isoDeDataUTC(new Date('2026-08-13T00:00:00.000Z'))],
+      };
+
+      await expect(servico.criarDoCalendario(SP, grade)).rejects.toBeInstanceOf(ConflictException);
+
+      await prisma.cadeira.update({ where: { id: serie.cadeiraId }, data: { ativo: false } });
+
+      await expect(servico.criarDoCalendario(SP, grade)).resolves.toEqual({
+        criadas: 1,
+        pedidas: 1,
+      });
+    });
+
+    /**
      * Sem ignorar a própria série, toda edição chocaria consigo mesma: as
      * ocorrências antigas ainda estão no banco quando a checagem roda.
      */

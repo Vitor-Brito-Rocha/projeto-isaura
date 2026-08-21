@@ -451,6 +451,15 @@ marcas de notificação vão junto porque é o que `AgendaService.atualizar` faz
 cancelamento que deixam a linha em estados diferentes é como nasce "cancelei e o alarme tocou assim
 mesmo".
 
+**E arquivar libera o HORÁRIO, o que é a outra metade da mesma promessa.** As duas checagens de
+choque (`recusarSeChocar` e `recusarSeChocarComDatas`) filtram por `cadeira: { ativo: true }`. Sem
+isso, cancelar as futuras não bastava: as aulas PASSADAS da turma arquivada continuam AGENDADA de
+propósito — são histórico e podem ter registro — e eram elas que barravam a importação de um plano
+novo, porque o calendário do documento começa no início do semestre e cobre justamente as datas em
+que a turma antiga já tem aula. A saída que sobrava era apagar a turma antiga, que leva o histórico
+inteiro junto: exatamente o que arquivar existe para não fazer. `cadeira.ativo` é o que separa "aula
+que ela vai dar" de "linha que existe no banco".
+
 **Exportar são DOIS artefatos, e nunca um.** O resumo das aulas é o que ela entrega; as pendências
 são a lista das aulas que ela não registrou — documento contra ela mesma se sair junto por engano.
 Botões separados, com o público dito **antes** do clique. O recorte é um só (`FiltroExportacaoDto`,
