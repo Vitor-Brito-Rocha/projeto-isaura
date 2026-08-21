@@ -460,6 +460,27 @@ que a turma antiga já tem aula. A saída que sobrava era apagar a turma antiga,
 inteiro junto: exatamente o que arquivar existe para não fazer. `cadeira.ativo` é o que separa "aula
 que ela vai dar" de "linha que existe no banco".
 
+**Reativar é `POST /cadeiras/:id/reativar`, e `ativo` saiu do `UpdateCadeiraDto`.** Um
+`PATCH { ativo: true }` gravaria a coluna e pararia aí: a turma voltaria para a tela com a grade
+inteira cancelada e os dois alarmes calados — tudo certo na tela, nada funcionando. Com o `ativo`
+fora do DTO existe **uma porta só**, e ela devolve as aulas junto. A turma volta SEMPRE e as aulas
+voltam UMA A UMA: o motivo comum de arquivar é liberar o horário para outra turma, então recusar a
+reativação inteira por causa do choque seria uma porta que nunca abre justamente para quem mais
+precisa dela. O que continua cancelado sobe no retorno com o nome da turma que ficou com o horário.
+Zerar `aberturaNotificadaEm`/`fechamentoNotificadoEm` é o que DEVOLVE o alarme — sem isso a aula
+volta muda, e é o modo de falhar que não aparece em tela nenhuma.
+
+**Só a leva do ÚLTIMO arquivamento volta** (`cadeiras/arquivamento.ts`, puro e testado). `desativar`
+cancela num `updateMany` só, gravando o mesmo instante em todas as linhas, e nunca encosta em aula
+já cancelada (o `where` exige `AGENDADA`) — então o maior carimbo identifica a leva sem precisar de
+coluna nova. Aula que ELA desmarcou à mão antes (feriado escolar, semana de prova) tem carimbo mais
+antigo e continua cancelada. É a regra que alguém vai querer "simplificar" para "devolve tudo que
+está cancelado", e o estrago não aparece na tela: aparece num alarme, semanas depois, num dia em que
+ela não tem aula. A lista também ordena `ativo: 'desc'` — arquivada não pode reaparecer no meio das
+turmas desta semana — e a tela usa a chave `['cadeiras', 'com-arquivadas']`, própria, porque
+`['cadeiras']` cru é do histórico e da importação, que só querem as ativas: duas URLs sob a mesma
+chave fazem o React Query servir a que respondeu por último.
+
 **E para de cobrar pendência — com uma mescla que o tipo do Prisma não defende.** `pendencias`
 filtra `cadeira: { ativo: true }` pela mesma razão: arquivar existe para tirar a turma do caminho, e
 continuar listando "12 aulas sem registro" pelo resto do ano é a promessa quebrada do alarme outra

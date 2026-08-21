@@ -100,7 +100,7 @@ descreve('CadeirasService.disciplinas (integração)', () => {
  * semestre — a turma some, o alarme fica, e não sobra nada na tela que explique
  * de onde ele vem.
  */
-descreve('CadeirasService.desativar (integração)', () => {
+descreve('CadeirasService.desativar/reativar (integração)', () => {
   let prisma: PrismaService;
   let servico: CadeirasService;
 
@@ -183,6 +183,110 @@ descreve('CadeirasService.desativar (integração)', () => {
     expect(canceladas).toHaveLength(2);
     expect(canceladas.every((a) => a.aberturaNotificadaEm !== null)).toBe(true);
     expect(canceladas.every((a) => a.fechamentoNotificadoEm !== null)).toBe(true);
+  });
+
+  it('lista a arquivada por último', async () => {
+    // A tela desenha as arquivadas num bloco no fim; a ordem vem do serviço.
+    const cadeira = await turmaComAulas(); // Cálculo I
+    await prisma.cadeira.create({
+      data: { professorId: PROF, disciplina: 'Zoologia', turma: '9º A', anoLetivo: 2026 },
+    });
+    await servico.desativar(PROF, cadeira.id);
+
+    const lista = await servico.listar(PROF, true);
+
+    // Zoologia vem depois de Cálculo I no alfabeto, e ainda assim vem antes:
+    // é o `ativo: 'desc'` mandando na ordenação por disciplina.
+    expect(lista.map((c) => c.disciplina)).toEqual(['Zoologia', 'Cálculo I']);
+  });
+
+  describe('reativar', () => {
+    it('devolve a turma, as séries e as aulas futuras COM os alarmes', async () => {
+      const cadeira = await turmaComAulas();
+      await servico.desativar(PROF, cadeira.id);
+
+      expect(await servico.reativar(PROF, cadeira.id)).toEqual({
+        ok: true,
+        aulasRestauradas: 2,
+        aulasEmConflito: 0,
+        conflitaCom: [],
+      });
+
+      const aulas = await prisma.ocorrencia.findMany({
+        where: { cadeiraId: cadeira.id },
+        orderBy: { inicioEm: 'asc' },
+      });
+      expect(aulas.every((a) => a.status === StatusOcorrencia.AGENDADA)).toBe(true);
+      // Sem zerar as marcas a aula volta MUDA: bonita na grade, e o alarme
+      // nunca vem. É o modo de falhar que não aparece em tela nenhuma.
+      expect(aulas.slice(1).every((a) => a.aberturaNotificadaEm === null)).toBe(true);
+      expect(aulas.slice(1).every((a) => a.fechamentoNotificadoEm === null)).toBe(true);
+
+      expect((await prisma.cadeira.findUniqueOrThrow({ where: { id: cadeira.id } })).ativo).toBe(
+        true,
+      );
+    });
+
+    it('deixa cancelada a aula cujo horário outra turma tomou, e diz qual turma é', async () => {
+      const cadeira = await turmaComAulas();
+      await servico.desativar(PROF, cadeira.id);
+
+      // O caso real: ela arquivou para LIBERAR o horário, e a turma nova nasceu
+      // ali. Devolver a aula antiga poria as duas no mesmo minuto.
+      const outra = await prisma.cadeira.create({
+        data: {
+          professorId: PROF,
+          disciplina: 'Ambiente De Dados',
+          turma: '30(31)',
+          anoLetivo: 2026,
+        },
+      });
+      await prisma.ocorrencia.create({ data: aula(outra.id, Date.now() + 2 * DIA) });
+
+      const r = await servico.reativar(PROF, cadeira.id);
+
+      expect(r).toMatchObject({
+        aulasRestauradas: 1,
+        aulasEmConflito: 1,
+        conflitaCom: ['Ambiente De Dados · 30(31)'],
+      });
+      // E a turma volta assim mesmo: recusar a reativação inteira por causa do
+      // choque seria uma porta que nunca abre para quem arquivou justamente
+      // para dar lugar a outra coisa.
+      expect((await prisma.cadeira.findUniqueOrThrow({ where: { id: cadeira.id } })).ativo).toBe(
+        true,
+      );
+    });
+
+    it('NÃO ressuscita a aula que ela cancelou à mão antes de arquivar', async () => {
+      const cadeira = await turmaComAulas();
+      const futuras = await prisma.ocorrencia.findMany({
+        where: { cadeiraId: cadeira.id, inicioEm: { gte: new Date() } },
+        orderBy: { inicioEm: 'asc' },
+      });
+
+      // Feriado escolar, desmarcado por ela semanas antes — carimbo próprio e
+      // mais antigo que o do arquivamento.
+      const haCincoDias = new Date(Date.now() - 5 * DIA);
+      await prisma.ocorrencia.update({
+        where: { id: futuras[0].id },
+        data: {
+          status: StatusOcorrencia.CANCELADA,
+          aberturaNotificadaEm: haCincoDias,
+          fechamentoNotificadoEm: haCincoDias,
+        },
+      });
+
+      // O arquivamento só encosta em AGENDADA, então derruba apenas a outra.
+      expect(await servico.desativar(PROF, cadeira.id)).toMatchObject({ aulasCanceladas: 1 });
+
+      const r = await servico.reativar(PROF, cadeira.id);
+
+      expect(r.aulasRestauradas).toBe(1);
+      expect(
+        (await prisma.ocorrencia.findUniqueOrThrow({ where: { id: futuras[0].id } })).status,
+      ).toBe(StatusOcorrencia.CANCELADA);
+    });
   });
 
   it('desativa a cadeira e as séries dela, e não toca em outra turma', async () => {

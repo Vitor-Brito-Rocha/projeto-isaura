@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { StatusOcorrencia } from '@prisma/client';
 import { resolverAlarme } from '../alarmes/resolver-alarme';
 import { PrismaService } from '../prisma/prisma.service';
+import { sobrepoe } from '../series/conflito';
+import { levaDoArquivamento } from './arquivamento';
 import { proximaCor } from './cores';
 import { CreateCadeiraDto, UpdateCadeiraDto } from './dto/cadeira.dto';
 import { UpsertConfigAlarmeDto } from './dto/config-alarme.dto';
@@ -23,7 +25,10 @@ export class CadeirasService {
   listar(professorId: string, incluirInativas = false) {
     return this.prisma.cadeira.findMany({
       where: { professorId, ...(incluirInativas ? {} : { ativo: true }) },
-      orderBy: [{ disciplina: 'asc' }, { turma: 'asc' }],
+      // Arquivada por último: `ativo: 'desc'` põe true antes de false. A tela
+      // mostra as duas juntas, e uma turma que ela tirou do caminho não pode
+      // reaparecer no meio das que ela dá esta semana.
+      orderBy: [{ ativo: 'desc' }, { disciplina: 'asc' }, { turma: 'asc' }],
       include: {
         escola: { select: { id: true, nome: true } },
         // As unidades moraram na cadeira até a fase 3; agora moram no plano
@@ -170,6 +175,100 @@ export class CadeirasService {
     // A contagem sobe para a tela porque é o que ela precisa conferir: "13
     // aulas futuras canceladas" é verificável na grade, "ok" não é.
     return { ok: true, aulasCanceladas: futuras.count };
+  }
+
+  /**
+   * O contrário de `desativar` — e por isso um endpoint próprio, não um
+   * `ativo: true` solto no `PATCH`.
+   *
+   * Arquivar cancela as aulas futuras; reativar tem de trazê-las de volta. Só
+   * que o mundo mudou no meio, e mudou justamente por causa do arquivamento: o
+   * motivo comum de arquivar é LIBERAR o horário para outra turma. Devolver
+   * tudo sem olhar poria duas turmas no mesmo minuto — o estrago que
+   * `series/conflito.ts` existe para evitar, e que aqui entraria pela porta dos
+   * fundos.
+   *
+   * **A turma volta sempre; as aulas voltam uma a uma.** Recusar a reativação
+   * inteira por causa de um choque seria uma porta que nunca abre para quem
+   * arquivou para dar lugar a outra coisa. O que continua cancelado sobe no
+   * retorno, com o nome da turma que ficou com o horário.
+   */
+  async reativar(professorId: string, id: string) {
+    await this.buscar(professorId, id);
+
+    const canceladas = await this.prisma.ocorrencia.findMany({
+      where: {
+        professorId,
+        cadeiraId: id,
+        status: StatusOcorrencia.CANCELADA,
+        inicioEm: { gte: new Date() },
+        aberturaNotificadaEm: { not: null },
+      },
+      select: {
+        id: true,
+        data: true,
+        horaInicio: true,
+        horaFim: true,
+        aberturaNotificadaEm: true,
+      },
+    });
+
+    // Só a leva do ÚLTIMO arquivamento volta — ver `arquivamento.ts` para por
+    // que aula que ela cancelou à mão tem de continuar cancelada.
+    const candidatas = levaDoArquivamento(canceladas);
+
+    const datas = candidatas.map((c) => c.data.getTime());
+    const ocupado = candidatas.length
+      ? await this.prisma.ocorrencia.findMany({
+          where: {
+            professorId,
+            status: { not: StatusOcorrencia.CANCELADA },
+            // Só turma ATIVA ocupa horário — a mesma regra das duas checagens
+            // de choque em `SeriesService`.
+            cadeira: { ativo: true },
+            data: { gte: new Date(Math.min(...datas)), lte: new Date(Math.max(...datas)) },
+          },
+          select: {
+            data: true,
+            horaInicio: true,
+            horaFim: true,
+            cadeira: { select: { disciplina: true, turma: true } },
+          },
+        })
+      : [];
+
+    const livres: string[] = [];
+    const tomadoPor = new Set<string>();
+    for (const c of candidatas) {
+      const bateu = ocupado.find((o) => sobrepoe(c, o));
+      if (bateu) tomadoPor.add(`${bateu.cadeira.disciplina} · ${bateu.cadeira.turma}`);
+      else livres.push(c.id);
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.cadeira.update({ where: { id }, data: { ativo: true } }),
+      this.prisma.serieAula.updateMany({ where: { cadeiraId: id }, data: { ativo: true } }),
+      this.prisma.ocorrencia.updateMany({
+        // `in: []` casa ZERO no Prisma, que é o certo quando nada pode voltar.
+        where: { id: { in: livres } },
+        data: {
+          status: StatusOcorrencia.AGENDADA,
+          // Zerar as marcas DEVOLVE os alarmes, e é o que `AgendaService`
+          // faz ao reagendar. Sem isto a aula volta para a grade com os dois
+          // alarmes permanentemente calados: a tela mostra tudo certo e só o
+          // aviso nunca vem — o modo de falhar mais caro deste produto.
+          aberturaNotificadaEm: null,
+          fechamentoNotificadoEm: null,
+        },
+      }),
+    ]);
+
+    return {
+      ok: true,
+      aulasRestauradas: livres.length,
+      aulasEmConflito: candidatas.length - livres.length,
+      conflitaCom: [...tomadoPor],
+    };
   }
 
   /**

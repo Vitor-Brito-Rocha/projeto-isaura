@@ -1,9 +1,9 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Plus, Smartphone, X } from 'lucide-react';
+import { Archive, Plus, RotateCcw, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
 import { Confirmar } from '@/components/confirmar';
@@ -32,9 +32,19 @@ export default function Cadeiras() {
   // Só no cliente: a detecção lê navigator/matchMedia, que não existem no SSR.
   useEffect(() => setCapacidade(detectarCapacidade()), []);
 
+  /**
+   * Esta tela é a única que vê as arquivadas — e por isso tem CHAVE PRÓPRIA.
+   *
+   * `['cadeiras']` cru é usado pelo filtro do histórico e pela importação, que
+   * querem só as ativas. Duas URLs diferentes sob a mesma chave fazem o React
+   * Query servir a que respondeu por último: a tela de importação passaria a
+   * oferecer turma arquivada no select, sem nada denunciando. O prefixo é o
+   * mesmo, então todo `invalidateQueries(['cadeiras'])` que já existe continua
+   * derrubando esta também.
+   */
   const { data: cadeiras, isLoading, error } = useQuery({
-    queryKey: ['cadeiras'],
-    queryFn: () => apiFetch<Cadeira[]>('/cadeiras'),
+    queryKey: ['cadeiras', 'com-arquivadas'],
+    queryFn: () => apiFetch<Cadeira[]>('/cadeiras?incluirInativas=true'),
   });
   useRedirecionaEmErro(error);
 
@@ -120,6 +130,29 @@ export default function Cadeiras() {
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível arquivar.'),
   });
 
+  const reativar = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ aulasRestauradas: number; aulasEmConflito: number; conflitaCom: string[] }>(
+        `/cadeiras/${id}/reativar`,
+        { method: 'POST' },
+      ),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      qc.invalidateQueries({ queryKey: ['series'] });
+      qc.invalidateQueries({ queryKey: ['agenda'] });
+      // O choque é informação, não erro: a turma voltou. Dizer QUAL turma ficou
+      // com o horário é o que permite ela decidir o que fazer — mesma regra da
+      // mensagem de choque do formulário de horários.
+      toast.success('Turma reativada.', {
+        description:
+          r.aulasEmConflito > 0
+            ? `${r.aulasRestauradas} aula(s) de volta. ${r.aulasEmConflito} continuam canceladas — o horário agora é de ${r.conflitaCom.join(', ')}.`
+            : `${r.aulasRestauradas} aula(s) de volta na grade, com os alarmes.`,
+      });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível reativar.'),
+  });
+
   const criar = useMutation({
     mutationFn: (dados: {
       disciplina: string;
@@ -140,7 +173,7 @@ export default function Cadeiras() {
   return (
     <AppShell
       titulo="Cadeiras"
-      descricao={cadeiras ? `${cadeiras.length} cadastrada(s)` : undefined}
+      descricao={cadeiras ? resumoDaLista(cadeiras) : undefined}
       acao={
         <Button
           size="sm"
@@ -197,115 +230,133 @@ export default function Cadeiras() {
           />
         )}
 
-        {cadeiras?.map((c) => (
-          <Card key={c.id}>
-            <CardHeader className="flex-row items-center gap-3 space-y-0">
-              <span
-                className="h-9 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: c.corHex }}
-                aria-hidden
+        {cadeiras?.map((c, i) => (
+          <Fragment key={c.id}>
+            {/* A lista já vem ordenada com as arquivadas por último (`ativo:
+                'desc'` no serviço), então o cabeçalho aparece exatamente uma
+                vez: na primeira arquivada. Sem ele, um cartão apagado no fim da
+                lista é ambíguo — ela não tem como saber se aquilo está
+                desligado ou só sem horário. */}
+            {!c.ativo && (i === 0 || (cadeiras[i - 1]?.ativo ?? false)) && (
+              <h2 className="px-1 pt-2 text-sm font-medium text-muted-foreground">Arquivadas</h2>
+            )}
+            {!c.ativo ? (
+              <CartaoArquivada
+                cadeira={c}
+                carregando={reativar.isPending}
+                onReativar={() => reativar.mutate(c.id)}
               />
-              <div className="min-w-0 flex-1">
-                {/* A disciplina fica fixa e só a turma é editável — ver
-                    `renomearTurma`. O rótulo aparece na grade, no alarme e no
-                    relatório da coordenação, e é o que ela precisa poder
-                    corrigir sem apagar a turma. */}
-                <CardTitle className="flex min-w-0 items-center gap-1 text-base">
-                  {/* Os dois truncam: disciplina longa não pode empurrar a
-                      turma para fora da tela, que é onde o toque acontece. */}
-                  <span className="truncate">{c.disciplina} ·</span>
-                  <span className="min-w-0 flex-1">
-                    <TextoEditavel
-                      valor={c.turma}
-                      rotuloAcessivel={`a turma de ${c.disciplina}`}
-                      aoSalvar={(turma) => renomearTurma.mutate({ id: c.id, turma })}
-                    />
-                  </span>
-                </CardTitle>
-                <p className="truncate text-xs text-muted-foreground">
-                  {periodoLetivo(c.anoLetivo, c.semestre)}
-                  {c.escola ? ` · ${c.escola.nome}` : ''}
-                </p>
-              </div>
-              {/* Só o estado que pede ação vira etiqueta: quando há horário, o
-                  painel logo abaixo já diz qual é, e repetir vira ruído. */}
-              {series && seriesDa(c.id).length === 0 && <Badge variant="alarme">sem horário</Badge>}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor={`plano-${c.id}`}>Plano de curso</Label>
-                {/* Select nativo: no celular abre a roleta do SO, mais rápida
-                    de acertar com o polegar do que uma lista customizada. */}
-                <select
-                  id={`plano-${c.id}`}
-                  value={c.planoCurricularId ?? ''}
-                  disabled={vincular.isPending || (planos?.length ?? 0) === 0}
-                  onChange={(e) =>
-                    vincular.mutate({ id: c.id, planoCurricularId: e.target.value || null })
-                  }
-                  className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                >
-                  <option value="">— sem plano —</option>
-                  {planos?.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nome}
-                    </option>
-                  ))}
-                </select>
-                {(planos?.length ?? 0) === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Nenhum plano cadastrado ainda —{' '}
-                    <Link href="/planos" className="underline underline-offset-2">
-                      crie um
-                    </Link>{' '}
-                    para o fechamento da aula ter unidade para escolher.
+            ) : (
+            <Card>
+              <CardHeader className="flex-row items-center gap-3 space-y-0">
+                <span
+                  className="h-9 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: c.corHex }}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  {/* A disciplina fica fixa e só a turma é editável — ver
+                      `renomearTurma`. O rótulo aparece na grade, no alarme e no
+                      relatório da coordenação, e é o que ela precisa poder
+                      corrigir sem apagar a turma. */}
+                  <CardTitle className="flex min-w-0 items-center gap-1 text-base">
+                    {/* Os dois truncam: disciplina longa não pode empurrar a
+                        turma para fora da tela, que é onde o toque acontece. */}
+                    <span className="truncate">{c.disciplina} ·</span>
+                    <span className="min-w-0 flex-1">
+                      <TextoEditavel
+                        valor={c.turma}
+                        rotuloAcessivel={`a turma de ${c.disciplina}`}
+                        aoSalvar={(turma) => renomearTurma.mutate({ id: c.id, turma })}
+                      />
+                    </span>
+                  </CardTitle>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {periodoLetivo(c.anoLetivo, c.semestre)}
+                    {c.escola ? ` · ${c.escola.nome}` : ''}
                   </p>
-                ) : (
-                  !c.planoCurricularId && (
+                </div>
+                {/* Só o estado que pede ação vira etiqueta: quando há horário, o
+                    painel logo abaixo já diz qual é, e repetir vira ruído. */}
+                {series && seriesDa(c.id).length === 0 && <Badge variant="alarme">sem horário</Badge>}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`plano-${c.id}`}>Plano de curso</Label>
+                  {/* Select nativo: no celular abre a roleta do SO, mais rápida
+                      de acertar com o polegar do que uma lista customizada. */}
+                  <select
+                    id={`plano-${c.id}`}
+                    value={c.planoCurricularId ?? ''}
+                    disabled={vincular.isPending || (planos?.length ?? 0) === 0}
+                    onChange={(e) =>
+                      vincular.mutate({ id: c.id, planoCurricularId: e.target.value || null })
+                    }
+                    className="flex h-11 w-full rounded-md border border-input bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                  >
+                    <option value="">— sem plano —</option>
+                    {planos?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {(planos?.length ?? 0) === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      Sem plano, o fechamento desta turma não registra unidade — e o progresso dela
-                      não entra na comparação.
+                      Nenhum plano cadastrado ainda —{' '}
+                      <Link href="/planos" className="underline underline-offset-2">
+                        crie um
+                      </Link>{' '}
+                      para o fechamento da aula ter unidade para escolher.
                     </p>
-                  )
-                )}
-              </div>
+                  ) : (
+                    !c.planoCurricularId && (
+                      <p className="text-xs text-muted-foreground">
+                        Sem plano, o fechamento desta turma não registra unidade — e o progresso dela
+                        não entra na comparação.
+                      </p>
+                    )
+                  )}
+                </div>
 
-              <PainelHorarios cadeiraId={c.id} series={seriesDa(c.id)} />
+                <PainelHorarios cadeiraId={c.id} series={seriesDa(c.id)} />
 
-              <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
+                <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
 
-              {/* Por último e discreto de propósito: fica no fim do cartão que
-                  ela já abriu para mexer no horário, longe do dedo que estava
-                  rolando a lista. */}
-              <Confirmar
-                perigo
-                titulo={`Arquivar ${c.disciplina} · ${c.turma}?`}
-                rotuloAcao="Arquivar turma"
-                carregando={arquivar.isPending}
-                onConfirmar={() => arquivar.mutate(c.id)}
-                descricao={
-                  <>
-                    A turma sai desta lista, e as aulas que{' '}
-                    <strong>ainda não aconteceram são canceladas</strong> — os alarmes delas param.
-                    O horário dela <strong>deixa de bloquear</strong> outra turma, então dá para
-                    cadastrar ou importar uma nova no mesmo dia e hora. E ela{' '}
-                    <strong>para de aparecer nas pendências</strong>: as aulas que você não
-                    registrou não são mais cobradas. O que você já registrou continua no
-                    histórico, na exportação e no relatório da coordenação.
-                  </>
-                }
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-muted-foreground hover:text-destructive"
+                {/* Por último e discreto de propósito: fica no fim do cartão que
+                    ela já abriu para mexer no horário, longe do dedo que estava
+                    rolando a lista. */}
+                <Confirmar
+                  perigo
+                  titulo={`Arquivar ${c.disciplina} · ${c.turma}?`}
+                  rotuloAcao="Arquivar turma"
+                  carregando={arquivar.isPending}
+                  onConfirmar={() => arquivar.mutate(c.id)}
+                  descricao={
+                    <>
+                      A turma sai desta lista, e as aulas que{' '}
+                      <strong>ainda não aconteceram são canceladas</strong> — os alarmes delas param.
+                      O horário dela <strong>deixa de bloquear</strong> outra turma, então dá para
+                      cadastrar ou importar uma nova no mesmo dia e hora. E ela{' '}
+                      <strong>para de aparecer nas pendências</strong>: as aulas que você não
+                      registrou não são mais cobradas. O que você já registrou continua no
+                      histórico, na exportação e no relatório da coordenação.
+                    </>
+                  }
                 >
-                  <Archive />
-                  Arquivar turma
-                </Button>
-              </Confirmar>
-            </CardContent>
-          </Card>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground hover:text-destructive"
+                  >
+                    <Archive />
+                    Arquivar turma
+                  </Button>
+                </Confirmar>
+              </CardContent>
+            </Card>
+            )}
+          </Fragment>
         ))}
       </div>
     </AppShell>
@@ -430,5 +481,78 @@ function CampoDisciplina({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * "6 ativa(s) · 2 arquivada(s)" em vez de "8 cadastrada(s)".
+ *
+ * O total sozinho passou a mentir no dia em que as arquivadas entraram na
+ * lista: ela lê "8" e procura oito turmas na semana.
+ */
+function resumoDaLista(cadeiras: Cadeira[]): string {
+  const ativas = cadeiras.filter((c) => c.ativo).length;
+  const arquivadas = cadeiras.length - ativas;
+  return `${ativas} ativa(s)${arquivadas > 0 ? ` · ${arquivadas} arquivada(s)` : ''}`;
+}
+
+/**
+ * Turma arquivada: cartão fechado, e só o caminho de volta.
+ *
+ * Sem os painéis de plano, horário e alarme de propósito. Numa turma arquivada
+ * eles não fazem nada — as séries estão inativas e as aulas futuras canceladas
+ * —, e oferecer o ajuste seria prometer um efeito que não vem. Primeiro
+ * reativa, depois ajusta.
+ */
+function CartaoArquivada({
+  cadeira,
+  carregando,
+  onReativar,
+}: {
+  cadeira: Cadeira;
+  carregando: boolean;
+  onReativar: () => void;
+}) {
+  return (
+    <Card className="border-dashed bg-muted/30">
+      <CardHeader className="flex-row items-center gap-3 space-y-0">
+        <span
+          className="h-9 w-1.5 shrink-0 rounded-full opacity-40"
+          style={{ backgroundColor: cadeira.corHex }}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <CardTitle className="truncate text-base font-medium text-muted-foreground">
+            {cadeira.disciplina} · {cadeira.turma}
+          </CardTitle>
+          <p className="truncate text-xs text-muted-foreground">
+            {periodoLetivo(cadeira.anoLetivo, cadeira.semestre)}
+            {cadeira.escola ? ` · ${cadeira.escola.nome}` : ''}
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Confirmar
+          titulo={`Reativar ${cadeira.disciplina} · ${cadeira.turma}?`}
+          rotuloAcao="Reativar turma"
+          carregando={carregando}
+          onConfirmar={onReativar}
+          descricao={
+            <>
+              As aulas futuras que o arquivamento cancelou <strong>voltam para a grade</strong>, com
+              os alarmes delas. As que hoje batem com outra turma{' '}
+              <strong>continuam canceladas</strong> — você não pode estar em duas ao mesmo tempo, e
+              o aviso diz qual turma ficou com o horário. O que você tinha cancelado à mão antes de
+              arquivar continua cancelado.
+            </>
+          }
+        >
+          <Button variant="outline" size="sm" className="w-full">
+            <RotateCcw />
+            Reativar turma
+          </Button>
+        </Confirmar>
+      </CardContent>
+    </Card>
   );
 }

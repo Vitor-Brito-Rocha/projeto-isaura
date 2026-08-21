@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsHexColor,
   IsInt,
   IsOptional,
@@ -92,7 +91,8 @@ export class UpdateCadeiraDto {
   @IsUUID()
   planoCurricularId?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  ativo?: boolean;
+  // `ativo` NÃO entra aqui. Arquivar é `DELETE /cadeiras/:id` e reativar é
+  // `POST /cadeiras/:id/reativar`: os dois mexem nas ocorrências e nos alarmes,
+  // e um `PATCH { ativo }` daria a volta nos dois — gravando a coluna e
+  // deixando a grade cancelada com a turma de pé na tela.
 }

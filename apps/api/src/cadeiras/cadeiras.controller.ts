@@ -46,6 +46,19 @@ export class CadeirasController {
     return this.cadeiras.desativar(p.id, id);
   }
 
+  /**
+   * Reativar é POST próprio, e não `PATCH { ativo: true }`.
+   *
+   * O `PATCH` gravaria a coluna e pararia aí, deixando a turma na tela com a
+   * grade inteira cancelada e os alarmes calados — tudo certo na tela, nada
+   * funcionando. Uma porta só para a reativação é o que garante que a checagem
+   * de choque e a devolução das aulas nunca fiquem para trás.
+   */
+  @Post(':id/reativar')
+  reativar(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
+    return this.cadeiras.reativar(p.id, id);
+  }
+
   @Get(':id/alarme')
   configAlarme(@CurrentProfessor() p: AuthProfessor, @Param('id') id: string) {
     return this.cadeiras.configAlarme(p.id, id);
