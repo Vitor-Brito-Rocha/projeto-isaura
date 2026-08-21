@@ -130,8 +130,8 @@ npm test              # 255 testes de API (69 de integração, pulados sem TEST_
 npm run test:api      # inclui integração contra Postgres real
 npm run dev:api       # http://localhost:3333/api
 npm run dev:web       # http://localhost:3000
-npm run build:web         # build do navegador
-npm run build:web:nativo  # build do APK — exige NEXT_PUBLIC_API_URL absoluta
+npm run build:web         # build do navegador — jest primeiro, e para se algum falhar
+npm run build:web:nativo  # build do APK — idem, e exige NEXT_PUBLIC_API_URL absoluta
 npm run prisma:push && npm run prisma:rls
 ```
 
@@ -169,6 +169,22 @@ repetir é no-op. O RLS vai junto porque tabela nova sem policy vaza entre conta
 com ele no boot, é impossível a API subir sem as policies. O `db execute` vai pela `DIRECT_URL`:
 DDL pelo pooler em modo transaction falha de formas confusas. Se qualquer passo falhar, o container
 não chega a escutar e o EasyPanel mantém o anterior servindo.
+
+**O build da imagem roda os testes antes do `nest build`, e para se algum falhar.** Não é
+capricho de qualidade: é o único portão que existe entre um commit vermelho e a API no ar (ver
+"O portão dos testes" nas Convenções). Deploy falhando logo depois de "Sincronizando schema" é o
+entrypoint; falhando ANTES disso, com saída de Jest, é um teste — o commit é que está quebrado, não
+o servidor.
+
+### Subir o front na Vercel
+
+Root Directory `apps/web` (a raiz do repositório não tem `build` nem `next.config`, então é de lá
+que a Vercel constrói), e `apps/web/vercel.json` fixa o `buildCommand` em `npm run build`.
+
+**O `buildCommand` mora no repositório de propósito.** O campo do painel passa por cima do
+`package.json` e some sem deixar rastro: alguém digita `next build` ali para "acelerar", o portão
+dos testes desaparece e nada na tela nem no log denuncia. Com o `vercel.json` versionado, quem
+mudar isso muda num diff.
 
 **`NODE_OPTIONS=--max-old-space-size` fica abaixo do limite do container** para o V8 coletar lixo
 antes de o kernel matar o processo. Sem isso o Node olha a RAM da máquina inteira, enche à vontade
@@ -276,6 +292,18 @@ headers); `build:web:nativo` é o do APK (`APP_NATIVO=1` → `output: 'export'`,
 `next.config.mjs` **recusa** o build nativo se `NEXT_PUBLIC_API_URL` não for absoluta: o padrão
 `/api` resolveria para `https://localhost/api` dentro da WebView, e o app instalaria, abriria e
 falharia em toda chamada com cara de "erro de rede".
+
+**O portão dos testes mora DENTRO dos dois builds, porque não existe CI.** Não há
+`.github/workflows`: a API sobe do `apps/api/Dockerfile` direto pelo EasyPanel e o front sobe do
+`npm run build` da Vercel. Esses dois lugares são os únicos por onde um commit vermelho passa antes
+de chegar nela — então o `RUN npm run test --workspace apps/api` está no Dockerfile e o `jest &&`
+está no `build` do `apps/web`. Até aqui o único portão era COMPILAR: os 470 testes podiam estar
+todos vermelhos e os dois deploys subiam igual. Custa 8 s na API e 2 s na web, medidos. Os 69 de
+integração se pulam sozinhos porque o build não tem `TEST_DATABASE_URL` — e não pode ter: eles
+apagam professores de id sintético, e build que escreve no banco de produção é pior que build
+nenhum. `jest` e `ts-jest` viraram dependência DECLARADA do `apps/web` em vez de herdadas por
+hoisting do `apps/api`: quem roda `jest` depende de `jest`, e a alternativa quebraria a Vercel no
+dia em que alguém instalasse só um workspace.
 
 **Três lugares guardam trabalho dela, e são degraus diferentes.** A **fila** (`fila-offline.ts`) é
 o que ela mandou salvar e a rede não deixou subir. O **rascunho local**

@@ -108,6 +108,11 @@ recorrência (quinzenal ancorada, mensal, janelas parciais), janelas e claim
 atômico dos alarmes, herança campo a campo da config, e a degradação de
 intensidade por plataforma.
 
+Os **dois deploys rodam esta suíte**, e param se algo falhar: o
+`apps/api/Dockerfile` antes do `nest build`, e o `build` do `apps/web` antes do
+`next build`. Não há CI separado no caminho — esses são os portões, e é por isso
+que eles vivem dentro dos builds em vez de num workflow ao lado.
+
 ## Ícones
 
 São gerados por script, não commitados como blobs opacos:

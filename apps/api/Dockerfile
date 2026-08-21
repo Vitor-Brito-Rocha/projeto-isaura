@@ -20,6 +20,24 @@ RUN npm ci
 
 COPY apps/api apps/api
 RUN npm run prisma:generate --workspace apps/api
+
+# O portão. Não existe CI entre o commit e a VPS: o EasyPanel constrói ESTA
+# imagem direto do repositório, então este `RUN` é o único lugar onde um teste
+# vermelho consegue impedir um deploy. Falhando, o build para aqui, a imagem
+# nova nunca nasce e o EasyPanel mantém a anterior servindo — mesma regra
+# fail-closed do `docker-entrypoint.sh`.
+#
+# Antes do `nest build` de propósito: a regressão de lógica é o que este passo
+# existe para pegar, e ela aparece em 8 segundos em vez de depois da compilação
+# inteira. Erro de tipo em arquivo que nenhum spec importa continua sendo do
+# `nest build` logo abaixo — os dois gates se completam, não se repetem.
+#
+# Os 69 testes de integração se PULAM aqui, porque o build não tem
+# `TEST_DATABASE_URL` — e não pode ter: eles apagam professores de id sintético,
+# e um build que escreve no banco de produção é pior que build nenhum. O
+# `.dockerignore` já barra `**/.env`, então a variável não entra por acidente.
+RUN npm run test --workspace apps/api
+
 RUN npm run build --workspace apps/api
 
 FROM node:22-slim AS runtime

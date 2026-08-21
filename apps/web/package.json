@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "build:nativo": "APP_NATIVO=1 next build",
+    "build": "jest && next build",
+    "build:nativo": "jest && APP_NATIVO=1 next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -30,13 +30,16 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@types/node": "^22.5.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "jest": "^29.7.0",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "tailwindcss-animate": "^1.0.7",
+    "ts-jest": "^29.2.0",
     "typescript": "^5.5.0"
   }
 }
