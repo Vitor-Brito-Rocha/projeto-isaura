@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { StatusOcorrencia } from '@prisma/client';
 import { resolverAlarme } from '../alarmes/resolver-alarme';
 import { PrismaService } from '../prisma/prisma.service';
 import { proximaCor } from './cores';
@@ -125,15 +126,50 @@ export class CadeirasService {
    * `cadeira → ocorrencia` é cascade, então um delete levaria junto todo o
    * histórico de aulas dadas — exatamente o que a professora não pode perder.
    * Quem quiser sumir com a cadeira da tela usa `ativo: false`.
+   *
+   * **As aulas futuras são canceladas junto, e é isso que faz o botão dizer a
+   * verdade.** O varredor de alarmes filtra por `status` e `inicioEm` e não
+   * olha `cadeira.ativo` — nem deveria, porque ele roda a cada minuto para
+   * todas as contas e o índice que o sustenta é `[status, inicioEm]`. Sem este
+   * passo, arquivar a turma a tirava da tela e os dois alarmes continuavam
+   * tocando pelo resto do semestre: a turma some, o alarme fica, e não sobra
+   * nada na tela que explique de onde ele vem.
+   *
+   * **Só as futuras.** Aula que já passou é histórico e pode ter registro;
+   * mudar o status dela tiraria do progresso e da contagem justamente o que ela
+   * deu. O corte é por `inicioEm`, o instante absoluto — comparar a data pura
+   * marcaria como cancelada a aula de hoje à tarde.
    */
   async desativar(professorId: string, id: string) {
     await this.buscar(professorId, id);
-    await this.prisma.$transaction([
+    const agora = new Date();
+
+    const [, , futuras] = await this.prisma.$transaction([
       this.prisma.cadeira.update({ where: { id }, data: { ativo: false } }),
       // Séries de uma cadeira desativada param de gerar ocorrências novas.
       this.prisma.serieAula.updateMany({ where: { cadeiraId: id }, data: { ativo: false } }),
+      this.prisma.ocorrencia.updateMany({
+        where: {
+          cadeiraId: id,
+          professorId,
+          status: StatusOcorrencia.AGENDADA,
+          inicioEm: { gte: agora },
+        },
+        // As duas marcas de notificação vão junto porque é o que o cancelamento
+        // pela tela da aula faz (`AgendaService.atualizar`). Dois caminhos de
+        // cancelamento que deixam a linha em estados diferentes é como nasce um
+        // "cancelei e o alarme tocou assim mesmo".
+        data: {
+          status: StatusOcorrencia.CANCELADA,
+          aberturaNotificadaEm: agora,
+          fechamentoNotificadoEm: agora,
+        },
+      }),
     ]);
-    return { ok: true };
+
+    // A contagem sobe para a tela porque é o que ela precisa conferir: "13
+    // aulas futuras canceladas" é verificável na grade, "ok" não é.
+    return { ok: true, aulasCanceladas: futuras.count };
   }
 
   /**

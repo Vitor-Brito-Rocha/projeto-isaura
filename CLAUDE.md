@@ -430,6 +430,27 @@ gesto que produziria o acidente. Nunca `window.confirm`: ele não deixa dizer o 
 e, no celular, aparece com o endereço do site na frente, parecendo golpe. A descrição diz a
 consequência concreta, não "esta ação não pode ser desfeita".
 
+**Turma se ARQUIVA, plano se APAGA — e a diferença é o que pendura embaixo.** `DELETE /cadeiras/:id`
+sempre foi `ativo: false`, porque `cadeira → ocorrencia` é cascade e um delete de verdade levaria
+junto o histórico inteiro de aulas dadas, com registro, anexo e progresso. `DELETE /planos/:id`
+apaga mesmo: o cascade dele alcança unidades e tópicos, que são currículo; as turmas continuam
+existindo sem plano (`SetNull`) e os registros perdem só a marcação de unidade. Os dois endpoints
+existiam desde a fase 1 e **nenhuma tela chamava** — turma cadastrada errada não tinha conserto
+nenhum. O botão diz qual dos dois é ("Arquivar turma", "Excluir plano") em vez de chamar os dois de
+excluir: prometer apagar e desativar é tão ruim quanto o contrário. O de plano mora no FIM da tela
+de detalhe e não no cartão da lista, porque lá o cartão inteiro é um `<Link>` e o botão seria um
+alvo de toque escondido dentro de outro.
+
+**Arquivar turma cancela as aulas FUTURAS, e sem isso o botão mentiria.** O varredor de alarmes acha
+as ocorrências por `[status, inicioEm]` e nunca por `cadeira.ativo` — nem deveria, porque roda a
+cada minuto para todas as contas. Com `ativo: false` sozinho, a turma sumia da tela e os dois pushes
+continuavam tocando pelo resto do semestre: a turma some, o alarme fica, e não sobra nada na tela
+que explique de onde ele vem. **Só as futuras**, cortadas por `inicioEm` e não pela data pura —
+aula que já passou é histórico e pode ter registro, e a de hoje à tarde ainda não aconteceu. As duas
+marcas de notificação vão junto porque é o que `AgendaService.atualizar` faz: dois caminhos de
+cancelamento que deixam a linha em estados diferentes é como nasce "cancelei e o alarme tocou assim
+mesmo".
+
 **Exportar são DOIS artefatos, e nunca um.** O resumo das aulas é o que ela entrega; as pendências
 são a lista das aulas que ela não registrou — documento contra ela mesma se sair junto por engano.
 Botões separados, com o público dito **antes** do clique. O recorte é um só (`FiltroExportacaoDto`,

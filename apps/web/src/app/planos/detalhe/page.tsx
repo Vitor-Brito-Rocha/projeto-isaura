@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/app-shell';
@@ -53,6 +53,7 @@ function CarregandoPlano() {
 function TelaDoPlano() {
   const id = useSearchParams().get('plano') ?? '';
   const qc = useQueryClient();
+  const router = useRouter();
   const [criandoUnidade, setCriandoUnidade] = useState(false);
 
   const recarregar = () => {
@@ -72,6 +73,29 @@ function TelaDoPlano() {
       apiFetch(`/planos/${id}`, { method: 'PATCH', body: JSON.stringify({ nome }) }),
     onSuccess: recarregar,
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
+  });
+
+  /**
+   * Apagar o plano é apagar CURRÍCULO, nunca registro.
+   *
+   * O cascade alcança unidades e tópicos; `Cadeira.planoCurricularId` é
+   * SetNull, então as turmas sobrevivem sem plano, e `RegistroAula.unidadeId`
+   * também — o texto que ela escreveu em cada aula fica, o que se perde é a
+   * marcação de qual unidade era. Nada disso é adivinhável olhando o botão, e é
+   * por isso que a confirmação lista os quatro efeitos em vez de dizer que a
+   * ação não pode ser desfeita.
+   */
+  const remover = useMutation({
+    mutationFn: () => apiFetch(`/planos/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planos'] });
+      qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      // `replace` e não `push`: o plano não existe mais, e o botão voltar
+      // devolveria para uma tela que agora responde 404.
+      router.replace('/planos');
+      toast.success('Plano excluído.');
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível excluir.'),
   });
 
   const criarUnidade = useMutation({
@@ -239,6 +263,54 @@ function TelaDoPlano() {
         {plano.unidades.map((u) => (
           <CartaoUnidade key={u.id} planoId={id} unidade={u} onMudou={recarregar} />
         ))}
+
+        {/* Fica no FIM desta tela, e não no cartão da lista de planos: é aqui
+            que ela está vendo as unidades e os tópicos que vão junto. Na lista,
+            o cartão inteiro é um `<Link>` — um botão dentro dele seria um alvo
+            de toque escondido dentro de outro, e o dedo que erra por dois
+            pixels abre o plano em vez de apagá-lo (ou o contrário). */}
+        <Card className="border-destructive/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Excluir este plano</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <p className="text-xs text-muted-foreground">
+              O plano é o currículo, não o registro das aulas. Excluir não apaga nada do que você
+              já deu.
+            </p>
+            <Confirmar
+              perigo
+              titulo={`Excluir o plano "${plano.nome}"?`}
+              rotuloAcao="Excluir plano"
+              carregando={remover.isPending}
+              onConfirmar={() => remover.mutate()}
+              descricao={
+                <>
+                  Vão junto as <strong>{plano.unidades.length} unidade(s)</strong>, os{' '}
+                  <strong>
+                    {plano.unidades.reduce((s, u) => s + u.topicos.length, 0)} tópico(s)
+                  </strong>{' '}
+                  e o documento anexado.
+                  {plano.cadeiras.length > 0 && (
+                    <>
+                      {' '}
+                      As <strong>{plano.cadeiras.length} turma(s)</strong> que usam este plano
+                      continuam existindo, mas ficam sem plano — e o fechamento delas passa a não
+                      ter unidade para escolher.
+                    </>
+                  )}{' '}
+                  Os registros das aulas ficam: perdem só a marcação de unidade, e com ela a conta
+                  de progresso.
+                </>
+              }
+            >
+              <Button variant="destructive" size="sm" className="w-full">
+                <Trash2 />
+                Excluir plano
+              </Button>
+            </Confirmar>
+          </CardContent>
+        </Card>
       </div>
     </AppShell>
   );

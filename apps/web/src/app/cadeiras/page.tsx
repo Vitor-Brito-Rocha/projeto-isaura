@@ -1,11 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Smartphone, X } from 'lucide-react';
+import { Archive, Plus, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppShell, Vazio } from '@/components/app-shell';
+import { Confirmar } from '@/components/confirmar';
 import { TextoEditavel } from '@/components/texto-editavel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -92,6 +93,31 @@ export default function Cadeiras() {
       toast.success('Turma renomeada.');
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.'),
+  });
+
+  /**
+   * Arquivar, e não excluir — o nome do botão diz o que a API de fato faz.
+   *
+   * `cadeira → ocorrencia` é cascade no banco: um delete de verdade levaria
+   * junto todas as aulas dadas, com registro, anexo e progresso. O que ela quer
+   * quando pede para "excluir a turma" é que a turma pare de aparecer e de
+   * tocar alarme, não perder o semestre inteiro.
+   */
+  const arquivar = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ aulasCanceladas: number }>(`/cadeiras/${id}`, { method: 'DELETE' }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['cadeiras'] });
+      qc.invalidateQueries({ queryKey: ['series'] });
+      qc.invalidateQueries({ queryKey: ['agenda'] });
+      toast.success('Turma arquivada.', {
+        description:
+          r.aulasCanceladas > 0
+            ? `${r.aulasCanceladas} aula(s) futura(s) cancelada(s) — os alarmes delas não vêm mais.`
+            : 'O que você já registrou continua no histórico.',
+      });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Não foi possível arquivar.'),
   });
 
   const criar = useMutation({
@@ -247,6 +273,34 @@ export default function Cadeiras() {
               <PainelHorarios cadeiraId={c.id} series={seriesDa(c.id)} />
 
               <PainelAlarme cadeiraId={c.id} capacidade={capacidade ?? 'SEM_SUPORTE'} />
+
+              {/* Por último e discreto de propósito: fica no fim do cartão que
+                  ela já abriu para mexer no horário, longe do dedo que estava
+                  rolando a lista. */}
+              <Confirmar
+                perigo
+                titulo={`Arquivar ${c.disciplina} · ${c.turma}?`}
+                rotuloAcao="Arquivar turma"
+                carregando={arquivar.isPending}
+                onConfirmar={() => arquivar.mutate(c.id)}
+                descricao={
+                  <>
+                    A turma sai desta lista e da sua semana, e as aulas que{' '}
+                    <strong>ainda não aconteceram são canceladas</strong> — os alarmes delas param.
+                    O que você já registrou continua no histórico, na exportação e no relatório da
+                    coordenação.
+                  </>
+                }
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground hover:text-destructive"
+                >
+                  <Archive />
+                  Arquivar turma
+                </Button>
+              </Confirmar>
             </CardContent>
           </Card>
         ))}
